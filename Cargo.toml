@@ -1,0 +1,15 @@
+cargo-features = ["default-run"]
+
+
+[package]
+name = "rga"
+version = "0.1.0"
+authors = ["phiresky <phireskyde+git@gmail.com>"]
+edition = "2018"
+default-run = "rga"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tree_magic = { git = "https://github.com/phiresky/tree_magic" }
+regex = "1.1.6"
