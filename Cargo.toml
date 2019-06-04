@@ -3,6 +3,8 @@ cargo-features = ["default-run"]
 
 [package]
 name = "rga"
+description = "ripgrep, except for pdf, ebooks, Office documents, etc"
+license = "AGPL-3.0-or-later"
 version = "0.1.0"
 authors = ["phiresky <phireskyde+git@gmail.com>"]
 edition = "2018"
@@ -14,5 +16,5 @@ exclude = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tree_magic = { git = "https://github.com/phiresky/tree_magic" }
+tree_magic = { package = "tree_magic_fork", version="0.2" }
 regex = "1.1.6"
