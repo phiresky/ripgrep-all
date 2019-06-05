@@ -19,3 +19,8 @@ exclude = [
 tree_magic = { package = "tree_magic_fork", version="0.2" }
 regex = "1.1.6"
 rkv = "0.9.5"
+cachedir = "0.1.1"
+path-clean = "0.1.0"
+bincode = "1.1.4"
+serde = "1.0.92"
+zstd = "0.4.24"

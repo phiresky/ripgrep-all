@@ -39,6 +39,7 @@ use std::process::Command;
 //"txt"      -> Just "markdown"
 //"xhtml"    -> Just "html"
 //"wiki"     -> Just "mediawiki"
+
 static extensions: &[&str] = &["epub", "odt", "docx", "pptx", "fb2", "icml", "rtf", "ipynb"];
 
 pub struct PandocAdapter {
@@ -67,7 +68,7 @@ impl SpawningFileAdapter for PandocAdapter {
         let mut cmd = Command::new("pandoc");
         cmd
             // simpler markown (with more information loss but plainer text)
-            .arg("--to=markdown-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
+            .arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
             .arg("--wrap=none")
             .arg("--atx-headers")
             .arg("--")

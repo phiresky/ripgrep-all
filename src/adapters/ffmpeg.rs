@@ -15,7 +15,7 @@ impl FFmpegAdapter {
     pub fn new() -> FFmpegAdapter {
         FFmpegAdapter {
             _metadata: AdapterMeta {
-                name: "FFmpeg".to_owned(),
+                name: "ffmpeg".to_owned(),
                 version: 1,
                 matchers: extensions.iter().map(|s| ExtensionMatcher(s)).collect(),
             },

@@ -14,7 +14,7 @@ impl PopplerAdapter {
     pub fn new() -> PopplerAdapter {
         PopplerAdapter {
             _metadata: AdapterMeta {
-                name: "poppler pdftotext".to_owned(),
+                name: "poppler".to_owned(),
                 version: 1,
                 // todo: read from ffmpeg -demuxers?
                 matchers: extensions.iter().map(|s| ExtensionMatcher(s)).collect(),
