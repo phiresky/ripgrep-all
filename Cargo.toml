@@ -18,3 +18,4 @@ exclude = [
 [dependencies]
 tree_magic = { package = "tree_magic_fork", version="0.2" }
 regex = "1.1.6"
+rkv = "0.9.5"
