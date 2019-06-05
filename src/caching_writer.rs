@@ -1,8 +1,5 @@
 use std::io::Write;
-
-enum Sta<'t> {
-    ToZstd(Vec<u8>, zstd::stream::write::Encoder<&'t mut Vec<u8>>),
-}
+use failure::Fallible;
 
 /**
  * wrap a writer so that it is passthrough,
@@ -18,7 +15,7 @@ impl<W: Write> CachingWriter<W> {
         out: W,
         max_cache_size: usize,
         compression_level: i32,
-    ) -> std::io::Result<CachingWriter<W>> {
+    ) -> Fallible<CachingWriter<W>> {
         Ok(CachingWriter {
             out,
             max_cache_size,
@@ -48,7 +45,7 @@ impl<W: Write> Write for CachingWriter<W> {
             Some(writer) => {
                 let wrote = writer.write(buf)?;
                 let compressed_len = writer.get_ref().len();
-                eprintln!("wrote {} to zstd, len now {}", wrote, compressed_len);
+                //eprintln!("wrote {} to zstd, len now {}", wrote, compressed_len);
                 if compressed_len > self.max_cache_size {
                     eprintln!("cache longer than max, dropping");
                     //writer.finish();

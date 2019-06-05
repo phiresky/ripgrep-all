@@ -1,21 +1,13 @@
 use path_clean::PathClean;
 use rga::adapters::*;
 use rga::CachingWriter;
-use serde::{Deserialize, Serialize};
-use std::error::Error;
-use std::fmt;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use tree_magic;
+use failure::{Error, format_err};
 
-const max_db_blob_len: usize = 2000000;
+// longest compressed conversion output to save in cache
+const MAX_DB_BLOB_LEN: usize = 2000000;
+const ZSTD_LEVEL: i32 = 12;
 
-// lazy error
-fn lerr(inp: impl AsRef<str>) -> Box<dyn Error> {
-    return inp.as_ref().into();
-}
-
-fn open_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Box<dyn Error>> {
+fn open_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Error> {
     let app_cache = cachedir::CacheDirConfig::new("rga").get_cache_dir()?;
 
     let db_arc = rkv::Manager::singleton()
@@ -33,18 +25,20 @@ fn open_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Box<dyn Erro
     Ok(db_arc)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Error> {
     //db.
-    let adapters = init_adapters()?;
-    let filepath = std::env::args()
+    let adapters = adapter_matcher()?;
+    let filepath = std::env::args_os()
         .skip(1)
         .next()
-        .ok_or(lerr("No filename specified"))?;
-    eprintln!("fname: {}", filepath);
-    let path = PathBuf::from(&filepath);
+        .ok_or(format_err!("No filename specified"))?;
+    eprintln!("inp fname: {:?}", filepath);
+    let path = std::env::current_dir()?.join(&filepath);
+    eprintln!("abs path: {:?}", path);
+    eprintln!("clean path: {:?}", path.clean());
     let serialized_path: Vec<u8> =
-        bincode::serialize(&path.clean()).expect("could not serialize path");
-    let filename = path.file_name().ok_or(lerr("Empty filename"))?;
+        bincode::serialize(&path.clean()).expect("could not serialize path"); // key in the cache database
+    let filename = path.file_name().ok_or(format_err!("Empty filename"))?;
 
     /*let mimetype = tree_magic::from_filepath(path).ok_or(lerr(format!(
         "File {} does not exist",
@@ -64,32 +58,33 @@ fn main() -> Result<(), Box<dyn Error>> {
             let db_env = db_arc.read().unwrap();
             let db = db_env
                 .open_single(db_name.as_str(), rkv::store::Options::create())
-                .map_err(|p| lerr(format!("could not open db store: {:?}", p)))?;
+                .map_err(|p| format_err!("could not open db store: {:?}", p))?;
             let reader = db_env.read().expect("could not get reader");
             match db
                 .get(&reader, &serialized_path)
-                .map_err(|p| lerr(format!("could not read from db: {:?}", p)))?
+                .map_err(|p| format_err!("could not read from db: {:?}", p))?
             {
                 Some(rkv::Value::Blob(cached)) => {
                     let stdouti = std::io::stdout();
                     zstd::stream::copy_decode(cached, stdouti.lock())?;
                     Ok(())
                 }
-                Some(_) => Err(lerr("Integrity: value not blob")),
+                Some(_) => Err(format_err!("Integrity: value not blob")),
                 None => {
                     let stdouti = std::io::stdout();
-                    let mut compbuf = CachingWriter::new(stdouti.lock(), max_db_blob_len, 12)?;
-                    ad.adapt(&filepath, &mut compbuf)?;
+                    let mut compbuf =
+                        CachingWriter::new(stdouti.lock(), MAX_DB_BLOB_LEN, ZSTD_LEVEL)?;
+                    ad.adapt(&path, &mut compbuf)?;
                     let compressed = compbuf.finish()?;
                     if let Some(cached) = compressed {
                         eprintln!("compressed len: {}", cached.len());
 
                         {
                             let mut writer = db_env.write().map_err(|p| {
-                                lerr(format!("could not open write handle to cache: {:?}", p))
+                                format_err!("could not open write handle to cache: {:?}", p)
                             })?;
                             db.put(&mut writer, &serialized_path, &rkv::Value::Blob(&cached))
-                                .map_err(|p| lerr(format!("could not write to cache: {:?}", p)))?;
+                                .map_err(|p| format_err!("could not write to cache: {:?}", p))?;
                             writer.commit().unwrap();
                         }
                     }
@@ -98,13 +93,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
         None => {
-            eprintln!("no adapter for that file, running cat!");
-            let stdini = std::io::stdin();
-            let mut stdin = stdini.lock();
-            let stdouti = std::io::stdout();
-            let mut stdout = stdouti.lock();
-            std::io::copy(&mut stdin, &mut stdout)?;
-            Ok(())
+            let allow_cat = false;
+            if allow_cat {
+                eprintln!("no adapter for that file, running cat!");
+                let stdini = std::io::stdin();
+                let mut stdin = stdini.lock();
+                let stdouti = std::io::stdout();
+                let mut stdout = stdouti.lock();
+                std::io::copy(&mut stdin, &mut stdout)?;
+                Ok(())
+            } else {
+                Err(format_err!("No adapter found for file {:?}", filename))
+            }
         }
     }
 }

@@ -1,36 +1,35 @@
 use super::*;
+use lazy_static::lazy_static;
 use spawning::SpawningFileAdapter;
-use std::io::Read;
-use std::io::Write;
 use std::process::Command;
-use std::process::Stdio;
-static extensions: &[&str] = &["pdf"];
 
-pub struct PopplerAdapter {
-    _metadata: AdapterMeta,
+static EXTENSIONS: &[&str] = &["pdf"];
+
+lazy_static! {
+    static ref METADATA: AdapterMeta = AdapterMeta {
+        name: "poppler".to_owned(),
+        version: 1,
+        matchers: EXTENSIONS.iter().map(|s| Matcher::FileExtension(s.to_string())).collect(),
+    };
 }
+pub struct PopplerAdapter;
 
 impl PopplerAdapter {
     pub fn new() -> PopplerAdapter {
-        PopplerAdapter {
-            _metadata: AdapterMeta {
-                name: "poppler".to_owned(),
-                version: 1,
-                // todo: read from ffmpeg -demuxers?
-                matchers: extensions.iter().map(|s| ExtensionMatcher(s)).collect(),
-            },
-        }
+        PopplerAdapter
     }
 }
 
 impl GetMetadata for PopplerAdapter {
     fn metadata<'a>(&'a self) -> &'a AdapterMeta {
-        &self._metadata
+        &METADATA
     }
 }
 impl SpawningFileAdapter for PopplerAdapter {
-    fn command(&self, inp_fname: &str) -> Command {
-        let mut cmd = Command::new("pdftotext");
+    fn get_exe(&self) -> &str {
+        "pdftotext"
+    }
+    fn command(&self, inp_fname: &Path, mut cmd: Command) -> Command {
         cmd.arg("-layout").arg("--").arg(inp_fname).arg("-");
         cmd
     }

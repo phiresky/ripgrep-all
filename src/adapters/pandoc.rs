@@ -1,7 +1,6 @@
 use super::*;
+use lazy_static::lazy_static;
 use spawning::SpawningFileAdapter;
-
-use std::io::Write;
 use std::process::Command;
 
 // from https://github.com/jgm/pandoc/blob/master/src/Text/Pandoc/App/FormatHeuristics.hs
@@ -40,32 +39,35 @@ use std::process::Command;
 //"xhtml"    -> Just "html"
 //"wiki"     -> Just "mediawiki"
 
-static extensions: &[&str] = &["epub", "odt", "docx", "pptx", "fb2", "icml", "rtf", "ipynb"];
+static EXTENSIONS: &[&str] = &["epub", "odt", "docx", "pptx", "fb2", "ipynb"];
 
-pub struct PandocAdapter {
-    _metadata: AdapterMeta,
+lazy_static! {
+    static ref METADATA: AdapterMeta = AdapterMeta {
+        name: "pandoc".to_owned(),
+        version: 1,
+        matchers: EXTENSIONS
+            .iter()
+            .map(|s| Matcher::FileExtension(s.to_string()))
+            .collect(),
+    };
 }
+pub struct PandocAdapter;
 
 impl PandocAdapter {
     pub fn new() -> PandocAdapter {
-        PandocAdapter {
-            _metadata: AdapterMeta {
-                name: "pandoc".to_owned(),
-                version: 1,
-                // todo: read from ffmpeg -demuxers?
-                matchers: extensions.iter().map(|s| ExtensionMatcher(s)).collect(),
-            },
-        }
+        PandocAdapter
     }
 }
 impl GetMetadata for PandocAdapter {
     fn metadata<'a>(&'a self) -> &'a AdapterMeta {
-        &self._metadata
+        &METADATA
     }
 }
 impl SpawningFileAdapter for PandocAdapter {
-    fn command(&self, inp_fname: &str) -> Command {
-        let mut cmd = Command::new("pandoc");
+    fn get_exe(&self) -> &str {
+        "pandoc"
+    }
+    fn command(&self, inp_fname: &Path, mut cmd: Command) -> Command {
         cmd
             // simpler markown (with more information loss but plainer text)
             .arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
