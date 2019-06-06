@@ -33,16 +33,6 @@ impl GetMetadata for TarAdapter {
     }
 }
 
-// make a &mut Read into a owned Read because the streaming decompressors want to take ownership of their base Reads
-struct WrapRead<'a> {
-    inner: &'a mut dyn Read,
-}
-impl<'a> Read for WrapRead<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.inner.read(buf)
-    }
-}
-
 // feeling a little stupid here. why is this needed at all
 enum SpecRead<R: Read> {
     Gz(flate2::read::MultiGzDecoder<R>),
@@ -64,11 +54,10 @@ impl<R: Read> Read for SpecRead<R> {
     }
 }
 // why do I need to wrap the output here in a specific type? is it possible with just a Box<Read> for every type?
-fn decompress_any<'a, R>(filename: &Path, inp: &'a mut R) -> Fallible<SpecRead<WrapRead<'a>>>
+fn decompress_any<'a, R>(filename: &Path, inp: &'a mut R) -> Fallible<SpecRead<&'a mut R>>
 where
     R: Read,
 {
-    let inp = WrapRead { inner: inp };
     let extension = filename.extension().map(|e| e.to_string_lossy().to_owned());
     match extension {
         Some(e) => Ok(match e.to_owned().as_ref() {
