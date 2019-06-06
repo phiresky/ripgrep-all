@@ -103,7 +103,7 @@ where
     fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
         let AdaptInfo {
             filepath_hint,
-            inp,
+            mut inp,
             oup,
             line_prefix,
             ..
@@ -112,7 +112,7 @@ where
         pipe_output(
             line_prefix,
             self.command(filepath_hint, cmd),
-            inp,
+            &mut inp,
             oup,
             self.get_exe(),
             "",

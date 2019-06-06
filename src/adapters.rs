@@ -2,6 +2,7 @@ pub mod ffmpeg;
 pub mod pandoc;
 pub mod poppler;
 pub mod spawning;
+pub mod tar;
 pub mod zip;
 use failure::*;
 use regex::{Regex, RegexSet};
@@ -13,6 +14,10 @@ use std::rc::Rc;
 
 pub enum Matcher {
     // MimeType(Regex),
+    /**
+     * without the dot. e.g. "jpg" or "tar.gz" matched as /.*\.ext$/
+     *
+     */
     FileExtension(String),
 }
 
@@ -53,6 +58,7 @@ pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
         Rc::new(pandoc::PandocAdapter::new()),
         Rc::new(poppler::PopplerAdapter::new()),
         Rc::new(zip::ZipAdapter::new()),
+        Rc::new(tar::TarAdapter::new()),
     ];
     adapters
 }
