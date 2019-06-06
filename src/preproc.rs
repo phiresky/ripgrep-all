@@ -54,7 +54,7 @@ pub fn rga_preproc<'a>(
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
 
-    eprintln!("abs path: {:?}", filepath_hint);
+    eprintln!("path_hint: {:?}", filepath_hint);
 
     /*let mimetype = tree_magic::from_filepath(path).ok_or(lerr(format!(
         "File {} does not exist",
@@ -103,7 +103,6 @@ pub fn rga_preproc<'a>(
                     None => {
                         drop(reader);
                         let mut compbuf = CachingWriter::new(oup, MAX_DB_BLOB_LEN, ZSTD_LEVEL)?;
-                        // start dupe
                         eprintln!("adapting...");
                         ad.adapt(AdaptInfo {
                             line_prefix,
@@ -112,7 +111,6 @@ pub fn rga_preproc<'a>(
                             inp,
                             oup: &mut compbuf,
                         })?;
-                        // end dupe
                         let compressed = compbuf.finish()?;
                         if let Some(cached) = compressed {
                             eprintln!("compressed len: {}", cached.len());
@@ -132,8 +130,6 @@ pub fn rga_preproc<'a>(
                     }
                 }
             } else {
-                // todo: duplicate code
-                // start dupe
                 eprintln!("adapting...");
                 ad.adapt(AdaptInfo {
                     line_prefix,
@@ -142,7 +138,6 @@ pub fn rga_preproc<'a>(
                     inp,
                     oup,
                 })?;
-                // end dupe
                 Ok(())
             }
         }
@@ -150,11 +145,7 @@ pub fn rga_preproc<'a>(
             // allow passthrough if the file is in an archive, otherwise it should have been filtered out by rg
             let allow_cat = !is_real_file;
             if allow_cat {
-                let stdini = std::io::stdin();
-                let mut stdin = stdini.lock();
-                let stdouti = std::io::stdout();
-                let mut stdout = stdouti.lock();
-                spawning::postproc_line_prefix(line_prefix, &mut stdin, &mut stdout)?;
+                spawning::postproc_line_prefix(line_prefix, inp, oup)?;
                 Ok(())
             } else {
                 Err(format_err!("No adapter found for file {:?}", filename))

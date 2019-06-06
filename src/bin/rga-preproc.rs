@@ -14,8 +14,6 @@ fn main() -> Result<(), Error> {
         std::env::current_dir()?.join(&filepath)
     };
 
-    eprintln!("abs path: {:?}", path);
-
     let ai = AdaptInfo {
         inp: &mut File::open(&path)?,
         filepath_hint: &path,

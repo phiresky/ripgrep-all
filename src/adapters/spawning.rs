@@ -5,7 +5,6 @@ use std::io::BufReader;
 use std::process::Command;
 use std::process::Stdio;
 
-
 pub fn postproc_line_prefix(
     line_prefix: &str,
     inp: &mut dyn Read,
@@ -14,7 +13,18 @@ pub fn postproc_line_prefix(
     //std::io::copy(inp, oup)?;
 
     for line in BufReader::new(inp).lines() {
-        oup.write_all(format!("{}{}\n", line_prefix, line?).as_bytes())?;
+        match line {
+            Ok(line) => {
+                oup.write_all(format!("{}{}\n", line_prefix, line).as_bytes())?;
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::InvalidData {
+                    oup.write_all(format!("{}[binary]\n", line_prefix).as_bytes())?;
+                } else {
+                    Err(e)?;
+                }
+            }
+        }
     }
     Ok(())
 }
