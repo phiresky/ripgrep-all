@@ -1,11 +1,8 @@
 use failure::{format_err, Error};
-use path_clean::PathClean;
 use rga::adapters::*;
 use rga::preproc::*;
-use rga::CachingWriter;
+use std::env;
 use std::fs::File;
-use std::path::PathBuf;
-use std::rc::Rc;
 
 fn main() -> Result<(), Error> {
     let path = {
@@ -26,5 +23,11 @@ fn main() -> Result<(), Error> {
         line_prefix: "",
     };
 
-    rga_preproc(ai, Some(open_cache_db()?))
+    let cache_db = match env::var("RGA_NO_CACHE") {
+        Ok(ref s) if s.len() > 0 => Some(open_cache_db()?),
+        Ok(_) => None,
+        Err(_) => None,
+    };
+
+    rga_preproc(ai, cache_db)
 }

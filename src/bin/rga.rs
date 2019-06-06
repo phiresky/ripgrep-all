@@ -14,14 +14,10 @@ fn main() -> std::io::Result<()> {
             "--list-adapters 'Lists all known adapters'",
         ))
         .arg(Arg::from_usage("--adapters=[commaseparated] 'Change which adapters to use and in which priority order (descending)'").require_equals(true))
+        .arg(Arg::from_usage("--no-cache 'Disable caching of results'"))
         .arg(Arg::from_usage("--rg-help 'Show help for ripgrep itself'"))
         .arg(Arg::from_usage("--rg-version 'Show version of ripgrep itself'"));
     app.p.create_help_and_version();
-    println!("g={:#?},f={:#?}", app.p.groups, app.p.flags);
-    for opt in app.p.opts() {
-        println!("opt {:#?}", opt.s.long);
-    }
-    //
     let mut firstarg = true;
     let (our_args, mut passthrough_args): (Vec<OsString>, Vec<OsString>) = std::env::args_os()
         .partition(|os_arg| {
@@ -71,7 +67,16 @@ fn main() -> std::io::Result<()> {
         println!("Adapters:");
         for adapter in adapters {
             let meta = adapter.metadata();
-            println!("{} v{}", meta.name, meta.version);
+            let matchers = meta
+                .matchers
+                .iter()
+                .map(|m| match m {
+                    Matcher::FileExtension(ext) => format!(".{}", ext),
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            print!("{} v{}: {}", meta.name, meta.version, matchers);
+            println!("");
         }
         return Ok(());
     }

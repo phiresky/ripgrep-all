@@ -53,7 +53,7 @@ impl FileAdapter for ZipAdapter {
                         file.size(),
                         file.compressed_size()
                     );
-                    let line_prefix = &format!("{}{}:/", line_prefix, file.name().clone());
+                    let line_prefix = &format!("{}{}: ", line_prefix, file.name().clone());
                     rga_preproc(
                         AdaptInfo {
                             filepath_hint: &file.sanitized_name(),
