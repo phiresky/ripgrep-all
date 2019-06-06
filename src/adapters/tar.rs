@@ -4,6 +4,7 @@ use ::tar::EntryType::Regular;
 use failure::*;
 use lazy_static::lazy_static;
 use std::fs::File;
+use std::io::BufReader;
 use std::path::PathBuf;
 
 static EXTENSIONS: &[&str] = &["tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst"];
@@ -31,30 +32,59 @@ impl GetMetadata for TarAdapter {
         &METADATA
     }
 }
-/*struct WrapRead<'a> {
-    inner: &mut 'a Read;
-}
-impl Read for WrapRead {
-    r
-}*/
 
-/*fn decompress_any(filename: &Path, inp: &mut Read) -> Fallible<Box<Read>> {
+// make a &mut Read into a owned Read because the streaming decompressors want to take ownership of their base Reads
+struct WrapRead<'a> {
+    inner: &'a mut dyn Read,
+}
+impl<'a> Read for WrapRead<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+// feeling a little stupid here. why is this needed at all
+enum SpecRead<R: Read> {
+    Gz(flate2::read::MultiGzDecoder<R>),
+    Bz2(bzip2::read::BzDecoder<R>),
+    Xz(xz2::read::XzDecoder<R>),
+    Zst(zstd::stream::read::Decoder<BufReader<R>>),
+    Passthrough(R),
+}
+impl<R: Read> Read for SpecRead<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        use SpecRead::*;
+        match self {
+            Gz(z) => z.read(buf),
+            Bz2(z) => z.read(buf),
+            Xz(z) => z.read(buf),
+            Zst(z) => z.read(buf),
+            Passthrough(z) => z.read(buf),
+        }
+    }
+}
+// why do I need to wrap the output here in a specific type? is it possible with just a Box<Read> for every type?
+fn decompress_any<'a, R>(filename: &Path, inp: &'a mut R) -> Fallible<SpecRead<WrapRead<'a>>>
+where
+    R: Read,
+{
+    let inp = WrapRead { inner: inp };
     let extension = filename.extension().map(|e| e.to_string_lossy().to_owned());
     match extension {
         Some(e) => Ok(match e.to_owned().as_ref() {
-            "gz" => Box::new(flate2::read::MultiGzDecoder::new(inp)),
-            "bz2" => Box::new(bzip2::read::BzDecoder::new(inp)),
-            "xz" => Box::new(xz2::read::XzDecoder::new_multi_decoder(inp)),
-            "zst" => Box::new(zstd::stream::read::Decoder::new(inp)?),
-            e => Err(format_err!("don't know how to decompress {}", e))?,
+            "gz" => SpecRead::Gz(flate2::read::MultiGzDecoder::new(inp)),
+            "bz2" => SpecRead::Bz2(bzip2::read::BzDecoder::new(inp)),
+            "xz" => SpecRead::Xz(xz2::read::XzDecoder::new_multi_decoder(inp)),
+            "zst" => SpecRead::Zst(zstd::stream::read::Decoder::new(inp)?),
+            "tar" => SpecRead::Passthrough(inp),
+            ext => Err(format_err!("don't know how to decompress {}", ext))?,
         }),
         None => Err(format_err!("no extension")),
     }
-}*/
+}
 
 impl FileAdapter for TarAdapter {
-    fn adapt<'a>(&self, ai: AdaptInfo) -> Fallible<()> {
-        use std::io::prelude::*;
+    fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
@@ -62,7 +92,8 @@ impl FileAdapter for TarAdapter {
             line_prefix,
             ..
         } = ai;
-        let decompress = inp; //decompress_any(filepath_hint, &inp)?;
+
+        let decompress = decompress_any(filepath_hint, &mut inp)?;
         let mut archive = ::tar::Archive::new(decompress);
         for entry in archive.entries()? {
             let mut file = entry.unwrap();
@@ -75,15 +106,13 @@ impl FileAdapter for TarAdapter {
             );
             if Regular == file.header().entry_type() {
                 let line_prefix = &format!("{}{}: ", line_prefix, path.display());
-                rga_preproc(
-                    AdaptInfo {
-                        filepath_hint: &path,
-                        inp: &mut file,
-                        oup: oup,
-                        line_prefix,
-                    },
-                    None,
-                )?;
+                let ai2: AdaptInfo = AdaptInfo {
+                    filepath_hint: &path,
+                    inp: &mut file,
+                    oup: oup,
+                    line_prefix,
+                };
+                rga_preproc(ai2, None)?;
             }
         }
         Ok(())

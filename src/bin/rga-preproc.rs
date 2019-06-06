@@ -24,9 +24,8 @@ fn main() -> Result<(), Error> {
     };
 
     let cache_db = match env::var("RGA_NO_CACHE") {
-        Ok(ref s) if s.len() > 0 => Some(open_cache_db()?),
-        Ok(_) => None,
-        Err(_) => None,
+        Ok(ref s) if s.len() > 0 => None,
+        Ok(_) | Err(_) => Some(open_cache_db()?),
     };
 
     rga_preproc(ai, cache_db)

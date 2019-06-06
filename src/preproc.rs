@@ -2,7 +2,9 @@ use crate::adapters::*;
 use crate::CachingWriter;
 use failure::{format_err, Error};
 use path_clean::PathClean;
+use std::fs::File;
 use std::io::Read;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -21,16 +23,21 @@ pub fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Er
             let mut builder = rkv::Rkv::environment_builder();
             builder
                 .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable
+                // i'm not sure why this is needed. otherwise LMDB transactions (open readers) will keep piling up until it fails with
+                // LmdbError(ReadersFull)
+                // hope it doesn't break integrity
+                .set_flags(rkv::EnvironmentFlags::NO_TLS)
                 .set_map_size(2 * 1024 * 1024 * 1024)
-                .set_max_dbs(100);
+                .set_max_dbs(100)
+                .set_max_readers(128);
             rkv::Rkv::from_env(p, builder)
         })
         .expect("could not get/create db");
     Ok(db_arc)
 }
 
-pub fn rga_preproc(
-    ai: AdaptInfo,
+pub fn rga_preproc<'a>(
+    ai: AdaptInfo<'a>,
     mb_db_arc: Option<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>>,
 ) -> Result<(), Error> {
     let adapters = adapter_matcher()?;
@@ -79,6 +86,7 @@ pub fn rga_preproc(
                 let db = db_env
                     .open_single(db_name.as_str(), rkv::store::Options::create())
                     .map_err(|p| format_err!("could not open db store: {:?}", p))?;
+
                 let reader = db_env.read().expect("could not get reader");
                 let cached = db
                     .get(&reader, &cache_key)
@@ -91,6 +99,7 @@ pub fn rga_preproc(
                     }
                     Some(_) => Err(format_err!("Integrity: value not blob")),
                     None => {
+                        drop(reader);
                         let mut compbuf = CachingWriter::new(oup, MAX_DB_BLOB_LEN, ZSTD_LEVEL)?;
                         // start dupe
                         eprintln!("adapting...");
