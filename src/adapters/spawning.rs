@@ -1,26 +1,93 @@
 use super::*;
-use std::io::Write;
+use failure::*;
+use std::io::prelude::*;
+use std::io::BufReader;
 use std::process::Command;
 use std::process::Stdio;
-use failure::*;
+use std::thread;
 
 pub trait SpawningFileAdapter: GetMetadata {
     fn get_exe(&self) -> &str;
-    fn command(&self, inp_fname: &Path, command: Command) -> Command;
+    fn command(&self, filepath_hint: &Path, command: Command) -> Command;
+
+    fn postproc(line_prefix: &str, inp: &mut Read, oup: &mut Write) -> Fallible<()> {
+        //std::io::copy(inp, oup)?;
+
+        for line in BufReader::new(inp).lines() {
+            oup.write_all(format!("{}{}\n", line_prefix, line?).as_bytes())?;
+        }
+        Ok(())
+    }
 }
 
 pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
     use std::io::ErrorKind::*;
     match err.kind() {
         NotFound => format_err!("Could not find executable \"{}\". {}", exe_name, help),
-        _ => Error::from(err)
+        _ => Error::from(err),
     }
 }
 
-pub fn pipe_output(mut cmd: Command, oup: &mut dyn Write, exe_name: &str, help: &str) -> Fallible<()> {
-    let mut cmd = cmd.stdout(Stdio::piped()).spawn().map_err(|e| map_exe_error(e, exe_name, help))?;
-    let stdo = cmd.stdout.as_mut().expect("is piped");
-    std::io::copy(stdo, oup)?;
+/*fn pipe(a: &mut dyn Read, b: &mut dyn Write, c: &mut dyn Read, d: &mut dyn Write) {
+    let mut buf = vec![0u8; 2 << 13];
+    loop {
+        match a.read(&buf) {
+
+        }
+    }
+}*/
+
+/*pub fn copy<R: ?Sized, W: ?Sized>(
+    name: &str,
+    reader: &mut R,
+    writer: &mut W,
+) -> std::io::Result<u64>
+where
+    R: Read,
+    W: Write,
+{
+    eprintln!("START COPY {}", name);
+    let mut zz = vec![0; 1 << 13];
+    let mut buf: &mut [u8] = zz.as_mut();
+    let mut written = 0;
+    loop {
+        let r = reader.read(buf);
+        eprintln!("{}read: {:?}", name, r);
+        let len = match r {
+            Ok(0) => return Ok(written),
+            Ok(len) => len,
+            Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        };
+        writer.write_all(&buf[..len])?;
+        written += len as u64;
+    }
+}*/
+
+pub fn pipe_output(
+    line_prefix: &str,
+    mut cmd: Command,
+    inp: &mut (dyn Read),
+    oup: &mut (dyn Write + Send),
+    exe_name: &str,
+    help: &str,
+    cp: fn(line_prefix: &str, &mut dyn Read, &mut dyn Write) -> Fallible<()>,
+) -> Fallible<()> {
+    let mut cmd = cmd
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(|e| map_exe_error(e, exe_name, help))?;
+    let mut stdi = cmd.stdin.take().expect("is piped");
+    let mut stdo = cmd.stdout.take().expect("is piped");
+
+    crossbeam::scope(|s| -> Fallible<()> {
+        s.spawn(|_| cp(line_prefix, &mut stdo, oup).unwrap()); // errors?
+        std::io::copy(inp, &mut stdi)?;
+        drop(stdi); // NEEDED! otherwise deadlock
+        Ok(())
+    })
+    .unwrap()?;
     let status = cmd.wait()?;
     if status.success() {
         Ok(())
@@ -30,11 +97,26 @@ pub fn pipe_output(mut cmd: Command, oup: &mut dyn Write, exe_name: &str, help: 
 }
 
 impl<T> FileAdapter for T
-    where
-        T: SpawningFileAdapter,
+where
+    T: SpawningFileAdapter,
 {
-    fn adapt(&self, inp_fname: &Path, oup: &mut dyn Write) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
+        let AdaptInfo {
+            filepath_hint,
+            inp,
+            oup,
+            line_prefix,
+            ..
+        } = ai;
         let cmd = Command::new(self.get_exe());
-        pipe_output(self.command(inp_fname, cmd), oup, self.get_exe(), "")
+        pipe_output(
+            line_prefix,
+            self.command(filepath_hint, cmd),
+            inp,
+            oup,
+            self.get_exe(),
+            "",
+            Self::postproc,
+        )
     }
 }

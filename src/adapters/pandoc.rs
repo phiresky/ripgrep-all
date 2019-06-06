@@ -67,14 +67,13 @@ impl SpawningFileAdapter for PandocAdapter {
     fn get_exe(&self) -> &str {
         "pandoc"
     }
-    fn command(&self, inp_fname: &Path, mut cmd: Command) -> Command {
+    fn command(&self, filepath_hint: &Path, mut cmd: Command) -> Command {
         cmd
+        .arg("--from").arg(filepath_hint.extension().unwrap())
             // simpler markown (with more information loss but plainer text)
             .arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
             .arg("--wrap=none")
-            .arg("--atx-headers")
-            .arg("--")
-            .arg(inp_fname);
+            .arg("--atx-headers");
         cmd
     }
 }

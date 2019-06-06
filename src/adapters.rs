@@ -2,12 +2,12 @@ pub mod ffmpeg;
 pub mod pandoc;
 pub mod poppler;
 pub mod spawning;
+pub mod zip;
+use failure::*;
 use regex::{Regex, RegexSet};
-use std::io::BufRead;
-use std::io::Write;
+use std::io::prelude::*;
 use std::path::Path;
 use std::rc::Rc;
-use failure::*;
 
 //pub use ffmpeg::FffmpegAdapter;
 
@@ -24,7 +24,7 @@ pub struct AdapterMeta {
 
 pub struct FileMeta {
     // filename is not actually a utf8 string, but since we can't do regex on OsStr and can't get a &[u8] from OsStr either,
-    // and since we probably only want to do matching on ascii stuff anyways, this is the filename as a string with non-valid bytes removed
+    // and since we probably only want to do only matching on ascii stuff anyways, this is the filename as a string with non-valid bytes removed
     pub lossy_filename: String,
     // pub mimetype: String,
 }
@@ -33,7 +33,14 @@ pub trait GetMetadata {
     fn metadata<'a>(&'a self) -> &'a AdapterMeta;
 }
 pub trait FileAdapter: GetMetadata {
-    fn adapt(&self, inp_fname: &Path, oup: &mut dyn Write) -> Fallible<()>;
+    fn adapt(&self, a: AdaptInfo) -> Fallible<()>;
+}
+pub struct AdaptInfo<'a> {
+    pub filepath_hint: &'a Path,
+    pub inp: &'a mut dyn Read,
+    pub oup: &'a mut (dyn Write + Send),
+    pub line_prefix: &'a str,
+    // pub adapt_subobject: &'a dyn Fn(AdaptInfo) -> Fallible<()>,
 }
 
 pub fn extension_to_regex(extension: &str) -> Regex {
@@ -42,9 +49,10 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 
 pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
     let adapters: Vec<Rc<dyn FileAdapter>> = vec![
-        Rc::new(crate::adapters::ffmpeg::FFmpegAdapter::new()),
-        Rc::new(crate::adapters::pandoc::PandocAdapter::new()),
-        Rc::new(crate::adapters::poppler::PopplerAdapter::new()),
+        Rc::new(ffmpeg::FFmpegAdapter::new()),
+        Rc::new(pandoc::PandocAdapter::new()),
+        Rc::new(poppler::PopplerAdapter::new()),
+        Rc::new(zip::ZipAdapter::new()),
     ];
     adapters
 }

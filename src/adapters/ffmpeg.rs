@@ -1,10 +1,10 @@
-use super::*;
 use super::spawning::map_exe_error;
+use super::*;
+use failure::*;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::io::BufReader;
 use std::process::*;
-use failure::*;
 // todo:
 // maybe todo: read list of extensions from
 //ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
@@ -43,8 +43,14 @@ struct FFprobeStream {
     codec_type: String, // video,audio,subtitle
 }
 impl FileAdapter for FFmpegAdapter {
-    fn adapt(&self, inp_fname: &Path, oup: &mut dyn Write) -> Fallible<()> {
-        let spawn_fail = |e| map_exe_error(e, "ffprobe", "Make sure you have ffmpeg installed.");
+    fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
+        let AdaptInfo {
+            filepath_hint,
+            inp,
+            oup,
+            ..
+        } = ai;
+        /*let spawn_fail = |e| map_exe_error(e, "ffprobe", "Make sure you have ffmpeg installed.");
         let has_subtitles = {
             let probe = Command::new("ffprobe")
                 .args(vec![
@@ -122,7 +128,7 @@ impl FileAdapter for FFmpegAdapter {
                     }
                 }
             }
-        }
+        }*/
         Ok(())
     }
 }

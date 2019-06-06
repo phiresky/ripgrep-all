@@ -9,7 +9,10 @@ lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "poppler".to_owned(),
         version: 1,
-        matchers: EXTENSIONS.iter().map(|s| Matcher::FileExtension(s.to_string())).collect(),
+        matchers: EXTENSIONS
+            .iter()
+            .map(|s| Matcher::FileExtension(s.to_string()))
+            .collect(),
     };
 }
 pub struct PopplerAdapter;
@@ -29,8 +32,8 @@ impl SpawningFileAdapter for PopplerAdapter {
     fn get_exe(&self) -> &str {
         "pdftotext"
     }
-    fn command(&self, inp_fname: &Path, mut cmd: Command) -> Command {
-        cmd.arg("-layout").arg("--").arg(inp_fname).arg("-");
+    fn command(&self, filepath_hint: &Path, mut cmd: Command) -> Command {
+        cmd.arg("-layout").arg("-").arg("-");
         cmd
     }
 }
