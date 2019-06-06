@@ -3,7 +3,7 @@ use crate::preproc::rga_preproc;
 use ::zip::read::ZipFile;
 use failure::*;
 use lazy_static::lazy_static;
-use std::fs::File;
+
 // todo:
 // maybe todo: read list of extensions from
 //ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
@@ -19,7 +19,7 @@ lazy_static! {
             .collect(),
     };
 }
-
+#[derive(Default)]
 pub struct ZipAdapter;
 
 impl ZipAdapter {
@@ -28,7 +28,7 @@ impl ZipAdapter {
     }
 }
 impl GetMetadata for ZipAdapter {
-    fn metadata<'a>(&'a self) -> &'a AdapterMeta {
+    fn metadata(&self) -> &AdapterMeta {
         &METADATA
     }
 }
@@ -44,7 +44,6 @@ fn is_dir(f: &ZipFile) -> bool {
 
 impl FileAdapter for ZipAdapter {
     fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
-        use std::io::prelude::*;
         let AdaptInfo {
             filepath_hint,
             mut inp,
@@ -66,12 +65,13 @@ impl FileAdapter for ZipAdapter {
                         file.size(),
                         file.compressed_size()
                     );
-                    let line_prefix = &format!("{}{}: ", line_prefix, file.name().clone());
+                    let line_prefix = &format!("{}{}: ", line_prefix, file.name());
                     rga_preproc(
                         AdaptInfo {
                             filepath_hint: &file.sanitized_name(),
+                            is_real_file: false,
                             inp: &mut file,
-                            oup: oup,
+                            oup,
                             line_prefix,
                         },
                         None,

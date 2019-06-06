@@ -4,19 +4,26 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::process::Command;
 use std::process::Stdio;
-use std::thread;
 
+
+pub fn postproc_line_prefix(
+    line_prefix: &str,
+    inp: &mut dyn Read,
+    oup: &mut dyn Write,
+) -> Fallible<()> {
+    //std::io::copy(inp, oup)?;
+
+    for line in BufReader::new(inp).lines() {
+        oup.write_all(format!("{}{}\n", line_prefix, line?).as_bytes())?;
+    }
+    Ok(())
+}
 pub trait SpawningFileAdapter: GetMetadata {
     fn get_exe(&self) -> &str;
     fn command(&self, filepath_hint: &Path, command: Command) -> Command;
 
-    fn postproc(line_prefix: &str, inp: &mut Read, oup: &mut Write) -> Fallible<()> {
-        //std::io::copy(inp, oup)?;
-
-        for line in BufReader::new(inp).lines() {
-            oup.write_all(format!("{}{}\n", line_prefix, line?).as_bytes())?;
-        }
-        Ok(())
+    fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Fallible<()> {
+        postproc_line_prefix(line_prefix, inp, oup)
     }
 }
 

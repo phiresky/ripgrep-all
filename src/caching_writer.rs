@@ -1,5 +1,5 @@
-use std::io::Write;
 use failure::Fallible;
+use std::io::Write;
 
 /**
  * wrap a writer so that it is passthrough,
@@ -52,7 +52,7 @@ impl<W: Write> Write for CachingWriter<W> {
                     self.zstd_writer.take().unwrap().finish()?;
                 }
                 self.out.write_all(&buf[0..wrote])?;
-                return Ok(wrote);
+                Ok(wrote)
             }
             None => self.out.write(buf),
         }

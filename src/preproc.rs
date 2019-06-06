@@ -2,15 +2,9 @@ use crate::adapters::*;
 use crate::CachingWriter;
 use failure::{format_err, Error};
 use path_clean::PathClean;
-use std::fs::File;
-use std::io::Read;
-use std::io::Write;
-use std::path::Path;
-use std::path::PathBuf;
-use std::rc::Rc;
 
 // longest compressed conversion output to save in cache
-const MAX_DB_BLOB_LEN: usize = 2000000;
+const MAX_DB_BLOB_LEN: usize = 2_000_000;
 const ZSTD_LEVEL: i32 = 12;
 
 pub fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Error> {
@@ -43,6 +37,7 @@ pub fn rga_preproc<'a>(
     let adapters = adapter_matcher()?;
     let AdaptInfo {
         filepath_hint,
+        is_real_file,
         inp,
         oup,
         line_prefix,
@@ -50,7 +45,7 @@ pub fn rga_preproc<'a>(
     } = ai;
     let filename = filepath_hint
         .file_name()
-        .ok_or(format_err!("Empty filename"))?;
+        .ok_or_else(|| format_err!("Empty filename"))?;
 
     eprintln!("abs path: {:?}", filepath_hint);
 
@@ -106,6 +101,7 @@ pub fn rga_preproc<'a>(
                         ad.adapt(AdaptInfo {
                             line_prefix,
                             filepath_hint,
+                            is_real_file,
                             inp,
                             oup: &mut compbuf,
                         })?;
@@ -135,6 +131,7 @@ pub fn rga_preproc<'a>(
                 ad.adapt(AdaptInfo {
                     line_prefix,
                     filepath_hint,
+                    is_real_file,
                     inp,
                     oup,
                 })?;
@@ -143,14 +140,14 @@ pub fn rga_preproc<'a>(
             }
         }
         None => {
-            let allow_cat = false;
+            // allow passthrough if the file is in an archive, otherwise it should have been filtered out by rg
+            let allow_cat = !is_real_file;
             if allow_cat {
-                eprintln!("no adapter for that file, running cat!");
                 let stdini = std::io::stdin();
                 let mut stdin = stdini.lock();
                 let stdouti = std::io::stdout();
                 let mut stdout = stdouti.lock();
-                std::io::copy(&mut stdin, &mut stdout)?;
+                spawning::postproc_line_prefix(line_prefix, &mut stdin, &mut stdout)?;
                 Ok(())
             } else {
                 Err(format_err!("No adapter found for file {:?}", filename))

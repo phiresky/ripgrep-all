@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 pub mod adapters;
 mod caching_writer;
 pub mod errors;

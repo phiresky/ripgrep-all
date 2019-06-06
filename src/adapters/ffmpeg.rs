@@ -21,6 +21,7 @@ lazy_static! {
     };
 }
 
+#[derive(Default)]
 pub struct FFmpegAdapter;
 
 impl FFmpegAdapter {
@@ -29,7 +30,7 @@ impl FFmpegAdapter {
     }
 }
 impl GetMetadata for FFmpegAdapter {
-    fn metadata<'a>(&'a self) -> &'a AdapterMeta {
+    fn metadata(&self) -> &AdapterMeta {
         &METADATA
     }
 }
@@ -45,12 +46,17 @@ struct FFprobeStream {
 impl FileAdapter for FFmpegAdapter {
     fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
         let AdaptInfo {
+            is_real_file,
             filepath_hint,
-            inp,
             oup,
             ..
         } = ai;
-        /*let spawn_fail = |e| map_exe_error(e, "ffprobe", "Make sure you have ffmpeg installed.");
+        if !is_real_file {
+            eprintln!("Skipping video in archive");
+            return Ok(());
+        }
+        let inp_fname = filepath_hint;
+        let spawn_fail = |e| map_exe_error(e, "ffprobe", "Make sure you have ffmpeg installed.");
         let has_subtitles = {
             let probe = Command::new("ffprobe")
                 .args(vec![
@@ -65,7 +71,8 @@ impl FileAdapter for FFmpegAdapter {
                 ])
                 .arg("-i")
                 .arg(inp_fname)
-                .output().map_err(spawn_fail)?;
+                .output()
+                .map_err(spawn_fail)?;
             if !probe.status.success() {
                 return Err(format_err!("ffprobe failed: {:?}", probe.status));
             }
@@ -120,15 +127,13 @@ impl FileAdapter for FFmpegAdapter {
                 // 09:55.195 --> 09:56.730
                 if time_re.is_match(&line) {
                     time = line.to_owned();
+                } else if line.is_empty() {
+                    oup.write_all(b"\n")?;
                 } else {
-                    if line.len() == 0 {
-                        oup.write(b"\n")?;
-                    } else {
-                        writeln!(oup, "{}: {}", time, line)?;
-                    }
+                    writeln!(oup, "{}: {}", time, line)?;
                 }
             }
-        }*/
+        }
         Ok(())
     }
 }

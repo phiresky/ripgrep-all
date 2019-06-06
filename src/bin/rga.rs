@@ -1,4 +1,4 @@
-use clap::{crate_version, App, Arg, SubCommand};
+use clap::{crate_version, App, Arg};
 use log::*;
 use rga::adapters::*;
 use std::ffi::OsString;

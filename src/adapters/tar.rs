@@ -3,7 +3,7 @@ use crate::preproc::rga_preproc;
 use ::tar::EntryType::Regular;
 use failure::*;
 use lazy_static::lazy_static;
-use std::fs::File;
+
 use std::io::BufReader;
 use std::path::PathBuf;
 
@@ -19,7 +19,7 @@ lazy_static! {
             .collect(),
     };
 }
-
+#[derive(Default)]
 pub struct TarAdapter;
 
 impl TarAdapter {
@@ -28,7 +28,7 @@ impl TarAdapter {
     }
 }
 impl GetMetadata for TarAdapter {
-    fn metadata<'a>(&'a self) -> &'a AdapterMeta {
+    fn metadata(&self) -> &AdapterMeta {
         &METADATA
     }
 }
@@ -108,8 +108,9 @@ impl FileAdapter for TarAdapter {
                 let line_prefix = &format!("{}{}: ", line_prefix, path.display());
                 let ai2: AdaptInfo = AdaptInfo {
                     filepath_hint: &path,
+                    is_real_file: false,
                     inp: &mut file,
-                    oup: oup,
+                    oup,
                     line_prefix,
                 };
                 rga_preproc(ai2, None)?;

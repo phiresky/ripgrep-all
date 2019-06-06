@@ -35,13 +35,16 @@ pub struct FileMeta {
 }
 
 pub trait GetMetadata {
-    fn metadata<'a>(&'a self) -> &'a AdapterMeta;
+    fn metadata(&self) -> &AdapterMeta;
 }
 pub trait FileAdapter: GetMetadata {
     fn adapt(&self, a: AdaptInfo) -> Fallible<()>;
 }
 pub struct AdaptInfo<'a> {
+    /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.
     pub filepath_hint: &'a Path,
+    /// true if filepath_hint is an actual file on the file system
+    pub is_real_file: bool,
     pub inp: &'a mut dyn Read,
     pub oup: &'a mut (dyn Write + Send),
     pub line_prefix: &'a str,
@@ -54,11 +57,11 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 
 pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
     let adapters: Vec<Rc<dyn FileAdapter>> = vec![
-        Rc::new(ffmpeg::FFmpegAdapter::new()),
-        Rc::new(pandoc::PandocAdapter::new()),
-        Rc::new(poppler::PopplerAdapter::new()),
-        Rc::new(zip::ZipAdapter::new()),
-        Rc::new(tar::TarAdapter::new()),
+        Rc::new(ffmpeg::FFmpegAdapter),
+        Rc::new(pandoc::PandocAdapter),
+        Rc::new(poppler::PopplerAdapter),
+        Rc::new(zip::ZipAdapter),
+        Rc::new(tar::TarAdapter),
     ];
     adapters
 }
@@ -80,14 +83,15 @@ pub fn adapter_matcher() -> Result<impl Fn(FileMeta) -> Option<Rc<dyn FileAdapte
     }
     let fname_regex_set = RegexSet::new(fname_regexes.iter().map(|p| p.0.as_str()))?;
     //let mime_regex_set = RegexSet::new(mime_regexes.iter().map(|p| p.0.as_str()))?;
-    return Ok(move |meta: FileMeta| {
+    Ok(move |meta: FileMeta| {
         // todo: handle multiple conflicting matches
-        for m in fname_regex_set.matches(&meta.lossy_filename) {
-            return Some(fname_regexes[m].1.clone());
+        let matches = fname_regex_set.matches(&meta.lossy_filename);
+        match matches.iter().next() {
+            Some(m) => Some(fname_regexes[m].1.clone()),
+            None => None,
         }
         /*for m in mime_regex_set.matches(&meta.mimetype) {
             return Some(mime_regexes[m].1.clone());
         }*/
-        return None;
-    });
+    })
 }

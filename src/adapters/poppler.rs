@@ -16,6 +16,7 @@ lazy_static! {
             .collect(),
     };
 }
+#[derive(Default)]
 pub struct PopplerAdapter;
 
 impl PopplerAdapter {
@@ -25,19 +26,19 @@ impl PopplerAdapter {
 }
 
 impl GetMetadata for PopplerAdapter {
-    fn metadata<'a>(&'a self) -> &'a AdapterMeta {
+    fn metadata(&self) -> &AdapterMeta {
         &METADATA
     }
 }
 impl SpawningFileAdapter for PopplerAdapter {
-    fn postproc(line_prefix: &str, inp: &mut Read, oup: &mut Write) -> Fallible<()> {
+    fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Fallible<()> {
         // prepend Page X to each line
         let mut page = 1;
         for line in BufReader::new(inp).lines() {
             let mut line = line?;
-            if line.contains("\x0c") {
+            if line.contains('\x0c') {
                 // page break
-                line = line.replace("\x0c", "");
+                line = line.replace('\x0c', "");
                 page += 1;
             }
             oup.write_all(format!("{}Page {}: {}\n", line_prefix, page, line).as_bytes())?;
@@ -47,7 +48,7 @@ impl SpawningFileAdapter for PopplerAdapter {
     fn get_exe(&self) -> &str {
         "pdftotext"
     }
-    fn command(&self, filepath_hint: &Path, mut cmd: Command) -> Command {
+    fn command(&self, _filepath_hint: &Path, mut cmd: Command) -> Command {
         cmd.arg("-layout").arg("-").arg("-");
         cmd
     }

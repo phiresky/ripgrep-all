@@ -19,6 +19,7 @@ fn main() -> Result<(), Error> {
     let ai = AdaptInfo {
         inp: &mut File::open(&path)?,
         filepath_hint: &path,
+        is_real_file: true,
         oup: &mut std::io::stdout(),
         line_prefix: "",
     };

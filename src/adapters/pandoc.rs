@@ -51,6 +51,7 @@ lazy_static! {
             .collect(),
     };
 }
+#[derive(Default)]
 pub struct PandocAdapter;
 
 impl PandocAdapter {
@@ -59,7 +60,7 @@ impl PandocAdapter {
     }
 }
 impl GetMetadata for PandocAdapter {
-    fn metadata<'a>(&'a self) -> &'a AdapterMeta {
+    fn metadata(&self) -> &AdapterMeta {
         &METADATA
     }
 }
