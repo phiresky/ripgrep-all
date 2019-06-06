@@ -5,26 +5,32 @@ use std::io::BufReader;
 use std::process::Command;
 use std::process::Stdio;
 
+/**
+ * Copy a Read to a Write, while prefixing every line with a prefix.
+ *
+ * Try to detect binary files and ignore them. Does not ensure any encoding in the output.
+ */
 pub fn postproc_line_prefix(
     line_prefix: &str,
     inp: &mut dyn Read,
     oup: &mut dyn Write,
 ) -> Fallible<()> {
-    //std::io::copy(inp, oup)?;
-
-    for line in BufReader::new(inp).lines() {
-        match line {
-            Ok(line) => {
-                oup.write_all(format!("{}{}\n", line_prefix, line).as_bytes())?;
-            }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::InvalidData {
-                    oup.write_all(format!("{}[binary]\n", line_prefix).as_bytes())?;
-                } else {
-                    Err(e)?;
-                }
-            }
+    let mut reader = BufReader::with_capacity(1 << 12, inp);
+    let fourk = reader.fill_buf()?;
+    if fourk.contains(&0u8) {
+        oup.write_all(format!("{}[binary data]\n", line_prefix).as_bytes())?;
+        return Ok(());
+    }
+    // intentionally do not call reader.consume
+    for line in reader.split(b'\n') {
+        let line = line?;
+        if line.contains(&0u8) {
+            oup.write_all(format!("{}[binary data]\n", line_prefix).as_bytes())?;
+            return Ok(());
         }
+        oup.write_all(line_prefix.as_bytes())?;
+        oup.write_all(&line)?;
+        oup.write_all(b"\n")?;
     }
     Ok(())
 }
@@ -44,43 +50,6 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
         _ => Error::from(err),
     }
 }
-
-/*fn pipe(a: &mut dyn Read, b: &mut dyn Write, c: &mut dyn Read, d: &mut dyn Write) {
-    let mut buf = vec![0u8; 2 << 13];
-    loop {
-        match a.read(&buf) {
-
-        }
-    }
-}*/
-
-/*pub fn copy<R: ?Sized, W: ?Sized>(
-    name: &str,
-    reader: &mut R,
-    writer: &mut W,
-) -> std::io::Result<u64>
-where
-    R: Read,
-    W: Write,
-{
-    eprintln!("START COPY {}", name);
-    let mut zz = vec![0; 1 << 13];
-    let mut buf: &mut [u8] = zz.as_mut();
-    let mut written = 0;
-    loop {
-        let r = reader.read(buf);
-        eprintln!("{}read: {:?}", name, r);
-        let len = match r {
-            Ok(0) => return Ok(written),
-            Ok(len) => len,
-            Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(e) => return Err(e),
-        };
-        writer.write_all(&buf[..len])?;
-        written += len as u64;
-    }
-}*/
-
 pub fn pipe_output(
     line_prefix: &str,
     mut cmd: Command,
@@ -98,6 +67,7 @@ pub fn pipe_output(
     let mut stdi = cmd.stdin.take().expect("is piped");
     let mut stdo = cmd.stdout.take().expect("is piped");
 
+    // TODO: how to handle this copying better?
     crossbeam::scope(|s| -> Fallible<()> {
         s.spawn(|_| cp(line_prefix, &mut stdo, oup).unwrap()); // errors?
         std::io::copy(inp, &mut stdi)?;

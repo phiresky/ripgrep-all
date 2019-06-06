@@ -142,7 +142,8 @@ pub fn rga_preproc<'a>(
             }
         }
         None => {
-            // allow passthrough if the file is in an archive, otherwise it should have been filtered out by rg
+            // allow passthrough if the file is in an archive,
+            // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
             let allow_cat = !is_real_file;
             if allow_cat {
                 spawning::postproc_line_prefix(line_prefix, inp, oup)?;
