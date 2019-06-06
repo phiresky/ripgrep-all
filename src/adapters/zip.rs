@@ -1,5 +1,6 @@
 use super::*;
 use crate::preproc::rga_preproc;
+use ::zip::read::ZipFile;
 use failure::*;
 use lazy_static::lazy_static;
 use std::fs::File;
@@ -32,6 +33,15 @@ impl GetMetadata for ZipAdapter {
     }
 }
 
+// https://github.com/mvdnes/zip-rs/commit/b9af51e654793931af39f221f143b9dea524f349
+fn is_dir(f: &ZipFile) -> bool {
+    f.name()
+        .chars()
+        .rev()
+        .next()
+        .map_or(false, |c| c == '/' || c == '\\')
+}
+
 impl FileAdapter for ZipAdapter {
     fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
         use std::io::prelude::*;
@@ -46,6 +56,9 @@ impl FileAdapter for ZipAdapter {
             match ::zip::read::read_zipfile_from_stream(&mut inp) {
                 Ok(None) => break,
                 Ok(Some(mut file)) => {
+                    if is_dir(&file) {
+                        continue;
+                    }
                     eprintln!(
                         "{}|{}: {} bytes ({} bytes packed)",
                         filepath_hint.to_string_lossy(),
