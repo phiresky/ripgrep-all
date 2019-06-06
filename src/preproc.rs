@@ -2,6 +2,7 @@ use crate::adapters::*;
 use crate::CachingWriter;
 use failure::{format_err, Error};
 use path_clean::PathClean;
+use std::io::BufWriter;
 
 // longest compressed conversion output to save in cache
 const MAX_DB_BLOB_LEN: usize = 2_000_000;
@@ -102,7 +103,9 @@ pub fn rga_preproc<'a>(
                     Some(_) => Err(format_err!("Integrity: value not blob")),
                     None => {
                         drop(reader);
-                        let mut compbuf = CachingWriter::new(oup, MAX_DB_BLOB_LEN, ZSTD_LEVEL)?;
+                        // wrapping BufWriter here gives ~10% perf boost
+                        let mut compbuf =
+                            BufWriter::new(CachingWriter::new(oup, MAX_DB_BLOB_LEN, ZSTD_LEVEL)?);
                         eprintln!("adapting...");
                         ad.adapt(AdaptInfo {
                             line_prefix,
@@ -111,7 +114,11 @@ pub fn rga_preproc<'a>(
                             inp,
                             oup: &mut compbuf,
                         })?;
-                        let compressed = compbuf.finish()?;
+                        let compressed = compbuf
+                            .into_inner()
+                            .map_err(|_| "could not finish zstd")
+                            .unwrap()
+                            .finish()?;
                         if let Some(cached) = compressed {
                             eprintln!("compressed len: {}", cached.len());
 

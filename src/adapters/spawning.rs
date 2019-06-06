@@ -15,6 +15,8 @@ pub fn postproc_line_prefix(
     inp: &mut dyn Read,
     oup: &mut dyn Write,
 ) -> Fallible<()> {
+    //std::io::copy(inp, oup)?;
+    //return Ok(());
     let mut reader = BufReader::with_capacity(1 << 12, inp);
     let fourk = reader.fill_buf()?;
     if fourk.contains(&0u8) {

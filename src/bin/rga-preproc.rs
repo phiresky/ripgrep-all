@@ -3,6 +3,7 @@ use rga::adapters::*;
 use rga::preproc::*;
 use std::env;
 use std::fs::File;
+use std::io::{BufReader};
 
 fn main() -> Result<(), Error> {
     let path = {
@@ -14,11 +15,13 @@ fn main() -> Result<(), Error> {
         std::env::current_dir()?.join(&filepath)
     };
 
+    let i = File::open(&path)?;
+    let mut o = std::io::stdout();
     let ai = AdaptInfo {
-        inp: &mut File::open(&path)?,
+        inp: &mut BufReader::new(i),
         filepath_hint: &path,
         is_real_file: true,
-        oup: &mut std::io::stdout(),
+        oup: &mut o,
         line_prefix: "",
     };
 
