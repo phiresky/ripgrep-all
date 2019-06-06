@@ -45,8 +45,11 @@ pub struct AdaptInfo<'a> {
     pub filepath_hint: &'a Path,
     /// true if filepath_hint is an actual file on the file system
     pub is_real_file: bool,
+    /// stream to read the file from. can be from a file or from some decoder
     pub inp: &'a mut dyn Read,
+    /// stream to write to. will be written to from a different thread
     pub oup: &'a mut (dyn Write + Send),
+    /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: &'a str,
     // pub adapt_subobject: &'a dyn Fn(AdaptInfo) -> Fallible<()>,
 }

@@ -1,0 +1,78 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'rga'",
+			"cargo": {
+				"args": ["test", "--no-run", "--lib", "--package=rga"],
+				"filter": {
+					"name": "rga",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'rga'",
+			"cargo": {
+				"args": ["build", "--bin=rga", "--package=rga"],
+				"filter": {
+					"name": "rga",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'rga'",
+			"cargo": {
+				"args": ["test", "--no-run", "--bin=rga", "--package=rga"],
+				"filter": {
+					"name": "rga",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'rga-preproc'",
+			"cargo": {
+				"args": ["build", "--bin=rga-preproc", "--package=rga"],
+				"filter": {
+					"name": "rga-preproc",
+					"kind": "bin"
+				}
+			},
+			"args": ["exampledir/short.pdf"],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'rga-preproc'",
+			"cargo": {
+				"args": ["test", "--no-run", "--bin=rga-preproc", "--package=rga"],
+				"filter": {
+					"name": "rga-preproc",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}

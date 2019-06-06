@@ -7,6 +7,7 @@ use path_clean::PathClean;
 const MAX_DB_BLOB_LEN: usize = 2_000_000;
 const ZSTD_LEVEL: i32 = 12;
 
+/// opens a LMDB cache
 pub fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Error> {
     let app_cache = cachedir::CacheDirConfig::new("rga").get_cache_dir()?;
 
@@ -30,6 +31,12 @@ pub fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Er
     Ok(db_arc)
 }
 
+/**
+ * preprocess a file as defined in `ai`.
+ *
+ * If a cache is passed, read/write to it.
+ *
+ */
 pub fn rga_preproc<'a>(
     ai: AdaptInfo<'a>,
     mb_db_arc: Option<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>>,
