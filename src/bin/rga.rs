@@ -1,10 +1,12 @@
 use clap::{crate_version, App, Arg};
+use failure::Fallible;
 use log::*;
+use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
 use std::ffi::OsString;
 use std::process::Command;
 
-fn main() -> std::io::Result<()> {
+fn main() -> Fallible<()> {
     env_logger::init();
     let mut app = App::new(env!("CARGO_PKG_NAME"))
         .version(crate_version!())
@@ -99,7 +101,8 @@ fn main() -> std::io::Result<()> {
         .arg("--pre-glob")
         .arg(format!("*.{{{}}}", extensions))
         .args(passthrough_args)
-        .spawn()?;
+        .spawn()
+        .map_err(|e| map_exe_error(e, "rg", "Please make sure you have ripgrep installed."))?;
 
     child.wait()?;
     Ok(())
