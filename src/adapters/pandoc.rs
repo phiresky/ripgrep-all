@@ -45,6 +45,7 @@ lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "pandoc".to_owned(),
         version: 1,
+        description: "Uses pandoc to convert binary/unreadable text documents to plain text markdown-like text".to_owned(),
         matchers: EXTENSIONS
             .iter()
             .map(|s| Matcher::FileExtension(s.to_string()))

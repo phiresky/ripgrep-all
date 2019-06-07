@@ -7,11 +7,12 @@ pub mod tar;
 pub mod zip;
 use crate::preproc::PreprocConfig;
 use failure::*;
+use log::*;
 use regex::{Regex, RegexSet};
+use std::collections::HashMap;
 use std::io::prelude::*;
 use std::path::Path;
 use std::rc::Rc;
-
 //pub use ffmpeg::FffmpegAdapter;
 
 pub enum Matcher {
@@ -24,9 +25,11 @@ pub enum Matcher {
 }
 
 pub struct AdapterMeta {
+    /// unique short name of this adapter (a-z0-9 only)
     pub name: String,
-    // version identifier. used to key cache entries, change if your output format changes
+    /// version identifier. used to key cache entries, change if your output format changes
     pub version: i32,
+    pub description: String,
     pub matchers: Vec<Matcher>,
 }
 
@@ -76,8 +79,55 @@ pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
     adapters
 }
 
-pub fn adapter_matcher() -> Result<impl Fn(FileMeta) -> Option<Rc<dyn FileAdapter>>, regex::Error> {
-    let adapters = get_adapters();
+pub fn get_adapters_filtered(adapter_names: &Vec<String>) -> Fallible<Vec<Rc<dyn FileAdapter>>> {
+    let all_adapters = get_adapters();
+    let adapters = if !adapter_names.is_empty() {
+        let adapters_map: HashMap<_, _> = all_adapters
+            .iter()
+            .map(|e| (e.metadata().name.clone(), e.clone()))
+            .collect();
+        let mut adapters = vec![];
+        let mut subtractive = false;
+        for (i, name) in adapter_names.iter().enumerate() {
+            let mut name = &name[..];
+            if i == 0 && name.starts_with("-") {
+                subtractive = true;
+                name = &name[1..];
+                adapters = all_adapters.clone();
+            }
+            if subtractive {
+                let inx = adapters
+                    .iter()
+                    .position(|a| &a.metadata().name == name)
+                    .ok_or_else(|| format_err!("Could not remove {}: Not in list", name))?;
+                adapters.remove(inx);
+            } else {
+                adapters.push(
+                    adapters_map
+                        .get(name)
+                        .ok_or_else(|| format_err!("Unknown adapter: \"{}\"", name))?
+                        .clone(),
+                );
+            }
+        }
+        adapters
+    } else {
+        all_adapters
+    };
+    debug!(
+        "Chosen adapters: {}",
+        adapters
+            .iter()
+            .map(|a| a.metadata().name.clone())
+            .collect::<Vec<String>>()
+            .join(",")
+    );
+    Ok(adapters)
+}
+pub fn adapter_matcher(
+    adapter_names: &Vec<String>,
+) -> Fallible<impl Fn(FileMeta) -> Option<Rc<dyn FileAdapter>>> {
+    let adapters = get_adapters_filtered(adapter_names)?;
     let mut fname_regexes = vec![];
     //let mut mime_regexes = vec![];
     for adapter in adapters.into_iter() {

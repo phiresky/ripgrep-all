@@ -13,6 +13,7 @@ lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "zip".to_owned(),
         version: 1,
+        description: "Reads a zip file as a stream and recurses down into its contents".to_owned(),
         matchers: EXTENSIONS
             .iter()
             .map(|s| Matcher::FileExtension(s.to_string()))

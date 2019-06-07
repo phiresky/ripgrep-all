@@ -20,7 +20,7 @@ pub struct PreprocConfig<'a> {
  *
  */
 pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
-    let adapters = adapter_matcher()?;
+    let adapters = adapter_matcher(&ai.config.args.rga_adapters)?;
     let AdaptInfo {
         filepath_hint,
         is_real_file,

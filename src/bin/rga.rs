@@ -38,7 +38,7 @@ fn split_args() -> Fallible<(RgaArgs, Vec<OsString>)> {
                 for opt in app.p.opts() {
                     // only parse --x=... for now
                     if let Some(l) = opt.s.long {
-                        if arg.starts_with(&format!("--{}=", l)) {
+                        if arg.starts_with(&format!("--{}", l)) {
                             return true;
                         }
                     }
@@ -62,10 +62,10 @@ fn main() -> Fallible<()> {
     env_logger::init();
 
     let (args, passthrough_args) = split_args()?;
-    let adapters = get_adapters();
+    let adapters = get_adapters_filtered(&args.rga_adapters)?;
 
     if args.rga_list_adapters {
-        println!("Adapters:");
+        println!("Adapters:\n");
         for adapter in adapters {
             let meta = adapter.metadata();
             let matchers = meta
@@ -76,7 +76,10 @@ fn main() -> Fallible<()> {
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
-            print!("{} v{}: {}", meta.name, meta.version, matchers);
+            print!(
+                " - {}\n     {}\n     Extensions: {}\n",
+                meta.name, meta.description, matchers
+            );
             println!("");
         }
         return Ok(());

@@ -11,6 +11,9 @@ lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "sqlite".to_owned(),
         version: 1,
+        description:
+            "Uses sqlite bindings to convert sqlite databases into a simple plain text format"
+                .to_owned(),
         matchers: EXTENSIONS
             .iter()
             .map(|s| Matcher::FileExtension(s.to_string()))

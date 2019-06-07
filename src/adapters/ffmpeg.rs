@@ -14,6 +14,7 @@ lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "ffmpeg".to_owned(),
         version: 1,
+        description: "Uses ffmpeg to extract video metadata and subtitles".to_owned(),
         matchers: EXTENSIONS
             .iter()
             .map(|s| Matcher::FileExtension(s.to_string()))

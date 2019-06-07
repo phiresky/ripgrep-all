@@ -10,6 +10,8 @@ lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "poppler".to_owned(),
         version: 1,
+        description: "Uses pdftotext (from poppler-utils) to extract plain text from PDF files"
+            .to_owned(),
         matchers: EXTENSIONS
             .iter()
             .map(|s| Matcher::FileExtension(s.to_string()))
