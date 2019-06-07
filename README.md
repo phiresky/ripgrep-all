@@ -10,10 +10,13 @@ similar:
 # considerations
 
 -   matching on mime (magic bytes) instead of filename
+-   allow per-adapter configuration options
 
 # Development
 
 To enable debug logging:
 
+```bash
 export RUST_LOG=rga=debug
 export RUST_BACKTRACE=1
+```

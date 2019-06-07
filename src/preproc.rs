@@ -1,18 +1,17 @@
 use crate::adapters::*;
+use crate::args::RgaArgs;
 use crate::CachingWriter;
 use failure::Fallible;
 use failure::{format_err, Error};
 use path_clean::PathClean;
+use std::convert::TryInto;
 use std::io::BufWriter;
-// longest compressed conversion output to save in cache
-const MAX_DB_BLOB_LEN: usize = 2_000_000;
-const ZSTD_LEVEL: i32 = 12;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
-pub struct PreprocConfig {
+pub struct PreprocConfig<'a> {
     pub cache: Option<Arc<RwLock<dyn crate::preproc_cache::PreprocCache>>>,
-    pub max_archive_recursion: i32,
+    pub args: &'a RgaArgs,
 }
 /**
  * preprocess a file as defined in `ai`.
@@ -32,15 +31,12 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
         archive_recursion_depth,
         ..
     } = ai;
-    let PreprocConfig {
-        mut cache,
-        max_archive_recursion,
-    } = config;
+    let PreprocConfig { mut cache, args } = config;
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
     eprintln!("depth: {}", archive_recursion_depth);
-    if archive_recursion_depth >= config.max_archive_recursion {
+    if archive_recursion_depth >= args.rga_max_archive_recursion {
         writeln!(oup, "{}[rga: max archive recursion reached]", line_prefix)?;
         return Ok(());
     }
@@ -79,8 +75,11 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                     &cache_key,
                     Box::new(|| -> Fallible<Option<Vec<u8>>> {
                         // wrapping BufWriter here gives ~10% perf boost
-                        let mut compbuf =
-                            BufWriter::new(CachingWriter::new(oup, MAX_DB_BLOB_LEN, ZSTD_LEVEL)?);
+                        let mut compbuf = BufWriter::new(CachingWriter::new(
+                            oup,
+                            args.rga_cache_max_blob_len.try_into().unwrap(),
+                            args.rga_cache_compression_level.try_into().unwrap(),
+                        )?);
                         eprintln!("adapting...");
                         ad.adapt(AdaptInfo {
                             line_prefix,
@@ -89,10 +88,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                             inp,
                             oup: &mut compbuf,
                             archive_recursion_depth,
-                            config: PreprocConfig {
-                                cache: None,
-                                max_archive_recursion,
-                            },
+                            config: PreprocConfig { cache: None, args },
                         })?;
                         let compressed = compbuf
                             .into_inner()
@@ -120,10 +116,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                     inp,
                     oup,
                     archive_recursion_depth,
-                    config: PreprocConfig {
-                        cache: None,
-                        max_archive_recursion,
-                    },
+                    config: PreprocConfig { cache: None, args },
                 })?;
                 Ok(())
             }

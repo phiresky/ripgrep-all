@@ -1,5 +1,3 @@
-
-
 use failure::{format_err, Fallible};
 
 use rga::adapters::*;
@@ -23,7 +21,7 @@ fn main() -> Fallible<()> {
 
     let i = File::open(&path)?;
     let mut o = std::io::stdout();
-    let cache = if args.no_cache {
+    let cache = if args.rga_no_cache {
         None
     } else {
         Some(rga::preproc_cache::open()?)
@@ -35,10 +33,7 @@ fn main() -> Fallible<()> {
         oup: &mut o,
         line_prefix: "",
         archive_recursion_depth: 0,
-        config: PreprocConfig {
-            cache,
-            max_archive_recursion: 3,
-        },
+        config: PreprocConfig { cache, args: &args },
     };
 
     rga_preproc(ai)

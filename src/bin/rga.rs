@@ -1,4 +1,3 @@
-
 use failure::Fallible;
 use log::*;
 use rga::adapters::spawning::map_exe_error;
@@ -9,8 +8,8 @@ use std::ffi::OsString;
 use std::process::Command;
 use structopt::StructOpt;
 
-fn split_args() -> Fallible<(RgaOptions, Vec<OsString>)> {
-    let mut app = RgaOptions::clap();
+fn split_args() -> Fallible<(RgaArgs, Vec<OsString>)> {
+    let mut app = RgaArgs::clap();
 
     app.p.create_help_and_version();
     let mut firstarg = true;
@@ -65,7 +64,7 @@ fn main() -> Fallible<()> {
     let (args, passthrough_args) = split_args()?;
     let adapters = get_adapters();
 
-    if args.list_adapters {
+    if args.rga_list_adapters {
         println!("Adapters:");
         for adapter in adapters {
             let meta = adapter.metadata();
