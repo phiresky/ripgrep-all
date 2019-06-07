@@ -3,7 +3,8 @@ use std::io::Write;
 
 /**
  * wrap a writer so that it is passthrough,
- * but also the written data is compressed and written into a buffer, unless more than X bytes is written
+ * but also the written data is compressed and written into a buffer,
+ * unless more than max_cache_size bytes is written, then the cache is dropped and it is pure passthrough.
  */
 pub struct CachingWriter<W: Write> {
     max_cache_size: usize,

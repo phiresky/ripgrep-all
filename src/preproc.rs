@@ -1,47 +1,24 @@
 use crate::adapters::*;
 use crate::CachingWriter;
+use failure::Fallible;
 use failure::{format_err, Error};
 use path_clean::PathClean;
+use std::convert::AsRef;
 use std::io::BufWriter;
-
 // longest compressed conversion output to save in cache
 const MAX_DB_BLOB_LEN: usize = 2_000_000;
 const ZSTD_LEVEL: i32 = 12;
 
-/// opens a LMDB cache
-pub fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Error> {
-    let app_cache = cachedir::CacheDirConfig::new("rga").get_cache_dir()?;
-
-    let db_arc = rkv::Manager::singleton()
-        .write()
-        .expect("could not write db manager")
-        .get_or_create(app_cache.as_path(), |p| {
-            let mut builder = rkv::Rkv::environment_builder();
-            builder
-                .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable cuz it's a cache
-                // i'm not sure why NO_TLS is needed. otherwise LMDB transactions (open readers) will keep piling up until it fails with
-                // LmdbError(ReadersFull)
-                // hope it doesn't break integrity
-                .set_flags(rkv::EnvironmentFlags::NO_TLS)
-                .set_map_size(2 * 1024 * 1024 * 1024)
-                .set_max_dbs(100)
-                .set_max_readers(128);
-            rkv::Rkv::from_env(p, builder)
-        })
-        .expect("could not get/create db");
-    Ok(db_arc)
+pub struct PreprocConfig {
+    pub cache: Option<Box<dyn crate::preproc_cache::PreprocCache>>,
 }
-
 /**
  * preprocess a file as defined in `ai`.
  *
  * If a cache is passed, read/write to it.
  *
  */
-pub fn rga_preproc<'a>(
-    ai: AdaptInfo<'a>,
-    mb_db_arc: Option<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>>,
-) -> Result<(), Error> {
+pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
     let adapters = adapter_matcher()?;
     let AdaptInfo {
         filepath_hint,
@@ -49,6 +26,7 @@ pub fn rga_preproc<'a>(
         inp,
         oup,
         line_prefix,
+        config,
         ..
     } = ai;
     let filename = filepath_hint
@@ -71,10 +49,9 @@ pub fn rga_preproc<'a>(
             let meta = ad.metadata();
             eprintln!("adapter: {}", &meta.name);
             let db_name = format!("{}.v{}", meta.name, meta.version);
-            if let Some(db_arc) = mb_db_arc {
+            if let Some(cache) = config.cache.as_mut() {
                 let cache_key: Vec<u8> = {
                     let clean_path = filepath_hint.to_owned().clean();
-                    eprintln!("clean path: {:?}", clean_path);
                     let meta = std::fs::metadata(&filepath_hint)?;
 
                     let key = (
@@ -85,24 +62,10 @@ pub fn rga_preproc<'a>(
 
                     bincode::serialize(&key).expect("could not serialize path") // key in the cache database
                 };
-                let db_env = db_arc.read().unwrap();
-                let db = db_env
-                    .open_single(db_name.as_str(), rkv::store::Options::create())
-                    .map_err(|p| format_err!("could not open db store: {:?}", p))?;
-
-                let reader = db_env.read().expect("could not get reader");
-                let cached = db
-                    .get(&reader, &cache_key)
-                    .map_err(|p| format_err!("could not read from db: {:?}", p))?;
-                match cached {
-                    Some(rkv::Value::Blob(cached)) => {
-                        let stdouti = std::io::stdout();
-                        zstd::stream::copy_decode(cached, stdouti.lock())?;
-                        Ok(())
-                    }
-                    Some(_) => Err(format_err!("Integrity: value not blob")),
-                    None => {
-                        drop(reader);
+                cache.get_or_run(
+                    &db_name,
+                    &cache_key,
+                    Box::new(|| -> Fallible<Option<Vec<u8>>> {
                         // wrapping BufWriter here gives ~10% perf boost
                         let mut compbuf =
                             BufWriter::new(CachingWriter::new(oup, MAX_DB_BLOB_LEN, ZSTD_LEVEL)?);
@@ -114,6 +77,7 @@ pub fn rga_preproc<'a>(
                             inp,
                             oup: &mut compbuf,
                             archive_recursion_depth: 0,
+                            config: &mut PreprocConfig { cache: None },
                         })?;
                         let compressed = compbuf
                             .into_inner()
@@ -122,21 +86,16 @@ pub fn rga_preproc<'a>(
                             .finish()?;
                         if let Some(cached) = compressed {
                             eprintln!("compressed len: {}", cached.len());
-
-                            {
-                                let mut writer = db_env.write().map_err(|p| {
-                                    format_err!("could not open write handle to cache: {:?}", p)
-                                })?;
-                                db.put(&mut writer, &cache_key, &rkv::Value::Blob(&cached))
-                                    .map_err(|p| {
-                                        format_err!("could not write to cache: {:?}", p)
-                                    })?;
-                                writer.commit().unwrap();
-                            }
-                        }
+                        };
+                        Ok(None)
+                    }),
+                    Box::new(|cached| {
+                        let stdouti = std::io::stdout();
+                        zstd::stream::copy_decode(cached, stdouti.lock())?;
                         Ok(())
-                    }
-                }
+                    }),
+                )?;
+                Ok(())
             } else {
                 eprintln!("adapting...");
                 ad.adapt(AdaptInfo {
@@ -146,6 +105,7 @@ pub fn rga_preproc<'a>(
                     inp,
                     oup,
                     archive_recursion_depth: 0,
+                    config: &mut PreprocConfig { cache: None },
                 })?;
                 Ok(())
             }

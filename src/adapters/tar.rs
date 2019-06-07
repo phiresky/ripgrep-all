@@ -58,6 +58,7 @@ impl FileAdapter for TarAdapter {
             oup,
             line_prefix,
             archive_recursion_depth,
+            config,
             ..
         } = ai;
 
@@ -81,8 +82,9 @@ impl FileAdapter for TarAdapter {
                     inp: &mut file,
                     oup,
                     line_prefix,
+                    config,
                 };
-                rga_preproc(ai2, None)?;
+                rga_preproc(ai2)?;
             }
         }
         Ok(())

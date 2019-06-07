@@ -50,6 +50,7 @@ impl FileAdapter for ZipAdapter {
             oup,
             line_prefix,
             archive_recursion_depth,
+            config,
             ..
         } = ai;
         loop {
@@ -67,17 +68,15 @@ impl FileAdapter for ZipAdapter {
                         file.compressed_size()
                     );
                     let line_prefix = &format!("{}{}: ", line_prefix, file.name());
-                    rga_preproc(
-                        AdaptInfo {
-                            filepath_hint: &file.sanitized_name(),
-                            is_real_file: false,
-                            inp: &mut file,
-                            oup,
-                            line_prefix,
-                            archive_recursion_depth,
-                        },
-                        None,
-                    )?;
+                    rga_preproc(AdaptInfo {
+                        filepath_hint: &file.sanitized_name(),
+                        is_real_file: false,
+                        inp: &mut file,
+                        oup,
+                        line_prefix,
+                        archive_recursion_depth: archive_recursion_depth + 1,
+                        config,
+                    })?;
                 }
                 Err(e) => return Err(e.into()),
             }

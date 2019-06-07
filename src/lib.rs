@@ -2,6 +2,6 @@
 
 pub mod adapters;
 mod caching_writer;
-pub mod errors;
 pub mod preproc;
+pub mod preproc_cache;
 pub use caching_writer::CachingWriter;

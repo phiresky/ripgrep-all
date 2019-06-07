@@ -17,6 +17,10 @@ fn main() -> Result<(), Error> {
 
     let i = File::open(&path)?;
     let mut o = std::io::stdout();
+    let cache = match env::var("RGA_NO_CACHE") {
+        Ok(ref s) if s.len() > 0 => None,
+        Ok(_) | Err(_) => Some(rga::preproc_cache::open()?),
+    };
     let ai = AdaptInfo {
         inp: &mut BufReader::new(i),
         filepath_hint: &path,
@@ -24,12 +28,8 @@ fn main() -> Result<(), Error> {
         oup: &mut o,
         line_prefix: "",
         archive_recursion_depth: 0,
+        config: &mut PreprocConfig { cache },
     };
 
-    let cache_db = match env::var("RGA_NO_CACHE") {
-        Ok(ref s) if s.len() > 0 => None,
-        Ok(_) | Err(_) => Some(open_cache_db()?),
-    };
-
-    rga_preproc(ai, cache_db)
+    rga_preproc(ai)
 }

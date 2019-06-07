@@ -5,6 +5,7 @@ pub mod spawning;
 pub mod sqlite;
 pub mod tar;
 pub mod zip;
+use crate::preproc::PreprocConfig;
 use failure::*;
 use regex::{Regex, RegexSet};
 use std::io::prelude::*;
@@ -56,6 +57,7 @@ pub struct AdaptInfo<'a> {
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: &'a str,
     // pub adapt_subobject: &'a dyn Fn(AdaptInfo) -> Fallible<()>,
+    pub config: &'a mut PreprocConfig,
 }
 
 pub fn extension_to_regex(extension: &str) -> Regex {
