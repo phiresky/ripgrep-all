@@ -4,7 +4,6 @@ use ::zip::read::ZipFile;
 use failure::*;
 use lazy_static::lazy_static;
 
-
 // todo:
 // maybe todo: read list of extensions from
 //ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
@@ -50,6 +49,7 @@ impl FileAdapter for ZipAdapter {
             mut inp,
             oup,
             line_prefix,
+            archive_recursion_depth,
             ..
         } = ai;
         loop {
@@ -74,6 +74,7 @@ impl FileAdapter for ZipAdapter {
                             inp: &mut file,
                             oup,
                             line_prefix,
+                            archive_recursion_depth,
                         },
                         None,
                     )?;

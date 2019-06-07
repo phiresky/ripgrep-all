@@ -20,14 +20,14 @@ pub fn postproc_line_prefix(
     let mut reader = BufReader::with_capacity(1 << 12, inp);
     let fourk = reader.fill_buf()?;
     if fourk.contains(&0u8) {
-        oup.write_all(format!("{}[binary data]\n", line_prefix).as_bytes())?;
+        writeln!(oup, "{}[rga: binary data]\n", line_prefix)?;
         return Ok(());
     }
     // intentionally do not call reader.consume
     for line in reader.split(b'\n') {
         let line = line?;
         if line.contains(&0u8) {
-            oup.write_all(format!("{}[binary data]\n", line_prefix).as_bytes())?;
+            writeln!(oup, "{}[rga: binary data]\n", line_prefix)?;
             return Ok(());
         }
         oup.write_all(line_prefix.as_bytes())?;

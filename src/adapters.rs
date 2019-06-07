@@ -45,6 +45,8 @@ pub struct AdaptInfo<'a> {
     pub filepath_hint: &'a Path,
     /// true if filepath_hint is an actual file on the file system
     pub is_real_file: bool,
+    /// depth at which this file is in archives. 0 for real filesystem
+    pub archive_recursion_depth: i32,
     /// stream to read the file from. can be from a file or from some decoder
     pub inp: &'a mut dyn Read,
     /// stream to write to. will be written to from a different thread

@@ -57,6 +57,7 @@ impl FileAdapter for TarAdapter {
             mut inp,
             oup,
             line_prefix,
+            archive_recursion_depth,
             ..
         } = ai;
 
@@ -76,6 +77,7 @@ impl FileAdapter for TarAdapter {
                 let ai2: AdaptInfo = AdaptInfo {
                     filepath_hint: &path,
                     is_real_file: false,
+                    archive_recursion_depth: archive_recursion_depth + 1,
                     inp: &mut file,
                     oup,
                     line_prefix,

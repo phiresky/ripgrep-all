@@ -18,8 +18,8 @@ pub fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>, Er
         .get_or_create(app_cache.as_path(), |p| {
             let mut builder = rkv::Rkv::environment_builder();
             builder
-                .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable
-                // i'm not sure why this is needed. otherwise LMDB transactions (open readers) will keep piling up until it fails with
+                .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable cuz it's a cache
+                // i'm not sure why NO_TLS is needed. otherwise LMDB transactions (open readers) will keep piling up until it fails with
                 // LmdbError(ReadersFull)
                 // hope it doesn't break integrity
                 .set_flags(rkv::EnvironmentFlags::NO_TLS)
@@ -113,6 +113,7 @@ pub fn rga_preproc<'a>(
                             is_real_file,
                             inp,
                             oup: &mut compbuf,
+                            archive_recursion_depth: 0,
                         })?;
                         let compressed = compbuf
                             .into_inner()
@@ -144,6 +145,7 @@ pub fn rga_preproc<'a>(
                     is_real_file,
                     inp,
                     oup,
+                    archive_recursion_depth: 0,
                 })?;
                 Ok(())
             }

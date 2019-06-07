@@ -49,10 +49,12 @@ impl FileAdapter for FFmpegAdapter {
             is_real_file,
             filepath_hint,
             oup,
+            line_prefix,
             ..
         } = ai;
         if !is_real_file {
-            eprintln!("Skipping video in archive");
+            // we *could* probably adapt this to also work based on streams, but really when would you want to search for videos within archives?
+            writeln!(oup, "{}[rga: skipping video in archive]", line_prefix,)?;
             return Ok(());
         }
         let inp_fname = filepath_hint;
