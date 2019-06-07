@@ -2,6 +2,7 @@ pub mod ffmpeg;
 pub mod pandoc;
 pub mod poppler;
 pub mod spawning;
+pub mod sqlite;
 pub mod tar;
 pub mod zip;
 use failure::*;
@@ -23,6 +24,7 @@ pub enum Matcher {
 
 pub struct AdapterMeta {
     pub name: String,
+    // version identifier. used to key cache entries, change if your output format changes
     pub version: i32,
     pub matchers: Vec<Matcher>,
 }
@@ -67,6 +69,7 @@ pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
         Rc::new(poppler::PopplerAdapter),
         Rc::new(zip::ZipAdapter),
         Rc::new(tar::TarAdapter),
+        Rc::new(sqlite::SqliteAdapter),
     ];
     adapters
 }

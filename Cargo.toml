@@ -1,7 +1,7 @@
 
 [package]
 name = "rga"
-description = "ripgrep, except for pdf, ebooks, Office documents, etc"
+description = "ripgrep but for pdf, ebooks, Office documents, archives, etc"
 license = "AGPL-3.0-or-later"
 version = "0.4.0"
 repository = "https://github.com/phiresky/rga"
@@ -37,4 +37,5 @@ tar = "0.4.26"
 chrono = "0.4.6"
 encoding_rs = "0.8.17"
 encoding_rs_io = "0.1.6"
-rusqlite = "0.18.0"
+rusqlite = { version = "0.18.0", features=["vtab"] } # "bundled"
+size_format = "1.0.2"
