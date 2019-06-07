@@ -1,4 +1,5 @@
 use failure::{format_err, Fallible};
+use log::*;
 use std::sync::{Arc, RwLock};
 
 pub fn open() -> Fallible<Arc<RwLock<dyn PreprocCache>>> {
@@ -71,10 +72,12 @@ impl PreprocCache for LmdbCache {
 
         match cached {
             Some(rkv::Value::Blob(cached)) => {
+                debug!("got cached");
                 callback(cached)?;
             }
             Some(_) => Err(format_err!("Integrity: value not blob"))?,
             None => {
+                debug!("did not get cached");
                 drop(reader);
                 if let Some(got) = runner()? {
                     let mut writer = db_env.write().map_err(|p| {

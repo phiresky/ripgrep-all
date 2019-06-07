@@ -97,8 +97,10 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                             .finish()?;
                         if let Some(cached) = compressed {
                             eprintln!("compressed len: {}", cached.len());
-                        };
-                        Ok(None)
+                            Ok(Some(cached))
+                        } else {
+                            Ok(None)
+                        }
                     }),
                     Box::new(|cached| {
                         let stdouti = std::io::stdout();

@@ -78,7 +78,6 @@ impl FileAdapter for FFmpegAdapter {
             if !probe.status.success() {
                 return Err(format_err!("ffprobe failed: {:?}", probe.status));
             }
-            println!("{}", String::from_utf8_lossy(&probe.stdout));
             let p: FFprobeOutput = serde_json::from_slice(&probe.stdout)?;
             (p.streams.iter().count() > 0)
         };

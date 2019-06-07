@@ -1,4 +1,5 @@
 use failure::Fallible;
+use log::*;
 use std::io::Write;
 
 /**
