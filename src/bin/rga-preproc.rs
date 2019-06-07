@@ -3,7 +3,7 @@ use rga::adapters::*;
 use rga::preproc::*;
 use std::env;
 use std::fs::File;
-use std::io::{BufReader};
+use std::io::BufReader;
 
 fn main() -> Result<(), Error> {
     let path = {
@@ -23,6 +23,7 @@ fn main() -> Result<(), Error> {
         is_real_file: true,
         oup: &mut o,
         line_prefix: "",
+        archive_recursion_depth: 0,
     };
 
     let cache_db = match env::var("RGA_NO_CACHE") {
