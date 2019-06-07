@@ -3,7 +3,7 @@
 name = "rga"
 description = "ripgrep but search in PDFs, E-Books, Office documents, etc, and also in archives"
 license = "AGPL-3.0-or-later"
-version = "0.4.0"
+version = "0.5.1"
 repository = "https://github.com/phiresky/rga"
 authors = ["phiresky <phireskyde+git@gmail.com>"]
 edition = "2018"
