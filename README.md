@@ -10,3 +10,10 @@ similar:
 # considerations
 
 -   matching on mime (magic bytes) instead of filename
+
+# Development
+
+To enable debug logging:
+
+export RUST_LOG=rga=debug
+export RUST_BACKTRACE=1

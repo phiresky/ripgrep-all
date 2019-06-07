@@ -1,10 +1,17 @@
-use failure::{format_err, Error};
+use clap::{crate_version, App, Arg};
+
+use failure::{format_err, Error, Fallible};
+use log::*;
 use rga::adapters::*;
 use rga::preproc::*;
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-fn main() -> Result<(), Error> {
+fn main() -> Fallible<()> {
+    env_logger::init();
+    let empty: Vec<std::ffi::OsString> = vec![];
+    let args = rga::args::parse_args(empty)?;
+    //clap::App::new("rga-preproc").arg(Arg::from_usage())
     let path = {
         let filepath = std::env::args_os()
             .skip(1)
@@ -16,9 +23,10 @@ fn main() -> Result<(), Error> {
 
     let i = File::open(&path)?;
     let mut o = std::io::stdout();
-    let cache = match env::var("RGA_NO_CACHE") {
-        Ok(ref s) if s.len() > 0 => None,
-        Ok(_) | Err(_) => Some(rga::preproc_cache::open()?),
+    let cache = if args.no_cache {
+        None
+    } else {
+        Some(rga::preproc_cache::open()?)
     };
     let ai = AdaptInfo {
         inp: &mut BufReader::new(i),

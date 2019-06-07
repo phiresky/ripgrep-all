@@ -3,24 +3,18 @@ use failure::Fallible;
 use log::*;
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
+use rga::args::*;
+use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::process::Command;
+use structopt::StructOpt;
 
-fn main() -> Fallible<()> {
-    env_logger::init();
-    let mut app = App::new(env!("CARGO_PKG_NAME"))
-        .version(crate_version!())
-        .about(env!("CARGO_PKG_DESCRIPTION"))
-        // .setting(clap::AppSettings::ArgRequiredElseHelp)
-        .arg(Arg::from_usage(
-            "--list-adapters 'Lists all known adapters'",
-        ))
-        .arg(Arg::from_usage("--adapters=[commaseparated] 'Change which adapters to use and in which priority order (descending)'").require_equals(true))
-        .arg(Arg::from_usage("--no-cache 'Disable caching of results'"))
-        .arg(Arg::from_usage("--rg-help 'Show help for ripgrep itself'"))
-        .arg(Arg::from_usage("--rg-version 'Show version of ripgrep itself'"));
+fn split_args() -> Fallible<(RgaOptions, Vec<OsString>)> {
+    let mut app = RgaOptions::clap();
+
     app.p.create_help_and_version();
     let mut firstarg = true;
+    // debug!("{:#?}", app.p.flags);
     let (our_args, mut passthrough_args): (Vec<OsString>, Vec<OsString>) = std::env::args_os()
         .partition(|os_arg| {
             if firstarg {
@@ -45,7 +39,7 @@ fn main() -> Fallible<()> {
                 for opt in app.p.opts() {
                     // only parse --x=... for now
                     if let Some(l) = opt.s.long {
-                        if arg.starts_with(&format!("--{}-", l)) {
+                        if arg.starts_with(&format!("--{}=", l)) {
                             return true;
                         }
                     }
@@ -54,18 +48,24 @@ fn main() -> Fallible<()> {
             false
         });
     debug!("our_args: {:?}", our_args);
-    let matches = app.get_matches_from(our_args);
-    if matches.is_present("rg-help") {
+    let matches = parse_args(our_args)?;
+    if matches.rg_help {
         passthrough_args.insert(0, "--help".into());
     }
-    if matches.is_present("rg-version") {
+    if matches.rg_version {
         passthrough_args.insert(0, "--version".into());
     }
     debug!("passthrough_args: {:?}", passthrough_args);
+    Ok((matches, passthrough_args))
+}
 
+fn main() -> Fallible<()> {
+    env_logger::init();
+
+    let (args, passthrough_args) = split_args()?;
     let adapters = get_adapters();
 
-    if matches.is_present("list-adapters") {
+    if args.list_adapters {
         println!("Adapters:");
         for adapter in adapters {
             let meta = adapter.metadata();
