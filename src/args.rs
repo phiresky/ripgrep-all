@@ -1,11 +1,11 @@
-use clap::{crate_version, App, Arg};
+
 use failure::Fallible;
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::ffi::OsStr;
+
 use std::ffi::OsString;
 use std::iter::IntoIterator;
-use std::process::Command;
+
 use structopt::StructOpt;
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {
     t == &T::default()

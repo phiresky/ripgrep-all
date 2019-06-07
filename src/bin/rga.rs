@@ -1,10 +1,10 @@
-use clap::{crate_version, App, Arg};
+
 use failure::Fallible;
 use log::*;
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
 use rga::args::*;
-use serde::{Deserialize, Serialize};
+
 use std::ffi::OsString;
 use std::process::Command;
 use structopt::StructOpt;

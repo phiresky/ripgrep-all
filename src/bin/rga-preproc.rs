@@ -1,10 +1,10 @@
-use clap::{crate_version, App, Arg};
 
-use failure::{format_err, Error, Fallible};
-use log::*;
+
+use failure::{format_err, Fallible};
+
 use rga::adapters::*;
 use rga::preproc::*;
-use std::env;
+
 use std::fs::File;
 use std::io::BufReader;
 fn main() -> Fallible<()> {
