@@ -4,7 +4,6 @@ use rga::preproc::*;
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-
 fn main() -> Result<(), Error> {
     let path = {
         let filepath = std::env::args_os()
@@ -28,7 +27,10 @@ fn main() -> Result<(), Error> {
         oup: &mut o,
         line_prefix: "",
         archive_recursion_depth: 0,
-        config: &mut PreprocConfig { cache },
+        config: PreprocConfig {
+            cache,
+            max_archive_recursion: 3,
+        },
     };
 
     rga_preproc(ai)

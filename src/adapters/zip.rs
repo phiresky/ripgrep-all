@@ -61,7 +61,8 @@ impl FileAdapter for ZipAdapter {
                         continue;
                     }
                     eprintln!(
-                        "{}|{}: {} bytes ({} bytes packed)",
+                        "{}{}|{}: {} bytes ({} bytes packed)",
+                        line_prefix,
                         filepath_hint.to_string_lossy(),
                         file.name(),
                         file.size(),
@@ -75,7 +76,7 @@ impl FileAdapter for ZipAdapter {
                         oup,
                         line_prefix,
                         archive_recursion_depth: archive_recursion_depth + 1,
-                        config,
+                        config: config.clone(),
                     })?;
                 }
                 Err(e) => return Err(e.into()),

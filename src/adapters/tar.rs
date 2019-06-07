@@ -82,7 +82,7 @@ impl FileAdapter for TarAdapter {
                     inp: &mut file,
                     oup,
                     line_prefix,
-                    config,
+                    config: config.clone(),
                 };
                 rga_preproc(ai2)?;
             }

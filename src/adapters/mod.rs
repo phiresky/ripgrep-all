@@ -57,7 +57,7 @@ pub struct AdaptInfo<'a> {
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: &'a str,
     // pub adapt_subobject: &'a dyn Fn(AdaptInfo) -> Fallible<()>,
-    pub config: &'a mut PreprocConfig,
+    pub config: PreprocConfig,
 }
 
 pub fn extension_to_regex(extension: &str) -> Regex {

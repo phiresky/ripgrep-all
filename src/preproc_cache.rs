@@ -1,7 +1,8 @@
 use failure::{format_err, Fallible};
+use std::sync::{Arc, RwLock};
 
-pub fn open() -> Fallible<Box<dyn PreprocCache>> {
-    Ok(Box::new(LmdbCache::open()?))
+pub fn open() -> Fallible<Arc<RwLock<dyn PreprocCache>>> {
+    Ok(Arc::new(RwLock::new(LmdbCache::open()?)))
 }
 pub trait PreprocCache {
     // possible without second lambda?

@@ -1,13 +1,9 @@
-use super::spawning::map_exe_error;
 use super::*;
 use failure::*;
 use lazy_static::lazy_static;
-use rusqlite::types::{ToSql, ValueRef};
+use rusqlite::types::ValueRef;
 use rusqlite::*;
-use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
-use std::io::BufReader;
-use std::process::*;
 
 static EXTENSIONS: &[&str] = &["db", "db3", "sqlite", "sqlite3"];
 

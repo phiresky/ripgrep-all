@@ -3,14 +3,16 @@ use crate::CachingWriter;
 use failure::Fallible;
 use failure::{format_err, Error};
 use path_clean::PathClean;
-use std::convert::AsRef;
 use std::io::BufWriter;
 // longest compressed conversion output to save in cache
 const MAX_DB_BLOB_LEN: usize = 2_000_000;
 const ZSTD_LEVEL: i32 = 12;
+use std::sync::{Arc, RwLock};
 
+#[derive(Clone)]
 pub struct PreprocConfig {
-    pub cache: Option<Box<dyn crate::preproc_cache::PreprocCache>>,
+    pub cache: Option<Arc<RwLock<dyn crate::preproc_cache::PreprocCache>>>,
+    pub max_archive_recursion: i32,
 }
 /**
  * preprocess a file as defined in `ai`.
@@ -27,11 +29,21 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
         oup,
         line_prefix,
         config,
+        archive_recursion_depth,
         ..
     } = ai;
+    let PreprocConfig {
+        mut cache,
+        max_archive_recursion,
+    } = config;
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
+    eprintln!("depth: {}", archive_recursion_depth);
+    if archive_recursion_depth >= config.max_archive_recursion {
+        writeln!(oup, "{}[rga: max archive recursion reached]", line_prefix)?;
+        return Ok(());
+    }
 
     eprintln!("path_hint: {:?}", filepath_hint);
 
@@ -49,7 +61,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
             let meta = ad.metadata();
             eprintln!("adapter: {}", &meta.name);
             let db_name = format!("{}.v{}", meta.name, meta.version);
-            if let Some(cache) = config.cache.as_mut() {
+            if let Some(cache) = cache.as_mut() {
                 let cache_key: Vec<u8> = {
                     let clean_path = filepath_hint.to_owned().clean();
                     let meta = std::fs::metadata(&filepath_hint)?;
@@ -62,7 +74,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
 
                     bincode::serialize(&key).expect("could not serialize path") // key in the cache database
                 };
-                cache.get_or_run(
+                cache.write().unwrap().get_or_run(
                     &db_name,
                     &cache_key,
                     Box::new(|| -> Fallible<Option<Vec<u8>>> {
@@ -76,8 +88,11 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                             is_real_file,
                             inp,
                             oup: &mut compbuf,
-                            archive_recursion_depth: 0,
-                            config: &mut PreprocConfig { cache: None },
+                            archive_recursion_depth,
+                            config: PreprocConfig {
+                                cache: None,
+                                max_archive_recursion,
+                            },
                         })?;
                         let compressed = compbuf
                             .into_inner()
@@ -104,8 +119,11 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                     is_real_file,
                     inp,
                     oup,
-                    archive_recursion_depth: 0,
-                    config: &mut PreprocConfig { cache: None },
+                    archive_recursion_depth,
+                    config: PreprocConfig {
+                        cache: None,
+                        max_archive_recursion,
+                    },
                 })?;
                 Ok(())
             }
