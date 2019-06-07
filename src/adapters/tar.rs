@@ -4,7 +4,6 @@ use ::tar::EntryType::Regular;
 use failure::*;
 use lazy_static::lazy_static;
 
-use std::io::BufReader;
 use std::path::PathBuf;
 
 static EXTENSIONS: &[&str] = &["tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst"];
@@ -33,39 +32,18 @@ impl GetMetadata for TarAdapter {
     }
 }
 
-// feeling a little stupid here. why is this needed at all
-enum SpecRead<R: Read> {
-    Gz(flate2::read::MultiGzDecoder<R>),
-    Bz2(bzip2::read::BzDecoder<R>),
-    Xz(xz2::read::XzDecoder<R>),
-    Zst(zstd::stream::read::Decoder<BufReader<R>>),
-    Passthrough(R),
-}
-impl<R: Read> Read for SpecRead<R> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        use SpecRead::*;
-        match self {
-            Gz(z) => z.read(buf),
-            Bz2(z) => z.read(buf),
-            Xz(z) => z.read(buf),
-            Zst(z) => z.read(buf),
-            Passthrough(z) => z.read(buf),
-        }
-    }
-}
-// why do I need to wrap the output here in a specific type? is it possible with just a Box<Read> for every type?
-fn decompress_any<'a, R>(filename: &Path, inp: &'a mut R) -> Fallible<SpecRead<&'a mut R>>
+fn decompress_any<'a, R>(filename: &Path, inp: &'a mut R) -> Fallible<Box<dyn Read + 'a>>
 where
     R: Read,
 {
     let extension = filename.extension().map(|e| e.to_string_lossy().to_owned());
     match extension {
         Some(e) => Ok(match e.to_owned().as_ref() {
-            "gz" => SpecRead::Gz(flate2::read::MultiGzDecoder::new(inp)),
-            "bz2" => SpecRead::Bz2(bzip2::read::BzDecoder::new(inp)),
-            "xz" => SpecRead::Xz(xz2::read::XzDecoder::new_multi_decoder(inp)),
-            "zst" => SpecRead::Zst(zstd::stream::read::Decoder::new(inp)?),
-            "tar" => SpecRead::Passthrough(inp),
+            "gz" => Box::new(flate2::read::MultiGzDecoder::new(inp)),
+            "bz2" => Box::new(bzip2::read::BzDecoder::new(inp)),
+            "xz" => Box::new(xz2::read::XzDecoder::new_multi_decoder(inp)),
+            "zst" => Box::new(zstd::stream::read::Decoder::new(inp)?),
+            "tar" => Box::new(inp),
             ext => Err(format_err!("don't know how to decompress {}", ext))?,
         }),
         None => Err(format_err!("no extension")),
