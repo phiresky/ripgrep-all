@@ -9,7 +9,7 @@ use crate::preproc::PreprocConfig;
 use failure::*;
 use log::*;
 use regex::{Regex, RegexSet};
-use std::borrow::Borrow;
+
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::prelude::*;
@@ -203,8 +203,8 @@ pub fn adapter_matcher<T: AsRef<str>>(
                 eprintln!(" - {}", fname_regexes[*fmatch].1.metadata().name);
             }
         }
-        if mime_matches.len() == 0 {
-            if fname_matches.len() == 0 {
+        if mime_matches.is_empty() {
+            if fname_matches.is_empty() {
                 None
             } else {
                 Some(fname_regexes[fname_matches[0]].1.clone())

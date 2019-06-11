@@ -123,3 +123,41 @@ where
         }
     }
 }
+
+/// Split arguments into the ones we care about and the ones rg cares about
+pub fn split_args() -> Fallible<(RgaArgs, Vec<OsString>)> {
+    let mut app = RgaArgs::clap();
+
+    app.p.create_help_and_version();
+    let mut firstarg = true;
+    // debug!("{:#?}", app.p.flags);
+    let (our_args, mut passthrough_args): (Vec<OsString>, Vec<OsString>) = std::env::args_os()
+        .partition(|os_arg| {
+            if firstarg {
+                // hacky, but .enumerate() would be ugly because partition is too simplistic
+                firstarg = false;
+                return true;
+            }
+            if let Some(arg) = os_arg.to_str() {
+                arg.starts_with("--rga-")
+                    || arg.starts_with("--rg-")
+                    || arg == "--help"
+                    || arg == "-h"
+                    || arg == "--version"
+                    || arg == "-V"
+            } else {
+                // args that are not unicode can only be filenames, pass them to rg
+                false
+            }
+        });
+    debug!("our_args: {:?}", our_args);
+    let matches = parse_args(our_args)?;
+    if matches.rg_help {
+        passthrough_args.insert(0, "--help".into());
+    }
+    if matches.rg_version {
+        passthrough_args.insert(0, "--version".into());
+    }
+    debug!("passthrough_args: {:?}", passthrough_args);
+    Ok((matches, passthrough_args))
+}

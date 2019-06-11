@@ -1,62 +1,12 @@
 use failure::Fallible;
-use log::*;
+
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
 use rga::args::*;
 
-use std::ffi::OsString;
+
 use std::process::Command;
-use structopt::StructOpt;
 
-fn split_args() -> Fallible<(RgaArgs, Vec<OsString>)> {
-    let mut app = RgaArgs::clap();
-
-    app.p.create_help_and_version();
-    let mut firstarg = true;
-    // debug!("{:#?}", app.p.flags);
-    let (our_args, mut passthrough_args): (Vec<OsString>, Vec<OsString>) = std::env::args_os()
-        .partition(|os_arg| {
-            if firstarg {
-                // hacky, but .enumerate() would be ugly because partition is too simplistic
-                firstarg = false;
-                return true;
-            }
-            if let Some(arg) = os_arg.to_str() {
-                for flag in app.p.flags() {
-                    if let Some(s) = flag.s.short {
-                        if arg == format!("-{}", s) {
-                            return true;
-                        }
-                    }
-                    if let Some(l) = flag.s.long {
-                        if arg == format!("--{}", l) {
-                            return true;
-                        }
-                    }
-                    // println!("{}", flag.s.long);
-                }
-                for opt in app.p.opts() {
-                    // only parse --x=... for now
-                    if let Some(l) = opt.s.long {
-                        if arg.starts_with(&format!("--{}", l)) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            false
-        });
-    debug!("our_args: {:?}", our_args);
-    let matches = parse_args(our_args)?;
-    if matches.rg_help {
-        passthrough_args.insert(0, "--help".into());
-    }
-    if matches.rg_version {
-        passthrough_args.insert(0, "--version".into());
-    }
-    debug!("passthrough_args: {:?}", passthrough_args);
-    Ok((matches, passthrough_args))
-}
 
 fn main() -> Fallible<()> {
     env_logger::init();
