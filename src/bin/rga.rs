@@ -4,9 +4,7 @@ use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
 use rga::args::*;
 
-
 use std::process::Command;
-
 
 fn main() -> Fallible<()> {
     env_logger::init();
@@ -35,14 +33,19 @@ fn main() -> Fallible<()> {
         return Ok(());
     }
 
-    let extensions = adapters
-        .iter()
-        .flat_map(|a| &a.metadata().fast_matchers)
-        .filter_map(|m| match m {
-            FastMatcher::FileExtension(ext) => Some(ext as &str),
-        })
-        .collect::<Vec<_>>()
-        .join(",");
+    let pre_glob = if !args.accurate {
+        let extensions = adapters
+            .iter()
+            .flat_map(|a| &a.metadata().fast_matchers)
+            .filter_map(|m| match m {
+                FastMatcher::FileExtension(ext) => Some(ext as &str),
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("*.{{{}}}", extensions)
+    } else {
+        "*".to_owned()
+    };
 
     let exe = std::env::current_exe().expect("Could not get executable location");
     let preproc_exe = exe.with_file_name("rga-preproc");
@@ -51,7 +54,7 @@ fn main() -> Fallible<()> {
         .arg("--pre")
         .arg(preproc_exe)
         .arg("--pre-glob")
-        .arg(format!("*.{{{}}}", extensions))
+        .arg(pre_glob)
         .args(passthrough_args)
         .spawn()
         .map_err(|e| map_exe_error(e, "rg", "Please make sure you have ripgrep installed."))?;

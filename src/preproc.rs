@@ -5,6 +5,8 @@ use failure::Fallible;
 use failure::{format_err, Error};
 use path_clean::PathClean;
 use std::convert::TryInto;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::io::BufWriter;
 use std::sync::{Arc, RwLock};
 
@@ -43,13 +45,20 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
 
     eprintln!("path_hint: {:?}", filepath_hint);
 
-    /*let mimetype = tree_magic::from_filepath(path).ok_or(lerr(format!(
-        "File {} does not exist",
-        filename.to_string_lossy()
-    )))?;
-    println!("mimetype: {:?}", mimetype);*/
+    // todo: figure out when using a bufreader is a good idea and when it is not
+    // seems to beed for File::open() reads, but not sure about within archives (tar, zip)
+    let inp = &mut BufReader::with_capacity(1 << 13, inp);
+
+    let mimetype = if args.accurate {
+        let buf = inp.fill_buf()?; // fill but do not consume!
+        let mimetype = tree_magic::from_u8(buf);
+        eprintln!("mimetype: {:?}", mimetype);
+        Some(mimetype)
+    } else {
+        None
+    };
     let adapter = adapters(FileMeta {
-        mimetype: None,
+        mimetype,
         lossy_filename: filename.to_string_lossy().to_string(),
     });
     match adapter {

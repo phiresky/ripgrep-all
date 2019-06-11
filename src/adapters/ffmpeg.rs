@@ -125,6 +125,7 @@ impl FileAdapter for FFmpegAdapter {
             let stdo = cmd.stdout.as_mut().expect("is piped");
             let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
             let mut time: String = "".to_owned();
+            // rewrite subtitle times so they are prefixed in every line
             for line in BufReader::new(stdo).lines() {
                 let line = line?;
                 // 09:55.195 --> 09:56.730

@@ -4,7 +4,7 @@ use rga::adapters::*;
 use rga::preproc::*;
 
 use std::fs::File;
-use std::io::BufReader;
+
 fn main() -> Fallible<()> {
     env_logger::init();
     let empty: Vec<std::ffi::OsString> = vec![];
@@ -19,7 +19,7 @@ fn main() -> Fallible<()> {
         std::env::current_dir()?.join(&filepath)
     };
 
-    let i = File::open(&path)?;
+    let mut i = File::open(&path)?;
     let mut o = std::io::stdout();
     let cache = if args.no_cache {
         None
@@ -27,7 +27,7 @@ fn main() -> Fallible<()> {
         Some(rga::preproc_cache::open()?)
     };
     let ai = AdaptInfo {
-        inp: &mut BufReader::new(i),
+        inp: &mut i,
         filepath_hint: &path,
         is_real_file: true,
         oup: &mut o,
