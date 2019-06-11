@@ -101,6 +101,7 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 }
 
 pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
+    // order in descending priority
     let adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(ffmpeg::FFmpegAdapter),
         Rc::new(pandoc::PandocAdapter),
@@ -165,6 +166,8 @@ pub fn adapter_matcher<T: AsRef<str>>(
     slow: bool,
 ) -> Fallible<impl Fn(FileMeta) -> Option<Rc<dyn FileAdapter>>> {
     let adapters = get_adapters_filtered(adapter_names)?;
+    // need order later
+    let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
     let mut fname_regexes = vec![];
     let mut mime_regexes = vec![];
     for adapter in adapters.into_iter() {
@@ -195,13 +198,26 @@ pub fn adapter_matcher<T: AsRef<str>>(
             vec![]
         };
         if fname_matches.len() + mime_matches.len() > 1 {
-            eprintln!("Found multiple adapters for {}:", meta.lossy_filename);
-            for mmatch in mime_matches.iter() {
-                eprintln!(" - {}", mime_regexes[*mmatch].1.metadata().name);
+            // get first according to original priority list...
+            let fa = fname_matches.iter().map(|e| fname_regexes[*e].1.clone());
+            let fb = mime_matches.iter().map(|e| mime_regexes[*e].1.clone());
+            let mut v = vec![];
+            v.extend(fa);
+            v.extend(fb);
+            v.sort_by_key(|e| {
+                (adapter_names
+                    .iter()
+                    .position(|r| r == &e.metadata().name)
+                    .expect("impossib7"))
+            });
+            eprintln!(
+                "Warning: found multiple adapters for {}:",
+                meta.lossy_filename
+            );
+            for mmatch in v.iter() {
+                eprintln!(" - {}", mmatch.metadata().name);
             }
-            for fmatch in fname_matches.iter() {
-                eprintln!(" - {}", fname_regexes[*fmatch].1.metadata().name);
-            }
+            return Some(v[0].clone());
         }
         if mime_matches.is_empty() {
             if fname_matches.is_empty() {
