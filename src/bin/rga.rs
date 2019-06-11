@@ -49,8 +49,16 @@ fn main() -> Fallible<()> {
 
     let exe = std::env::current_exe().expect("Could not get executable location");
     let preproc_exe = exe.with_file_name("rga-preproc");
+
+    let rg_args = vec![
+        "--no-line-number",
+        // smart case by default because within weird files
+        // we probably can't really trust casing anyways
+        "--smart-case",
+    ];
+
     let mut child = Command::new("rg")
-        .arg("--no-line-number")
+        .args(rg_args)
         .arg("--pre")
         .arg(preproc_exe)
         .arg("--pre-glob")
