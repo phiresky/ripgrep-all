@@ -1,7 +1,7 @@
 use failure::{format_err, Fallible};
-
 use rga::adapters::*;
 use rga::preproc::*;
+use ripgrep_all as rga;
 
 use std::fs::File;
 

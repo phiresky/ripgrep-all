@@ -68,14 +68,14 @@ impl FileAdapter for TarAdapter {
         let mut archive = ::tar::Archive::new(decompress);
         for entry in archive.entries()? {
             let mut file = entry.unwrap();
-            let path = PathBuf::from(file.path()?.to_owned());
-            eprintln!(
-                "{}|{}: {} bytes",
-                filepath_hint.display(),
-                path.display(),
-                file.header().size()?,
-            );
             if Regular == file.header().entry_type() {
+                let path = PathBuf::from(file.path()?.to_owned());
+                eprintln!(
+                    "{}|{}: {} bytes",
+                    filepath_hint.display(),
+                    path.display(),
+                    file.header().size()?,
+                );
                 let line_prefix = &format!("{}{}: ", line_prefix, path.display());
                 let ai2: AdaptInfo = AdaptInfo {
                     filepath_hint: &path,
