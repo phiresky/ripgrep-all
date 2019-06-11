@@ -4,7 +4,7 @@ use spawning::SpawningFileAdapter;
 use std::process::Command;
 
 // from https://github.com/jgm/pandoc/blob/master/src/Text/Pandoc/App/FormatHeuristics.hs
-// excluding formats that could cause problems (db = sqlite) or that are already text formats (e.g. xml-based)
+// excluding formats that could cause problems (.db ?= sqlite) or that are already text formats (e.g. xml-based)
 //"db"       -> Just "docbook"
 //"adoc"     -> Just "asciidoc"
 //"asciidoc" -> Just "asciidoc"
@@ -46,10 +46,11 @@ lazy_static! {
         name: "pandoc".to_owned(),
         version: 1,
         description: "Uses pandoc to convert binary/unreadable text documents to plain text markdown-like text".to_owned(),
-        matchers: EXTENSIONS
+        fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| Matcher::FileExtension(s.to_string()))
+            .map(|s| FastMatcher::FileExtension(s.to_string()))
             .collect(),
+        slow_matchers: None
     };
 }
 #[derive(Default)]

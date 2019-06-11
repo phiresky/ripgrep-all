@@ -32,58 +32,65 @@ set_default!(max_archive_recursion, 4, i32);
 #[structopt(rename_all = "kebab-case", set_term_width = 80)]
 pub struct RgaArgs {
     #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(long, help = "Disable caching of results")]
-    pub rga_no_cache: bool,
+    #[structopt(long = "--rga-no-cache", help = "Disable caching of results")]
+    pub no_cache: bool,
 
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
-        long,
+        long = "--rga-accurate",
+        help = "Use more accurate but slower matching by mime type"
+    )]
+    pub accurate: bool,
+
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(
+        long = "--rga-adapters",
         require_equals = true,
         require_delimiter = true,
         help = "Change which adapters to use and in which priority order (descending)"
     )]
-    pub rga_adapters: Vec<String>,
+    pub adapters: Vec<String>,
 
     #[serde(
         default = "def_cache_max_blob_len",
         skip_serializing_if = "def_cache_max_blob_len_if"
     )]
     #[structopt(
-        long,
+        long = "--rga-cache-max-blob-len",
         default_value = "2000000",
         help = "Max compressed size to cache",
         long_help = "Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time."
     )]
-    pub rga_cache_max_blob_len: u32,
+    pub cache_max_blob_len: u32,
 
     #[serde(
         default = "def_cache_compression_level",
         skip_serializing_if = "def_cache_compression_level_if"
     )]
     #[structopt(
-        long,
+        long = "--rga-cache-compression-level",
         default_value = "12",
         require_equals = true,
         help = "ZSTD compression level to apply to adapter outputs before storing in cache db"
     )]
-    pub rga_cache_compression_level: u32,
+    pub cache_compression_level: u32,
 
     #[serde(
         default = "def_max_archive_recursion",
         skip_serializing_if = "def_max_archive_recursion_if"
     )]
     #[structopt(
-        long,
+        long = "--rga-max-archive-recursion",
         default_value = "4",
         require_equals = true,
         help = "Maximum nestedness of archives to recurse into"
     )]
-    pub rga_max_archive_recursion: i32,
+    pub max_archive_recursion: i32,
 
     // these arguments stop the process, so don't serialize them
     #[serde(skip)]
-    #[structopt(long, help = "List all known adapters")]
-    pub rga_list_adapters: bool,
+    #[structopt(long = "--rga-list-adapters", help = "List all known adapters")]
+    pub list_adapters: bool,
 
     #[serde(skip)]
     #[structopt(long, help = "Show help for ripgrep itself")]

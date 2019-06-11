@@ -12,10 +12,11 @@ lazy_static! {
         version: 1,
         description: "Uses pdftotext (from poppler-utils) to extract plain text from PDF files"
             .to_owned(),
-        matchers: EXTENSIONS
+        fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| Matcher::FileExtension(s.to_string()))
+            .map(|s| FastMatcher::FileExtension(s.to_string()))
             .collect(),
+        slow_matchers: None
     };
 }
 #[derive(Default)]

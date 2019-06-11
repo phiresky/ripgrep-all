@@ -62,17 +62,17 @@ fn main() -> Fallible<()> {
     env_logger::init();
 
     let (args, passthrough_args) = split_args()?;
-    let adapters = get_adapters_filtered(&args.rga_adapters)?;
+    let adapters = get_adapters_filtered(&args.adapters)?;
 
-    if args.rga_list_adapters {
+    if args.list_adapters {
         println!("Adapters:\n");
         for adapter in adapters {
             let meta = adapter.metadata();
             let matchers = meta
-                .matchers
+                .fast_matchers
                 .iter()
                 .map(|m| match m {
-                    Matcher::FileExtension(ext) => format!(".{}", ext),
+                    FastMatcher::FileExtension(ext) => format!(".{}", ext),
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -87,9 +87,9 @@ fn main() -> Fallible<()> {
 
     let extensions = adapters
         .iter()
-        .flat_map(|a| &a.metadata().matchers)
+        .flat_map(|a| &a.metadata().fast_matchers)
         .filter_map(|m| match m {
-            Matcher::FileExtension(ext) => Some(ext as &str),
+            FastMatcher::FileExtension(ext) => Some(ext as &str),
         })
         .collect::<Vec<_>>()
         .join(",");

@@ -15,10 +15,11 @@ lazy_static! {
         name: "ffmpeg".to_owned(),
         version: 1,
         description: "Uses ffmpeg to extract video metadata and subtitles".to_owned(),
-        matchers: EXTENSIONS
+        fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| Matcher::FileExtension(s.to_string()))
+            .map(|s| FastMatcher::FileExtension(s.to_string()))
             .collect(),
+        slow_matchers: None
     };
 }
 

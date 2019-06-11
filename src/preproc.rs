@@ -20,7 +20,6 @@ pub struct PreprocConfig<'a> {
  *
  */
 pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
-    let adapters = adapter_matcher(&ai.config.args.rga_adapters)?;
     let AdaptInfo {
         filepath_hint,
         is_real_file,
@@ -32,11 +31,12 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
         ..
     } = ai;
     let PreprocConfig { mut cache, args } = config;
+    let adapters = adapter_matcher(&args.adapters[..], args.accurate)?;
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
     eprintln!("depth: {}", archive_recursion_depth);
-    if archive_recursion_depth >= args.rga_max_archive_recursion {
+    if archive_recursion_depth >= args.max_archive_recursion {
         writeln!(oup, "{}[rga: max archive recursion reached]", line_prefix)?;
         return Ok(());
     }
@@ -49,7 +49,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
     )))?;
     println!("mimetype: {:?}", mimetype);*/
     let adapter = adapters(FileMeta {
-        // mimetype,
+        mimetype: None,
         lossy_filename: filename.to_string_lossy().to_string(),
     });
     match adapter {
@@ -77,8 +77,8 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                         // wrapping BufWriter here gives ~10% perf boost
                         let mut compbuf = BufWriter::new(CachingWriter::new(
                             oup,
-                            args.rga_cache_max_blob_len.try_into().unwrap(),
-                            args.rga_cache_compression_level.try_into().unwrap(),
+                            args.cache_max_blob_len.try_into().unwrap(),
+                            args.cache_compression_level.try_into().unwrap(),
                         )?);
                         eprintln!("adapting...");
                         ad.adapt(AdaptInfo {

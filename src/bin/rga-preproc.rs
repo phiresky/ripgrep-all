@@ -21,7 +21,7 @@ fn main() -> Fallible<()> {
 
     let i = File::open(&path)?;
     let mut o = std::io::stdout();
-    let cache = if args.rga_no_cache {
+    let cache = if args.no_cache {
         None
     } else {
         Some(rga::preproc_cache::open()?)

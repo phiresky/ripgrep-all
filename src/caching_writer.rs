@@ -47,7 +47,7 @@ impl<W: Write> Write for CachingWriter<W> {
             Some(writer) => {
                 let wrote = writer.write(buf)?;
                 let compressed_len = writer.get_ref().len();
-                //eprintln!("wrote {} to zstd, len now {}", wrote, compressed_len);
+                trace!("wrote {} to zstd, len now {}", wrote, compressed_len);
                 if compressed_len > self.max_cache_size {
                     eprintln!("cache longer than max, dropping");
                     //writer.finish();

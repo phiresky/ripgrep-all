@@ -14,10 +14,13 @@ lazy_static! {
         description:
             "Uses sqlite bindings to convert sqlite databases into a simple plain text format"
                 .to_owned(),
-        matchers: EXTENSIONS
+        fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| Matcher::FileExtension(s.to_string()))
+            .map(|s| FastMatcher::FileExtension(s.to_string()))
             .collect(),
+        slow_matchers: Some(vec![SlowMatcher::MimeType(
+            "application/x-sqlite3".to_owned()
+        )])
     };
 }
 

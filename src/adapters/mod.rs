@@ -9,19 +9,34 @@ use crate::preproc::PreprocConfig;
 use failure::*;
 use log::*;
 use regex::{Regex, RegexSet};
+use std::borrow::Borrow;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::prelude::*;
+use std::iter::Iterator;
 use std::path::Path;
 use std::rc::Rc;
-//pub use ffmpeg::FffmpegAdapter;
 
-pub enum Matcher {
+#[derive(Clone)]
+pub enum FastMatcher {
     // MimeType(Regex),
     /**
-     * without the dot. e.g. "jpg" or "tar.gz" matched as /.*\.ext$/
+     * without the leading dot, e.g. "jpg" or "tar.gz". Matched as /.*\.ext$/
      *
      */
     FileExtension(String),
+    // todo: maybe add others, e.g. regex on whole filename or even paths
+    // todo: maybe allow matching a directory (e.g. /var/lib/postgres)
+}
+
+#[derive(Clone)]
+pub enum SlowMatcher {
+    /// any type of fast matcher
+    Fast(FastMatcher),
+    ///
+    /// match by exact mime type extracted using tree_magic
+    /// TODO: allow match ignoring suffix etc?
+    MimeType(String),
 }
 
 pub struct AdapterMeta {
@@ -30,14 +45,32 @@ pub struct AdapterMeta {
     /// version identifier. used to key cache entries, change if your output format changes
     pub version: i32,
     pub description: String,
-    pub matchers: Vec<Matcher>,
+    /// list of matchers (interpreted as ORed)
+    pub fast_matchers: Vec<FastMatcher>,
+    /// list of matchers when we have mime type detection active (interpreted as ORed)
+    /// warning: this *overrides* the fast matchers
+    pub slow_matchers: Option<Vec<SlowMatcher>>,
+}
+impl AdapterMeta {
+    // todo: this is pretty ugly
+    fn get_matchers<'a>(&'a self, slow: bool) -> Box<dyn Iterator<Item = Cow<SlowMatcher>> + 'a> {
+        match (slow, &self.slow_matchers) {
+            (true, Some(ref sm)) => Box::new(sm.iter().map(|e| Cow::Borrowed(e))),
+            (_, _) => Box::new(
+                self.fast_matchers
+                    .iter()
+                    .map(|e| Cow::Owned(SlowMatcher::Fast(e.clone()))),
+            ),
+        }
+    }
 }
 
 pub struct FileMeta {
     // filename is not actually a utf8 string, but since we can't do regex on OsStr and can't get a &[u8] from OsStr either,
     // and since we probably only want to do only matching on ascii stuff anyways, this is the filename as a string with non-valid bytes removed
     pub lossy_filename: String,
-    // pub mimetype: String,
+    // only given when slow matching is enabled
+    pub mimetype: Option<String>,
 }
 
 pub trait GetMetadata {
@@ -79,7 +112,9 @@ pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
     adapters
 }
 
-pub fn get_adapters_filtered(adapter_names: &Vec<String>) -> Fallible<Vec<Rc<dyn FileAdapter>>> {
+pub fn get_adapters_filtered<T: AsRef<str>>(
+    adapter_names: &[T],
+) -> Fallible<Vec<Rc<dyn FileAdapter>>> {
     let all_adapters = get_adapters();
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = all_adapters
@@ -89,8 +124,8 @@ pub fn get_adapters_filtered(adapter_names: &Vec<String>) -> Fallible<Vec<Rc<dyn
         let mut adapters = vec![];
         let mut subtractive = false;
         for (i, name) in adapter_names.iter().enumerate() {
-            let mut name = &name[..];
-            if i == 0 && name.starts_with("-") {
+            let mut name = name.as_ref();
+            if i == 0 && (name.starts_with('-')) {
                 subtractive = true;
                 name = &name[1..];
                 adapters = all_adapters.clone();
@@ -98,7 +133,7 @@ pub fn get_adapters_filtered(adapter_names: &Vec<String>) -> Fallible<Vec<Rc<dyn
             if subtractive {
                 let inx = adapters
                     .iter()
-                    .position(|a| &a.metadata().name == name)
+                    .position(|a| a.metadata().name == name)
                     .ok_or_else(|| format_err!("Could not remove {}: Not in list", name))?;
                 adapters.remove(inx);
             } else {
@@ -124,34 +159,58 @@ pub fn get_adapters_filtered(adapter_names: &Vec<String>) -> Fallible<Vec<Rc<dyn
     );
     Ok(adapters)
 }
-pub fn adapter_matcher(
-    adapter_names: &Vec<String>,
+
+pub fn adapter_matcher<T: AsRef<str>>(
+    adapter_names: &[T],
+    slow: bool,
 ) -> Fallible<impl Fn(FileMeta) -> Option<Rc<dyn FileAdapter>>> {
     let adapters = get_adapters_filtered(adapter_names)?;
     let mut fname_regexes = vec![];
-    //let mut mime_regexes = vec![];
+    let mut mime_regexes = vec![];
     for adapter in adapters.into_iter() {
         let metadata = adapter.metadata();
-        for matcher in &metadata.matchers {
-            match matcher {
-                //Matcher::MimeType(re) => mime_regexes.push((re.clone(), adapter.clone())),
-                Matcher::FileExtension(re) => {
+        use SlowMatcher::*;
+        for matcher in metadata.get_matchers(slow) {
+            match matcher.as_ref() {
+                MimeType(re) => mime_regexes.push((re.clone(), adapter.clone())),
+                Fast(FastMatcher::FileExtension(re)) => {
                     fname_regexes.push((extension_to_regex(re), adapter.clone()))
                 }
             };
         }
     }
     let fname_regex_set = RegexSet::new(fname_regexes.iter().map(|p| p.0.as_str()))?;
-    //let mime_regex_set = RegexSet::new(mime_regexes.iter().map(|p| p.0.as_str()))?;
+    let mime_regex_set = RegexSet::new(mime_regexes.iter().map(|p| p.0.as_str()))?;
     Ok(move |meta: FileMeta| {
-        // todo: handle multiple conflicting matches
-        let matches = fname_regex_set.matches(&meta.lossy_filename);
-        match matches.iter().next() {
-            Some(m) => Some(fname_regexes[m].1.clone()),
-            None => None,
+        let fname_matches: Vec<_> = fname_regex_set
+            .matches(&meta.lossy_filename)
+            .into_iter()
+            .collect();
+        let mime_matches: Vec<_> = if slow {
+            mime_regex_set
+                .matches(&meta.mimetype.expect("No mimetype?"))
+                .into_iter()
+                .collect()
+        } else {
+            vec![]
+        };
+        if fname_matches.len() + mime_matches.len() > 1 {
+            eprintln!("Found multiple adapters for {}:", meta.lossy_filename);
+            for mmatch in mime_matches.iter() {
+                eprintln!(" - {}", mime_regexes[*mmatch].1.metadata().name);
+            }
+            for fmatch in fname_matches.iter() {
+                eprintln!(" - {}", fname_regexes[*fmatch].1.metadata().name);
+            }
         }
-        /*for m in mime_regex_set.matches(&meta.mimetype) {
-            return Some(mime_regexes[m].1.clone());
-        }*/
+        if mime_matches.len() == 0 {
+            if fname_matches.len() == 0 {
+                None
+            } else {
+                Some(fname_regexes[fname_matches[0]].1.clone())
+            }
+        } else {
+            Some(mime_regexes[mime_matches[0]].1.clone())
+        }
     })
 }
