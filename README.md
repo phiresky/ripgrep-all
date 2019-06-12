@@ -15,6 +15,10 @@ similar:
 - matching on mime (magic bytes) instead of filename
 - allow per-adapter configuration options
 
+# Setup
+
+Some rga adapters run external binaries
+
 # Development
 
 To enable debug logging:
