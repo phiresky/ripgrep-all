@@ -36,7 +36,8 @@ impl SpawningFileAdapter for TesseractAdapter {
 		"tesseract"
 	}
 	fn command(&self, _filepath_hint: &Path, mut cmd: Command) -> Command {
-		cmd.arg("-").arg("-");
+		// rg already does threading
+		cmd.env("OMP_THREAD_LIMIT", "1").arg("-").arg("-");
 		cmd
 	}
 }
