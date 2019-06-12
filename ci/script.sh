@@ -39,7 +39,7 @@ main() {
     fi
 
     # Test that zsh completions are in sync with ripgrep's actual args.
-    "$(dirname "${0}")/test_complete.sh"
+    # "$(dirname "${0}")/test_complete.sh"
 
     # Run tests for ripgrep and all sub-crates.
     "$CARGO" test --target "$TARGET" --verbose --all
