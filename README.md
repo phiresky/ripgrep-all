@@ -1,5 +1,10 @@
 # rga - ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc
 
+[![Linux build status](https://travis-ci.org/phiresky/ripgrep_all.svg)](https://travis-ci.org/BurntSushi/ripgrep)
+[![Windows build status](https://ci.appveyor.com/api/projects/status/github/BurntSushi/ripgrep?svg=true)](https://ci.appveyor.com/project/BurntSushi/ripgrep)
+[![Crates.io](https://img.shields.io/crates/v/ripgrep.svg)](https://crates.io/crates/ripgrep)
+[![Packaging status](https://repology.org/badge/tiny-repos/ripgrep.svg)](https://repology.org/project/ripgrep/badges)
+
 similar:
 
 - pdfgrep
@@ -16,6 +21,15 @@ similar:
 - allow per-adapter configuration options
 
 # Setup
+
+rga should compile with stable Rust. To install it, simply run
+
+```bash
+apt install build-essential pandoc poppler-utils
+cargo install ripgrep_all
+
+rga --help
+```
 
 Some rga adapters run external binaries
 
