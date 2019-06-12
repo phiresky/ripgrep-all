@@ -2,7 +2,7 @@
 
 rga is a tool to recursively search for text in many different types of files. It is based on the awesome [ripgrep](https://github.com/BurntSushi/ripgrep).
 
-[![Linux build status](https://travis-ci.org/phiresky/ripgrep_all.svg)](https://travis-ci.org/BurntSushi/ripgrep)
+[![Linux build status](https://api.travis-ci.org/phiresky/ripgrep_all.svg)](https://travis-ci.org/phiresky/ripgrep_all)
 [![Crates.io](https://img.shields.io/crates/v/ripgrep_all.svg)](https://crates.io/crates/ripgrep_all)
 
 # todo
