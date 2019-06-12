@@ -31,9 +31,6 @@ matrix:
     # of the regex library's multiple pattern SIMD search.
     - os: linux
       rust: nightly
-      env: TARGET=i686-unknown-linux-musl
-    - os: linux
-      rust: nightly
       env: TARGET=x86_64-unknown-linux-musl
     - os: osx
       rust: nightly
