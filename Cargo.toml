@@ -3,8 +3,8 @@
 name = "ripgrep_all"
 description = "ripgrep but search in PDFs, E-Books, Office documents, etc, and also in archives"
 license = "AGPL-3.0-or-later"
-version = "0.5.1"
-repository = "https://github.com/phiresky/rga"
+version = "0.6.1"
+repository = "https://github.com/phiresky/ripgrep_all"
 authors = ["phiresky <phireskyde+git@gmail.com>"]
 edition = "2018"
 exclude = [
@@ -41,5 +41,5 @@ rusqlite = { version = "0.18.0", features=["vtab"] } # "bundled"
 size_format = "1.0.2"
 structopt = "0.2.16"
 paste = "0.1.5"
-tempfile = "*"
-glob = "*"
+tempfile = "3.0.8"
+glob = "0.3.0"
