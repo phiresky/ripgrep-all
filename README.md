@@ -18,7 +18,7 @@ similar:
 To enable debug logging:
 
 ```bash
-export RUST_LOG=rga=debug
+export RUST_LOG=debug
 export RUST_BACKTRACE=1
 ```
 

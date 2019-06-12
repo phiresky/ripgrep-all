@@ -110,7 +110,10 @@ where
 {
     match std::env::var(RGA_CONFIG) {
         Ok(val) => {
-            debug!("Loading args from env {}={}", RGA_CONFIG, val);
+            debug!(
+                "Loading args from env {}={}, ignoring cmd args",
+                RGA_CONFIG, val
+            );
             Ok(serde_json::from_str(&val)?)
         }
         Err(_) => {

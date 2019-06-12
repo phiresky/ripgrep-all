@@ -11,11 +11,12 @@ fn main() -> Fallible<()> {
     env_logger::init();
 
     let (args, passthrough_args) = split_args()?;
-    let adapters = get_adapters_filtered(&args.adapters)?;
 
     if args.list_adapters {
+        let (enabled_adapters, disabled_adapters) = get_all_adapters();
+
         println!("Adapters:\n");
-        for adapter in adapters {
+        let print = |adapter: std::rc::Rc<dyn FileAdapter>| {
             let meta = adapter.metadata();
             let matchers = meta
                 .fast_matchers
@@ -30,9 +31,17 @@ fn main() -> Fallible<()> {
                 meta.name, meta.description, matchers
             );
             println!("");
+        };
+        for adapter in enabled_adapters {
+            print(adapter)
+        }
+        println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+tesseract,xyz':\n");
+        for adapter in disabled_adapters {
+            print(adapter)
         }
         return Ok(());
     }
+    let adapters = get_adapters_filtered(&args.adapters)?;
 
     let pre_glob = if !args.accurate {
         let extensions = adapters

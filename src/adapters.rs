@@ -1,9 +1,11 @@
 pub mod ffmpeg;
 pub mod pandoc;
+pub mod pdfpages;
 pub mod poppler;
 pub mod spawning;
 pub mod sqlite;
 pub mod tar;
+pub mod tesseract;
 pub mod zip;
 use crate::matching::*;
 use crate::preproc::PreprocConfig;
@@ -69,18 +71,19 @@ pub struct AdaptInfo<'a> {
     pub config: PreprocConfig<'a>,
 }
 
-pub fn get_adapters() -> (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>) {
+pub fn get_all_adapters() -> (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>) {
     // order in descending priority
     let enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
-        Rc::new(ffmpeg::FFmpegAdapter),
-        Rc::new(pandoc::PandocAdapter),
-        Rc::new(poppler::PopplerAdapter),
-        Rc::new(zip::ZipAdapter),
-        Rc::new(tar::TarAdapter),
-        Rc::new(sqlite::SqliteAdapter),
+        Rc::new(ffmpeg::FFmpegAdapter::new()),
+        Rc::new(pandoc::PandocAdapter::new()),
+        Rc::new(poppler::PopplerAdapter::new()),
+        Rc::new(zip::ZipAdapter::new()),
+        Rc::new(tar::TarAdapter::new()),
+        Rc::new(sqlite::SqliteAdapter::new()),
     ];
     let disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
-        //Rc::new()
+        Rc::new(pdfpages::PdfPagesAdapter::new()),
+        Rc::new(tesseract::TesseractAdapter::new()),
     ];
     (enabled_adapters, disabled_adapters)
 }
@@ -89,13 +92,14 @@ pub fn get_adapters() -> (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>) {
  * filter adapters by given names:
  *
  *  - "" means use default enabled adapter list
+ *  - "a,b" means use adapters a,b
  *  - "-a,b" means use default list except for a and b
  *  - "+a,b" means use default list but also a and b
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
     adapter_names: &[T],
 ) -> Fallible<Vec<Rc<dyn FileAdapter>>> {
-    let (def_enabled_adapters, def_disabled_adapters) = get_adapters();
+    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters();
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters
             .iter()
@@ -104,6 +108,7 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
             .collect();
         let mut adapters = vec![];
         let mut subtractive = false;
+        let mut additive = false;
         for (i, name) in adapter_names.iter().enumerate() {
             let mut name = name.as_ref();
             if i == 0 && (name.starts_with('-')) {
@@ -113,6 +118,7 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
             } else if i == 0 && (name.starts_with('+')) {
                 name = &name[1..];
                 adapters = def_enabled_adapters.clone();
+                additive = true;
             }
             if subtractive {
                 let inx = adapters
@@ -121,12 +127,15 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
                     .ok_or_else(|| format_err!("Could not remove {}: Not in list", name))?;
                 adapters.remove(inx);
             } else {
-                adapters.push(
-                    adapters_map
-                        .get(name)
-                        .ok_or_else(|| format_err!("Unknown adapter: \"{}\"", name))?
-                        .clone(),
-                );
+                let adapter = adapters_map
+                    .get(name)
+                    .ok_or_else(|| format_err!("Unknown adapter: \"{}\"", name))?
+                    .clone();
+                if additive {
+                    adapters.insert(0, adapter);
+                } else {
+                    adapters.push(adapter);
+                }
             }
         }
         adapters

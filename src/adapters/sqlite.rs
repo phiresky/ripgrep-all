@@ -97,7 +97,8 @@ impl FileAdapter for SqliteAdapter {
             while let Some(row) = z.next()? {
                 writeln!(
                     oup,
-                    "{}: {}",
+                    "{}{}: {}",
+                    line_prefix,
                     table,
                     col_names
                         .iter()

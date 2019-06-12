@@ -7,14 +7,12 @@ use std::fs::File;
 
 fn main() -> Fallible<()> {
     env_logger::init();
-    let empty: Vec<std::ffi::OsString> = vec![];
-    let args = rga::args::parse_args(empty)?;
+    let mut arg_arr: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    let last = arg_arr.pop().expect("No filename specified");
+    let args = rga::args::parse_args(arg_arr)?;
     //clap::App::new("rga-preproc").arg(Arg::from_usage())
     let path = {
-        let filepath = std::env::args_os()
-            .skip(1)
-            .next()
-            .ok_or(format_err!("No filename specified"))?;
+        let filepath = last;
         eprintln!("inp fname: {:?}", filepath);
         std::env::current_dir()?.join(&filepath)
     };
