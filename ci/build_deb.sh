@@ -38,6 +38,4 @@ cp "$compfish" "$DEPLOY_DIR/"
 compzsh="complete/_rg"
 cp "$compzsh" "$DEPLOY_DIR/"
 
-# Since we're distributing the dpkg, we don't know whether the user will have
-# PCRE2 installed, so just do a static build.
-PCRE2_SYS_STATIC=1 cargo deb
+cargo deb
