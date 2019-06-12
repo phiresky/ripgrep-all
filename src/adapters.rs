@@ -9,7 +9,7 @@ use crate::matching::*;
 use crate::preproc::PreprocConfig;
 use failure::*;
 use log::*;
-use regex::{Regex};
+use regex::{Regex, RegexSet};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::prelude::*;
@@ -69,13 +69,9 @@ pub struct AdaptInfo<'a> {
     pub config: PreprocConfig<'a>,
 }
 
-pub fn extension_to_regex(extension: &str) -> Regex {
-    Regex::new(&format!(".*\\.{}", &regex::escape(extension))).expect("we know this regex compiles")
-}
-
-pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
+pub fn get_adapters() -> (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>) {
     // order in descending priority
-    let adapters: Vec<Rc<dyn FileAdapter>> = vec![
+    let enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(ffmpeg::FFmpegAdapter),
         Rc::new(pandoc::PandocAdapter),
         Rc::new(poppler::PopplerAdapter),
@@ -83,16 +79,27 @@ pub fn get_adapters() -> Vec<Rc<dyn FileAdapter>> {
         Rc::new(tar::TarAdapter),
         Rc::new(sqlite::SqliteAdapter),
     ];
-    adapters
+    let disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
+        //Rc::new()
+    ];
+    (enabled_adapters, disabled_adapters)
 }
 
+/**
+ * filter adapters by given names:
+ *
+ *  - "" means use default enabled adapter list
+ *  - "-a,b" means use default list except for a and b
+ *  - "+a,b" means use default list but also a and b
+ */
 pub fn get_adapters_filtered<T: AsRef<str>>(
     adapter_names: &[T],
 ) -> Fallible<Vec<Rc<dyn FileAdapter>>> {
-    let all_adapters = get_adapters();
+    let (def_enabled_adapters, def_disabled_adapters) = get_adapters();
     let adapters = if !adapter_names.is_empty() {
-        let adapters_map: HashMap<_, _> = all_adapters
+        let adapters_map: HashMap<_, _> = def_enabled_adapters
             .iter()
+            .chain(def_disabled_adapters.iter())
             .map(|e| (e.metadata().name.clone(), e.clone()))
             .collect();
         let mut adapters = vec![];
@@ -102,7 +109,10 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
             if i == 0 && (name.starts_with('-')) {
                 subtractive = true;
                 name = &name[1..];
-                adapters = all_adapters.clone();
+                adapters = def_enabled_adapters.clone();
+            } else if i == 0 && (name.starts_with('+')) {
+                name = &name[1..];
+                adapters = def_enabled_adapters.clone();
             }
             if subtractive {
                 let inx = adapters
@@ -121,7 +131,7 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
         }
         adapters
     } else {
-        all_adapters
+        def_enabled_adapters
     };
     debug!(
         "Chosen adapters: {}",
