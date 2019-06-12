@@ -1,16 +1,16 @@
 use super::*;
 use crate::adapters::spawning::map_exe_error;
-use crate::adapters::spawning::pipe_output;
+
 use crate::preproc::rga_preproc;
 use lazy_static::lazy_static;
-use spawning::SpawningFileAdapter;
+
 use std::fs::File;
 use std::io::BufReader;
-use std::io::Cursor;
-use std::io::Take;
+
+
 use std::path::PathBuf;
 use std::process::Command;
-use std::process::Stdio;
+
 
 static EXTENSIONS: &[&str] = &["pdf"];
 
@@ -46,7 +46,7 @@ impl FileAdapter for PdfPagesAdapter {
 		let AdaptInfo {
 			filepath_hint,
 			is_real_file,
-			mut inp,
+			inp: _,
 			oup,
 			line_prefix,
 			archive_recursion_depth,

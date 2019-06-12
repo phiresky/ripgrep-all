@@ -11,7 +11,7 @@ use crate::matching::*;
 use crate::preproc::PreprocConfig;
 use failure::*;
 use log::*;
-use regex::{Regex, RegexSet};
+use regex::{Regex};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::prelude::*;

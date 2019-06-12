@@ -32,35 +32,46 @@ set_default!(max_archive_recursion, 4, i32);
 #[structopt(rename_all = "kebab-case", set_term_width = 80)]
 pub struct RgaArgs {
     #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(long = "--rga-no-cache", help = "Disable caching of results")]
+    #[structopt(long = "--rga-no-cache")]
+    /// Disable caching of results
+    ///
+    /// By default, rga caches the extracted text to a database in ~/.cache/rga if it is small enough.
+    /// This way, repeated searches on the same set of files will be much faster.
+    /// If you pass this flag, all caching will be disabled.
     pub no_cache: bool,
 
     #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(
-        long = "--rga-accurate",
-        help = "Use more accurate but slower matching by mime type"
-    )]
+    #[structopt(long = "--rga-accurate")]
+    /// Use more accurate but slower matching by mime type
+    ///
+    /// By default, rga will match files using file extensions.
+    /// Some programs, such as sqlite3, don't care about the file extension at all,
+    /// so users sometimes use any or no extension at all. With this flag, rga
+    /// will try to detect the mime type of input files using the magic bytes
+    /// (similar to the `file` utility), and use that to choose the adapter.
     pub accurate: bool,
 
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         long = "--rga-adapters",
         require_equals = true,
-        require_delimiter = true,
-        help = "Change which adapters to use and in which priority order (descending)"
+        require_delimiter = true
     )]
+    /// Change which adapters to use and in which priority order (descending)
+    ///
+    /// "foo,bar" means use only adapters foo and bar.
+    /// "-bar,baz" means use all default adapters except for bar and baz.
+    /// "+bar,baz" means use all default adapters and also bar and baz.
     pub adapters: Vec<String>,
 
     #[serde(
         default = "def_cache_max_blob_len",
         skip_serializing_if = "def_cache_max_blob_len_if"
     )]
-    #[structopt(
-        long = "--rga-cache-max-blob-len",
-        default_value = "2000000",
-        help = "Max compressed size to cache",
-        long_help = "Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time."
-    )]
+    #[structopt(long = "--rga-cache-max-blob-len", default_value = "2000000")]
+    /// Max compressed size to cache
+    ///
+    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time.
     pub cache_max_blob_len: u32,
 
     #[serde(
@@ -69,10 +80,12 @@ pub struct RgaArgs {
     )]
     #[structopt(
         long = "--rga-cache-compression-level",
+        hidden_short_help = true,
         default_value = "12",
         require_equals = true,
-        help = "ZSTD compression level to apply to adapter outputs before storing in cache db"
+        help = ""
     )]
+    /// ZSTD compression level to apply to adapter outputs before storing in cache db
     pub cache_compression_level: u32,
 
     #[serde(

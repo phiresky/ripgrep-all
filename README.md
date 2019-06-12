@@ -5,8 +5,6 @@ rga is a tool to recursively search for text in many different types of files. I
 [![Linux build status](https://travis-ci.org/phiresky/ripgrep_all.svg)](https://travis-ci.org/BurntSushi/ripgrep)
 [![Crates.io](https://img.shields.io/crates/v/ripgrep_all.svg)](https://crates.io/crates/ripgrep_all)
 
-similar:
-
 # todo
 
 - jpg adapter (based on object classification / detection (yolo?)) for fun

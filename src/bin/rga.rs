@@ -35,7 +35,7 @@ fn main() -> Fallible<()> {
         for adapter in enabled_adapters {
             print(adapter)
         }
-        println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+tesseract,xyz':\n");
+        println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+pdfpages,tesseract':\n");
         for adapter in disabled_adapters {
             print(adapter)
         }
