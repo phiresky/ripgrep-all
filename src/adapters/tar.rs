@@ -41,8 +41,8 @@ where
     let extension = filename.extension().map(|e| e.to_string_lossy().to_owned());
     match extension {
         Some(e) => Ok(match e.to_owned().as_ref() {
-            "gz" => Box::new(flate2::read::MultiGzDecoder::new(inp)),
-            "bz2" => Box::new(bzip2::read::BzDecoder::new(inp)),
+            "tgz" | "gz" => Box::new(flate2::read::MultiGzDecoder::new(inp)),
+            "tbz" | "tbz2" | "bz2" => Box::new(bzip2::read::BzDecoder::new(inp)),
             "xz" => Box::new(xz2::read::XzDecoder::new_multi_decoder(inp)),
             "zst" => Box::new(zstd::stream::read::Decoder::new(inp)?),
             "tar" => Box::new(inp),

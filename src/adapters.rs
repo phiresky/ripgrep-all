@@ -5,39 +5,17 @@ pub mod spawning;
 pub mod sqlite;
 pub mod tar;
 pub mod zip;
+use crate::matching::*;
 use crate::preproc::PreprocConfig;
 use failure::*;
 use log::*;
-use regex::{Regex, RegexSet};
-
+use regex::{Regex};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::prelude::*;
 use std::iter::Iterator;
 use std::path::Path;
 use std::rc::Rc;
-
-#[derive(Clone)]
-pub enum FastMatcher {
-    // MimeType(Regex),
-    /**
-     * without the leading dot, e.g. "jpg" or "tar.gz". Matched as /.*\.ext$/
-     *
-     */
-    FileExtension(String),
-    // todo: maybe add others, e.g. regex on whole filename or even paths
-    // todo: maybe allow matching a directory (e.g. /var/lib/postgres)
-}
-
-#[derive(Clone)]
-pub enum SlowMatcher {
-    /// any type of fast matcher
-    Fast(FastMatcher),
-    ///
-    /// match by exact mime type extracted using tree_magic
-    /// TODO: allow match ignoring suffix etc?
-    MimeType(String),
-}
 
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
@@ -53,7 +31,10 @@ pub struct AdapterMeta {
 }
 impl AdapterMeta {
     // todo: this is pretty ugly
-    fn get_matchers<'a>(&'a self, slow: bool) -> Box<dyn Iterator<Item = Cow<SlowMatcher>> + 'a> {
+    pub fn get_matchers<'a>(
+        &'a self,
+        slow: bool,
+    ) -> Box<dyn Iterator<Item = Cow<SlowMatcher>> + 'a> {
         match (slow, &self.slow_matchers) {
             (true, Some(ref sm)) => Box::new(sm.iter().map(|e| Cow::Borrowed(e))),
             (_, _) => Box::new(
@@ -63,14 +44,6 @@ impl AdapterMeta {
             ),
         }
     }
-}
-
-pub struct FileMeta {
-    // filename is not actually a utf8 string, but since we can't do regex on OsStr and can't get a &[u8] from OsStr either,
-    // and since we probably only want to do only matching on ascii stuff anyways, this is the filename as a string with non-valid bytes removed
-    pub lossy_filename: String,
-    // only given when slow matching is enabled
-    pub mimetype: Option<String>,
 }
 
 pub trait GetMetadata {
@@ -159,74 +132,4 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
             .join(",")
     );
     Ok(adapters)
-}
-
-pub fn adapter_matcher<T: AsRef<str>>(
-    adapter_names: &[T],
-    slow: bool,
-) -> Fallible<impl Fn(FileMeta) -> Option<Rc<dyn FileAdapter>>> {
-    let adapters = get_adapters_filtered(adapter_names)?;
-    // need order later
-    let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
-    let mut fname_regexes = vec![];
-    let mut mime_regexes = vec![];
-    for adapter in adapters.into_iter() {
-        let metadata = adapter.metadata();
-        use SlowMatcher::*;
-        for matcher in metadata.get_matchers(slow) {
-            match matcher.as_ref() {
-                MimeType(re) => mime_regexes.push((re.clone(), adapter.clone())),
-                Fast(FastMatcher::FileExtension(re)) => {
-                    fname_regexes.push((extension_to_regex(re), adapter.clone()))
-                }
-            };
-        }
-    }
-    let fname_regex_set = RegexSet::new(fname_regexes.iter().map(|p| p.0.as_str()))?;
-    let mime_regex_set = RegexSet::new(mime_regexes.iter().map(|p| p.0.as_str()))?;
-    Ok(move |meta: FileMeta| {
-        let fname_matches: Vec<_> = fname_regex_set
-            .matches(&meta.lossy_filename)
-            .into_iter()
-            .collect();
-        let mime_matches: Vec<_> = if slow {
-            mime_regex_set
-                .matches(&meta.mimetype.expect("No mimetype?"))
-                .into_iter()
-                .collect()
-        } else {
-            vec![]
-        };
-        if fname_matches.len() + mime_matches.len() > 1 {
-            // get first according to original priority list...
-            let fa = fname_matches.iter().map(|e| fname_regexes[*e].1.clone());
-            let fb = mime_matches.iter().map(|e| mime_regexes[*e].1.clone());
-            let mut v = vec![];
-            v.extend(fa);
-            v.extend(fb);
-            v.sort_by_key(|e| {
-                (adapter_names
-                    .iter()
-                    .position(|r| r == &e.metadata().name)
-                    .expect("impossib7"))
-            });
-            eprintln!(
-                "Warning: found multiple adapters for {}:",
-                meta.lossy_filename
-            );
-            for mmatch in v.iter() {
-                eprintln!(" - {}", mmatch.metadata().name);
-            }
-            return Some(v[0].clone());
-        }
-        if mime_matches.is_empty() {
-            if fname_matches.is_empty() {
-                None
-            } else {
-                Some(fname_regexes[fname_matches[0]].1.clone())
-            }
-        } else {
-            Some(mime_regexes[mime_matches[0]].1.clone())
-        }
-    })
 }

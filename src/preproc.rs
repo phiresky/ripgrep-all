@@ -1,5 +1,6 @@
 use crate::adapters::*;
 use crate::args::RgaArgs;
+use crate::matching::*;
 use crate::CachingWriter;
 use failure::Fallible;
 use failure::{format_err, Error};

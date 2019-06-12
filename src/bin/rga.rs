@@ -2,6 +2,7 @@ use failure::Fallible;
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
 use rga::args::*;
+use rga::matching::*;
 use ripgrep_all as rga;
 
 use std::process::Command;
