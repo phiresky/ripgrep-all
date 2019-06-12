@@ -37,7 +37,7 @@ tar = "0.4.26"
 chrono = "0.4.6"
 encoding_rs = "0.8.17"
 encoding_rs_io = "0.1.6"
-rusqlite = { version = "0.18.0", features=["vtab"] } # "bundled"
+rusqlite = { version = "0.18.0", features=["vtab", "bundled"] }
 size_format = "1.0.2"
 structopt = "0.2.16"
 paste = "0.1.5"

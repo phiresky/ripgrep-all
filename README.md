@@ -23,7 +23,7 @@ similar:
 rga should compile with stable Rust. To install it, simply run
 
 ```bash
-apt install build-essential pandoc poppler-utils sqlite3
+apt install build-essential pandoc poppler-utils
 cargo install ripgrep_all
 
 rga --help

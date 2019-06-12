@@ -23,7 +23,6 @@ addons:
       # rga specific
       - pandoc
       - poppler-utils
-      - sqlite3
 matrix:
   fast_finish: true
   include:
