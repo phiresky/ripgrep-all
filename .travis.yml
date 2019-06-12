@@ -20,6 +20,10 @@ addons:
       - liblz4-tool
       # For building MUSL static builds on Linux.
       - musl-tools
+      # rga specific
+      - pandoc
+      - poppler-utils
+      - sqlite3
 matrix:
   fast_finish: true
   include:
