@@ -43,12 +43,14 @@ rga should compile with stable Rust. To install it, simply run (your OSes equiva
 apt install build-essential pandoc poppler-utils
 cargo install ripgrep_all
 
-rga --help
+rga --help # works! :)
 ```
 
 ## Technical details
 
 `rga` simply runs ripgrep (`rg`) with some options set, especially `--pre=rga-preproc` and `--pre-glob`.
+
+`rga-preproc [fname]` will match an adapter to the given file based on either it's filename or it's mime type (if `--accurate` is given).
 
 Some rga adapters run external binaries
 
