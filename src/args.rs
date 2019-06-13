@@ -49,6 +49,7 @@ pub struct RgaArgs {
     /// so users sometimes use any or no extension at all. With this flag, rga
     /// will try to detect the mime type of input files using the magic bytes
     /// (similar to the `file` utility), and use that to choose the adapter.
+    /// Detection is only done on the first 8KiB of the file, since we can't always seek on the input (in archives).
     pub accurate: bool,
 
     #[serde(default, skip_serializing_if = "is_default")]

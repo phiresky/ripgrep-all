@@ -5,9 +5,9 @@ rga is a tool to recursively search for text in many different types of files. I
 [![Linux build status](https://api.travis-ci.org/phiresky/ripgrep_all.svg)](https://travis-ci.org/phiresky/ripgrep_all)
 [![Crates.io](https://img.shields.io/crates/v/ripgrep_all.svg)](https://crates.io/crates/ripgrep_all)
 
-# todo
+# Future Work
 
-- jpg adapter (based on object classification / detection (yolo?)) for fun
+- photograph adapter (based on object classification / detection (yolo?)) for fun, based on something [like this](https://github.com/aimagelab/show-control-and-tell). Tried, but very hard to integrate (especially state of the art approaches).
 - 7z adapter (couldn't find a nice to use rust library)
 
 # considerations
