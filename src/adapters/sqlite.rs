@@ -65,6 +65,7 @@ impl FileAdapter for SqliteAdapter {
             ..
         } = ai;
         if !is_real_file {
+            // db is in an archive
             // todo: read to memory and then use that blob if size < max
             writeln!(oup, "{}[rga: skipping sqlite in archive]", line_prefix,)?;
             return Ok(());

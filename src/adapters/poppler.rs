@@ -34,6 +34,13 @@ impl GetMetadata for PopplerAdapter {
     }
 }
 impl SpawningFileAdapter for PopplerAdapter {
+    fn get_exe(&self) -> &str {
+        "pdftotext"
+    }
+    fn command(&self, _filepath_hint: &Path, mut cmd: Command) -> Command {
+        cmd.arg("-layout").arg("-").arg("-");
+        cmd
+    }
     fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Fallible<()> {
         // prepend Page X to each line
         let mut page = 1;
@@ -47,12 +54,5 @@ impl SpawningFileAdapter for PopplerAdapter {
             oup.write_all(format!("{}Page {}: {}\n", line_prefix, page, line).as_bytes())?;
         }
         Ok(())
-    }
-    fn get_exe(&self) -> &str {
-        "pdftotext"
-    }
-    fn command(&self, _filepath_hint: &Path, mut cmd: Command) -> Command {
-        cmd.arg("-layout").arg("-").arg("-");
-        cmd
     }
 }

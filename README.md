@@ -10,6 +10,7 @@ rga is a line-oriented search tool that allows you to look for a regex in a mult
 - I wanted to add a photograph adapter (based on object classification / detection) for fun, based on something . It worked with [YOLO](https://pjreddie.com/darknet/yolo/), but something more useful and state-of-the art [like this](https://github.com/aimagelab/show-control-and-tell) proved very hard to integrate.
 - 7z adapter (couldn't find a nice to use Rust library)
 - allow per-adapter configuration options (probably via env (RGA_ADAPTER_CONF=json))
+- there's some more (mostly technical) todos in the code
 
 ## Examples
 
@@ -40,19 +41,23 @@ On the first run rga is mostly faster because of multithreading, but on subseque
 rga should compile with stable Rust. To install it, simply run (your OSes equivalent of)
 
 ```bash
-apt install build-essential pandoc poppler-utils
+apt install build-essential pandoc poppler-utils ffmpeg
 cargo install ripgrep_all
 
 rga --help # works! :)
 ```
 
+You don't necessarily need to install any dependencies, but then you will see an error when trying to read from the corresponding file type (e.g. poppler-utils for pdf).
+
 ## Technical details
 
 `rga` simply runs ripgrep (`rg`) with some options set, especially `--pre=rga-preproc` and `--pre-glob`.
 
-`rga-preproc [fname]` will match an adapter to the given file based on either it's filename or it's mime type (if `--accurate` is given).
+`rga-preproc [fname]` will match an "adapter" to the given file based on either it's filename or it's mime type (if `--accurate` is given). You can see all adapters currently included in [src/adapters](src/adapters).
 
-Some rga adapters run external binaries
+Some rga adapters run external binaries to do the actual work (such as pandoc or ffmpeg), usually by writing to stdin and reading from stdout.
+
+Most adapters read the files from a [Read](https://doc.rust-lang.org/std/io/trait.Read.html), so they work completely on streamed data (that can come from anywhere including within nested archives). rga-preproc writes
 
 ## Development
 

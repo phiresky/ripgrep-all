@@ -7,14 +7,15 @@ use std::io::BufReader;
 use std::process::*;
 // todo:
 // maybe todo: read list of extensions from
-//ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
+// ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
+// but really, the probability of getting useful information from a .flv is low
 static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "ffmpeg".to_owned(),
         version: 1,
-        description: "Uses ffmpeg to extract video metadata and subtitles".to_owned(),
+        description: "Uses ffmpeg to extract video metadata/chapters and subtitles".to_owned(),
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -55,7 +56,10 @@ impl FileAdapter for FFmpegAdapter {
             ..
         } = ai;
         if !is_real_file {
-            // we *could* probably adapt this to also work based on streams, but really when would you want to search for videos within archives?
+            // we *could* probably adapt this to also work based on streams,
+            // it would require using a BufReader to read at least part of the file to memory
+            // but really when would you want to search for videos within archives?
+            // So instead, we only run this adapter if the file is a actual file on disk for now
             writeln!(oup, "{}[rga: skipping video in archive]", line_prefix,)?;
             return Ok(());
         }
@@ -125,7 +129,7 @@ impl FileAdapter for FFmpegAdapter {
             let stdo = cmd.stdout.as_mut().expect("is piped");
             let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
             let mut time: String = "".to_owned();
-            // rewrite subtitle times so they are prefixed in every line
+            // rewrite subtitle times so they are shown as a prefix in every line
             for line in BufReader::new(stdo).lines() {
                 let line = line?;
                 // 09:55.195 --> 09:56.730

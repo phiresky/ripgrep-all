@@ -7,10 +7,8 @@ use lazy_static::lazy_static;
 use std::fs::File;
 use std::io::BufReader;
 
-
 use std::path::PathBuf;
 use std::process::Command;
-
 
 static EXTENSIONS: &[&str] = &["pdf"];
 
@@ -18,7 +16,7 @@ lazy_static! {
 	static ref METADATA: AdapterMeta = AdapterMeta {
 		name: "pdfpages".to_owned(),
 		version: 1,
-		description: "Converts a pdf to it's individual pages as png files".to_owned(),
+		description: "Converts a pdf to it's individual pages as png files. Only useful in combination with tesseract".to_owned(),
 		fast_matchers: EXTENSIONS
 			.iter()
 			.map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -41,12 +39,13 @@ impl GetMetadata for PdfPagesAdapter {
 	}
 }
 
+/// A pdf is basically converted to a zip that has Page X.png files.
+/// This way, something like tesseract can process the pages individually
 impl FileAdapter for PdfPagesAdapter {
 	fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
 		let AdaptInfo {
 			filepath_hint,
 			is_real_file,
-			inp: _,
 			oup,
 			line_prefix,
 			archive_recursion_depth,
@@ -75,7 +74,6 @@ impl FileAdapter for PdfPagesAdapter {
 			map_exe_error(e, exe_name, "Make sure you have graphicsmagick installed.")
 		})?;
 		let args = config.args;
-		// TODO: how to handle this copying better?
 
 		let status = cmd.wait()?;
 		if status.success() {

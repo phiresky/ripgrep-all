@@ -9,14 +9,15 @@ use std::process::Stdio;
  * Copy a Read to a Write, while prefixing every line with a prefix.
  *
  * Try to detect binary files and ignore them. Does not ensure any encoding in the output.
+ *
+ * This is needed because the rg binary detection does not apply to preprocessed files
  */
 pub fn postproc_line_prefix(
     line_prefix: &str,
     inp: &mut dyn Read,
     oup: &mut dyn Write,
 ) -> Fallible<()> {
-    //std::io::copy(inp, oup)?;
-    //return Ok(());
+    // check for null byte in first 8kB
     let mut reader = BufReader::with_capacity(1 << 12, inp);
     let fourk = reader.fill_buf()?;
     if fourk.contains(&0u8) {
@@ -45,6 +46,8 @@ pub trait SpawningFileAdapter: GetMetadata {
     }
 }
 
+/// replace a Command.spawn() error "File not found" with a more readable error
+/// to indicate some program is not installed
 pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
     use std::io::ErrorKind::*;
     match err.kind() {
@@ -70,6 +73,7 @@ pub fn pipe_output(
     let mut stdo = cmd.stdout.take().expect("is piped");
 
     // TODO: how to handle this copying better?
+    // do we really need threads for this?
     crossbeam::scope(|s| -> Fallible<()> {
         s.spawn(|_| cp(line_prefix, &mut stdo, oup).unwrap()); // errors?
         std::io::copy(inp, &mut stdi)?;
