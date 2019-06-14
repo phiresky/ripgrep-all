@@ -1,4 +1,5 @@
 /target
+/exampledir.2
 /.idea
 /.vscode/settings.json
 **/*.rs.bk
