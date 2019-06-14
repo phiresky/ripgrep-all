@@ -918,7 +918,7 @@ dependencies = [
 
 [[package]]
 name = "ripgrep_all"
-version = "0.8.5-alpha.0"
+version = "0.8.5"
 dependencies = [
  "bincode 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bzip2 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
