@@ -28,9 +28,10 @@ fn open_cache_db() -> Fallible<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
             builder
                 .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable cuz it's a cache
                 // i'm not sure why NO_TLS is needed. otherwise LMDB transactions (open readers) will keep piling up until it fails with
-                // LmdbError(ReadersFull)
-                // hope it doesn't break integrity
+                // LmdbError(ReadersFull). Those "open readers" stay even after the corresponding processes exit.
+                // hope setting this doesn't break integrity
                 .set_flags(rkv::EnvironmentFlags::NO_TLS)
+                // sometimes, this seems to cause the data.mdb file to appear as 2GB in size (with holes), but sometimes not?
                 .set_map_size(2 * 1024 * 1024 * 1024)
                 .set_max_dbs(100)
                 .set_max_readers(128);

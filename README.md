@@ -5,13 +5,6 @@ rga is a line-oriented search tool that allows you to look for a regex in a mult
 [![Linux build status](https://api.travis-ci.org/phiresky/ripgrep_all.svg)](https://travis-ci.org/phiresky/ripgrep_all)
 [![Crates.io](https://img.shields.io/crates/v/ripgrep_all.svg)](https://crates.io/crates/ripgrep_all)
 
-## Future Work
-
-- I wanted to add a photograph adapter (based on object classification / detection) for fun, based on something . It worked with [YOLO](https://pjreddie.com/darknet/yolo/), but something more useful and state-of-the art [like this](https://github.com/aimagelab/show-control-and-tell) proved very hard to integrate.
-- 7z adapter (couldn't find a nice to use Rust library)
-- allow per-adapter configuration options (probably via env (RGA_ADAPTER_CONF=json))
-- there's some more (mostly technical) todos in the code
-
 ## Examples
 
 Say you have a large folder of papers or lecture slides, and you can't remember which one of them mentioned `LSTM`s. With rga, you can just run this:
@@ -34,7 +27,7 @@ data:
    - rga (subsequent runs): 0.1s
 ```
 
-On the first run rga is mostly faster because of multithreading, but on subsequent runs (on the same files but with any query) rga will cache the text extraction because pdf parsing is slow.
+On the first run rga is mostly faster because of multithreading, but on subsequent runs (with the same files but any regex query) rga will cache the text extraction because pdf parsing is slow.
 
 ## Setup
 
@@ -55,9 +48,13 @@ You don't necessarily need to install any dependencies, but then you will see an
 
 `rga-preproc [fname]` will match an "adapter" to the given file based on either it's filename or it's mime type (if `--accurate` is given). You can see all adapters currently included in [src/adapters](src/adapters).
 
-Some rga adapters run external binaries to do the actual work (such as pandoc or ffmpeg), usually by writing to stdin and reading from stdout.
+Some rga adapters run external binaries to do the actual work (such as pandoc or ffmpeg), usually by writing to stdin and reading from stdout. Others use a rust library or bindings to achieve the same effect (like sqlite or zip).
 
-Most adapters read the files from a [Read](https://doc.rust-lang.org/std/io/trait.Read.html), so they work completely on streamed data (that can come from anywhere including within nested archives). rga-preproc writes
+To read archives, the `zip` and `tar` libraries are used, which work fully in a streaming fashion - this means that the RAM usage is low and no data is ever actually extracted to disk!
+
+Most adapters read the files from a [Read](https://doc.rust-lang.org/std/io/trait.Read.html), so they work completely on streamed data (that can come from anywhere including within nested archives).
+
+During the extraction, rga-preproc will compress the data with ZSTD to a memory cache while simultaneously writing it uncompressed to stdout. After completion, if the memory cache is smaller than 2MByte, it is written to a [rkv](https://docs.rs/rkv/0.9.6/rkv/) cache
 
 ## Development
 
@@ -70,7 +67,15 @@ export RUST_BACKTRACE=1
 
 Also rember to disable caching with `--rga-no-cache` or clear the cache in `~/.cache/rga` to debug the adapters.
 
-# Similar tools
+## Future Work
+
+- I wanted to add a photograph adapter (based on object classification / detection) for fun, so you can grep for "mountain" and it will show pictures of mountains, like in Google Photos. It worked with [YOLO](https://pjreddie.com/darknet/yolo/), but something more useful and state-of-the art [like this](https://github.com/aimagelab/show-control-and-tell) proved very hard to integrate.
+- 7z adapter (couldn't find a nice to use Rust library with streaming)
+- allow per-adapter configuration options (probably via env (RGA_ADAPTER_CONF=json))
+- maybe use a different disk kv-store as a cache instead of rkv, because I had some [weird problems](src/preproc_cache.rs#30) with that. SQLite is great. All other Rust alternatives I could find don't allow writing from multiple processes.
+- there's some more (mostly technical) todos in the code I don't know how to fix
+
+## Similar tools
 
 - [pdfgrep][pdfgrep]
 - [this gist](https://gist.github.com/phiresky/5025490526ba70663ab3b8af6c40a8db) has my proof of concept version of a caching extractor to use ripgrep as a replacement for pdfgrep.

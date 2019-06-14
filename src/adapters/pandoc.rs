@@ -39,12 +39,12 @@ use std::process::Command;
 //"xhtml"    -> Just "html"
 //"wiki"     -> Just "mediawiki"
 
-static EXTENSIONS: &[&str] = &["epub", "odt", "docx", "pptx", "fb2", "ipynb"];
+static EXTENSIONS: &[&str] = &["epub", "odt", "docx", "fb2", "ipynb"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "pandoc".to_owned(),
-        version: 1,
+        version: 3,
         description:
             "Uses pandoc to convert binary/unreadable text documents to plain markdown-like text"
                 .to_owned(),
@@ -73,10 +73,11 @@ impl SpawningFileAdapter for PandocAdapter {
         "pandoc"
     }
     fn command(&self, filepath_hint: &Path, mut cmd: Command) -> Command {
-        cmd
-        .arg("--from").arg(filepath_hint.extension().unwrap())
+        cmd.arg("--from")
+            .arg(filepath_hint.extension().unwrap())
             // simpler markown (with more information loss but plainer text)
-            .arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
+            //.arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
+            .arg("--to=plain")
             .arg("--wrap=none")
             .arg("--atx-headers");
         cmd

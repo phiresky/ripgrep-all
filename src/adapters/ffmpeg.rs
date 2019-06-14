@@ -88,6 +88,7 @@ impl FileAdapter for FFmpegAdapter {
             (p.streams.iter().count() > 0)
         };
         {
+            // extract file metadata (especially chapter names in a greppable format)
             let mut probe = Command::new("ffprobe")
                 .args(vec![
                     "-v",
@@ -116,6 +117,7 @@ impl FileAdapter for FFmpegAdapter {
             }
         }
         if has_subtitles {
+            // extract subtitles
             let mut cmd = Command::new("ffmpeg");
             cmd.arg("-hide_banner")
                 .arg("-loglevel")
