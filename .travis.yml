@@ -97,7 +97,7 @@ deploy:
         branch: master # i guess we do need this after all?
         tags: true
     api_key:
-        secure: "IbSnsbGkxSydR/sozOf1/SRvHplzwRUHzcTjM7BKnr7GccL86gRPUrsrvD103KjQUGWIc1TnK1YTq5M0Onswg/ORDjqa1JEJPkPdPnVh9ipbF7M2De/7IlB4X4qXLKoApn8+bx2x/mfYXu4G+G1/2QdbaKK2yfXZKyjz0YFx+6CNrVCT2Nk8q7aHvOOzAL58vsG8iPDpupuhxlMDDn/UhyOWVInmPPQ0iJR1ZUJN8xJwXvKvBbfp3AhaBiAzkhXHNLgBR8QC5noWWMXnuVDMY3k4f3ic0V+p/qGUCN/nhptuceLxKFicMCYObSZeUzE5RAI0/OBW7l3z2iCoc+TbAnn+JrX/ObJCfzgAOXAU3tLaBFMiqQPGFKjKg1ltSYXomOFP/F7zALjpvFp4lYTBajRR+O3dqaxA9UQuRjw27vOeUpMcga4ZzL4VXFHzrxZKBHN//XIGjYAVhJ1NSSeGpeJV5/+jYzzWKfwSagRxQyVCzMooYFFXzn8Yxdm3PJlmp3GaAogNkdB9qKcrEvRINCelalzALPi0hD/HUDi8DD2PNTCLLMo6VSYtvc685Zbe+KgNzDV1YyTrRCUW6JotrS0r2ULLwnsh40hSB//nNv3XmwNmC/CmW5QAnIGj8cBMF4S2t6ohADIndojdAfNiptmaZOIT6owK7bWMgPMyopo="
+        secure: BACN/S5fv590pb0bq7rUNX553yxrUDk3ZDcQ9JcG0DXFkv3/XIRzoc88YbDAp065Yk9DJ8SrT9X/Al9l8/MKoLfVmcz3jdFUJAsppkO4fouOxdtiufYq5MFFlrP6SYMHy7Gx95lZsh++NSwbq+1fjMkESOTWqz1ptUmAa7ERecGuX4t/4QoPfyTYNWb84LLDqeD9Geabj7HuCsjsa4gdJUFew13zvE1SFRUkVPVGo09j/+fYVZRoY0ObqHVYQEOlj4HtHHjaYnsLgKHcGGigc252N15sm7zFM0+/lRMYIx7LLv6SmFc/eHqHy8D9gHzUx1tEYnScuNEDDHSS7hXfKGyTrOPfENAqzWCIAftveUVI/+rWmMIOWDxzxt5s9P9k9c93GP7L2L/HJlEZfr0UKQhHfcv/uOaS48vhh4WyzybgBRLFcNwrGKSoHgJhGRHdnQbTc8JMNPBEoJKdtSosQk56ZievMg2rDxF/GArpLTTe58+kMrhFbK9bGBP0YcZjaLnIZuuRf2LZQFtT9gSPFuvXjhwDaz/5a3Gp+9ZIEF50Ad/nf2xKf/rwFaFFJ0RkPdw20TCuerasQUnbpDmZRYnJNrdVlYKIIxQ6dF+PqO8/4RJ1tRYaWk79G8fDVRWp/IfvtduLKqgh/mjNgefOc9qf0DoBVxK7LJx5CHHomkE=
 branches:
     only:
         # Pushes and PR to the master branch
