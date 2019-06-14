@@ -33,9 +33,9 @@ mk_tarball() {
     cp "target/$TARGET/release/rga" "$staging/rga"
     "${gcc_prefix}strip" "$staging/rga"
     # Copy the licenses and README.
-    cp {README.md,UNLICENSE,COPYING,LICENSE-MIT} "$staging/"
+    cp {README.md,LICENSE.md} "$staging/"
     # Copy documentation and man page.
-    cp {CHANGELOG.md,FAQ.md,GUIDE.md} "$staging/doc/"
+    # cp {CHANGELOG.md,FAQ.md,GUIDE.md} "$staging/doc/"
     #if command -V a2x 2>&1 > /dev/null; then
     #  # The man page should only exist if we have asciidoc installed.
     #  cp "$cargo_out_dir/rg.1" "$staging/doc/"
