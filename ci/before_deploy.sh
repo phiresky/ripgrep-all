@@ -30,16 +30,16 @@ mk_tarball() {
     local cargo_out_dir="$(cargo_out_dir "target/$TARGET")"
 
     # Copy the ripgrep binary and strip it.
-    cp "target/$TARGET/release/rg" "$staging/rg"
-    "${gcc_prefix}strip" "$staging/rg"
+    cp "target/$TARGET/release/rga" "$staging/rga"
+    "${gcc_prefix}strip" "$staging/rga"
     # Copy the licenses and README.
     cp {README.md,UNLICENSE,COPYING,LICENSE-MIT} "$staging/"
     # Copy documentation and man page.
     cp {CHANGELOG.md,FAQ.md,GUIDE.md} "$staging/doc/"
-    if command -V a2x 2>&1 > /dev/null; then
-      # The man page should only exist if we have asciidoc installed.
-      cp "$cargo_out_dir/rg.1" "$staging/doc/"
-    fi
+    #if command -V a2x 2>&1 > /dev/null; then
+    #  # The man page should only exist if we have asciidoc installed.
+    #  cp "$cargo_out_dir/rg.1" "$staging/doc/"
+    #fi
     # Copy shell completion files.
     cp "$cargo_out_dir"/{rg.bash,rg.fish,_rg.ps1} "$staging/complete/"
     cp complete/_rg "$staging/complete/"
