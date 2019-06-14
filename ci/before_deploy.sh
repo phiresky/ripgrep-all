@@ -41,8 +41,8 @@ mk_tarball() {
     #  cp "$cargo_out_dir/rg.1" "$staging/doc/"
     #fi
     # Copy shell completion files.
-    cp "$cargo_out_dir"/{rg.bash,rg.fish,_rg.ps1} "$staging/complete/"
-    cp complete/_rg "$staging/complete/"
+    # cp "$cargo_out_dir"/{rg.bash,rg.fish,_rg.ps1} "$staging/complete/"
+    # cp complete/_rg "$staging/complete/"
 
     (cd "$tmpdir" && tar czf "$out_dir/$name.tar.gz" "$name")
     rm -rf "$tmpdir"
