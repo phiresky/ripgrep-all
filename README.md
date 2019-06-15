@@ -166,3 +166,14 @@ All other options not shown here are passed directly to rg, especially
 \[PATTERN\] and \[PATH \...\]
 
 [ripgrep]: https://github.com/BurntSushi/ripgrep
+
+## Development
+
+To enable debug logging:
+
+```bash
+export RUST_LOG=debug
+export RUST_BACKTRACE=1
+```
+
+Also rember to disable caching with `--rga-no-cache` or clear the cache in `~/.cache/rga` to debug the adapters.
