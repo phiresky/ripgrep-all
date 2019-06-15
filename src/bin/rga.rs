@@ -4,6 +4,7 @@ use rga::adapters::*;
 use rga::args::*;
 use rga::matching::*;
 use ripgrep_all as rga;
+use structopt::StructOpt;
 
 use std::process::Command;
 
@@ -41,6 +42,14 @@ fn main() -> Fallible<()> {
         }
         return Ok(());
     }
+
+    if passthrough_args.len() == 0 {
+        // rg would show help. Show own help instead.
+        RgaArgs::clap().print_help()?;
+        println!("");
+        return Ok(());
+    }
+
     let adapters = get_adapters_filtered(&args.adapters)?;
 
     let pre_glob = if !args.accurate {

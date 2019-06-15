@@ -29,7 +29,12 @@ set_default!(cache_max_blob_len, 2000000, u32);
 set_default!(max_archive_recursion, 4, i32);
 
 #[derive(StructOpt, Debug, Deserialize, Serialize)]
-#[structopt(rename_all = "kebab-case", set_term_width = 80)]
+#[structopt(
+    rename_all = "kebab-case",
+    author = "https://github.com/phiresky/ripgrep-all",
+    // TODO: long_about does not seem to work to only show this on short help
+    after_help = "-h shows a concise overview, --help shows more detail and advanced options.\n\nAll other options not shown here are passed directly to rg, especially [PATTERN] and [PATH ...]"
+)]
 pub struct RgaArgs {
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(long = "--rga-no-cache")]
@@ -69,7 +74,11 @@ pub struct RgaArgs {
         default = "def_cache_max_blob_len",
         skip_serializing_if = "def_cache_max_blob_len_if"
     )]
-    #[structopt(long = "--rga-cache-max-blob-len", default_value = "2000000")]
+    #[structopt(
+        long = "--rga-cache-max-blob-len",
+        default_value = "2000000",
+        hidden_short_help = true
+    )]
     /// Max compressed size to cache
     ///
     /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time.
@@ -97,7 +106,8 @@ pub struct RgaArgs {
         long = "--rga-max-archive-recursion",
         default_value = "4",
         require_equals = true,
-        help = "Maximum nestedness of archives to recurse into"
+        help = "Maximum nestedness of archives to recurse into",
+        hidden_short_help = true
     )]
     pub max_archive_recursion: i32,
 
