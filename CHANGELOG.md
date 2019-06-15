@@ -1,3 +1,8 @@
+# 0.8.9 (2019-06-15)
+
+-   Finally fix linux binary package
+-   add readme to crates.io
+
 # 0.8.7 (2019-06-15)
 
 Minor fixes
