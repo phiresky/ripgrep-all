@@ -28,6 +28,64 @@ demo/
 
 ![rga output](doc/demodir.png)
 
+## Available Adapters
+
+```
+rga --rga-list-adapters
+```
+
+Adapters:
+
+-   ffmpeg
+
+    Uses ffmpeg to extract video metadata/chapters and subtitles
+
+    Extensions: .mkv, .mp4, .avi
+
+-   pandoc
+
+    Uses pandoc to convert binary/unreadable text documents to plain markdown-like text
+
+    Extensions: .epub, .odt, .docx, .fb2, .ipynb
+
+-   poppler
+
+    Uses pdftotext (from poppler-utils) to extract plain text from PDF files
+
+    Extensions: .pdf
+
+-   zip
+
+    Reads a zip file as a stream and recurses down into its contents
+
+    Extensions: .zip
+
+-   tar
+
+    Reads a tar file as a stream and recurses down into its contents
+
+    Extensions: .tar, .tar.gz, .tar.bz2, .tar.xz, .tar.zst
+
+-   sqlite
+
+    Uses sqlite bindings to convert sqlite databases into a simple plain text format
+
+    Extensions: .db, .db3, .sqlite, .sqlite3
+
+    Mime Types: application/x-sqlite3
+
+The following adapters are disabled by default, and can be enabled using `--rga-adapters=+pdfpages,tesseract`:
+
+-   pdfpages
+    Converts a pdf to it's individual pages as png files. Only useful in combination with tesseract
+
+    Extensions: .pdf
+
+-   tesseract
+    Uses tesseract to run OCR on images to make them searchable. May need -j1 to prevent overloading the system. Make sure you have tesseract installed.
+
+    Extensions: .jpg, .png
+
 ## USAGE:
 
 > rga \[FLAGS\] \[OPTIONS\] PATTERN \[PATH ...\]

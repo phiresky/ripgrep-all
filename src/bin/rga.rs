@@ -27,9 +27,28 @@ fn main() -> Fallible<()> {
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
+            let slow_matchers = meta
+                .slow_matchers
+                .as_ref()
+                .unwrap_or(&vec![])
+                .iter()
+                .filter_map(|m| match m {
+                    SlowMatcher::MimeType(x) => Some(format!("{}", x)),
+                    SlowMatcher::Fast(_) => None,
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let mime_text = if slow_matchers.is_empty() {
+                "".to_owned()
+            } else {
+                format!("Mime Types: {}", slow_matchers)
+            };
             print!(
-                " - {}\n     {}\n     Extensions: {}\n",
-                meta.name, meta.description, matchers
+                " - {name}\n     {desc}\n     Extensions: {matchers}\n     {mime}\n",
+                name = meta.name,
+                desc = meta.description,
+                matchers = matchers,
+                mime = mime_text
             );
             println!("");
         };
