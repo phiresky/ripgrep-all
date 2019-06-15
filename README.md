@@ -1,9 +1,11 @@
 # rga: ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc.
 
-rga is a line-oriented search tool that allows you to look for a regex in a multitude of file types. It is a wrapper around the awesome [ripgrep] that enables it to search in pdf, docx, pptx, movie subtitles (mkv, mp4), sqlite, etc.
+rga is a line-oriented search tool that allows you to look for a regex in a multitude of file types. rga wraps the awesome [ripgrep] and enables it to search in pdf, docx, sqlite, jpg, movie subtitles (mkv, mp4), etc.
 
-[![Linux build status](https://api.travis-ci.org/phiresky/ripgrep_all.svg)](https://travis-ci.org/phiresky/ripgrep_all)
-[![Crates.io](https://img.shields.io/crates/v/ripgrep_all.svg)](https://crates.io/crates/ripgrep_all)
+[![github repo](https://img.shields.io/badge/repo-github.com%2Fphiresky%2Fripgrep--all-informational.svg)](https://github.com/phiresky/ripgrep-all)
+[![Linux build status](https://api.travis-ci.org/phiresky/ripgrep-all.svg)](https://travis-ci.org/phiresky/ripgrep-all)
+[![Crates.io](https://img.shields.io/crates/v/ripgrep-all.svg)](https://crates.io/crates/ripgrep-all)
+[![fearless concurrency](https://img.shields.io/badge/concurrency-fearless-success.svg)](https://www.reddit.com/r/rustjerk/top/?sort=top&t=all)
 
 For more detail, see this introductory blogpost: https://phiresky.github.io/blog/2019/rga--ripgrep-for-zip-targz-docx-odt-epub-jpg/
 
@@ -104,3 +106,5 @@ advanced options.
 
 All other options not shown here are passed directly to rg, especially
 \[PATTERN\] and \[PATH \...\]
+
+[ripgrep]: https://github.com/BurntSushi/ripgrep
