@@ -33,6 +33,7 @@ mk_tarball() {
     for binary in rga rga-preproc; do
         cp "target/$TARGET/release/$binary" "$staging/$binary"
         "${gcc_prefix}strip" "$staging/$binary"
+    done
     # Copy the licenses and README.
     cp {README.md,LICENSE.md} "$staging/"
     # Copy documentation and man page.
