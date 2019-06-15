@@ -1,7 +1,7 @@
 
 [package]
 name = "ripgrep_all"
-description = "ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc."
+description = "rga: ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc."
 license = "AGPL-3.0-or-later"
 version = "0.8.9-alpha.0"
 repository = "https://github.com/phiresky/ripgrep_all"
