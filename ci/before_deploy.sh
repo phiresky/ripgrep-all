@@ -29,9 +29,10 @@ mk_tarball() {
     # contains shell completion files and the man page.
     local cargo_out_dir="$(cargo_out_dir "target/$TARGET")"
 
-    # Copy the ripgrep binary and strip it.
-    cp "target/$TARGET/release/rga" "$staging/rga"
-    "${gcc_prefix}strip" "$staging/rga"
+    # Copy the binaries and strip it.
+    for binary in rga rga-preproc; do
+        cp "target/$TARGET/release/$binary" "$staging/$binary"
+        "${gcc_prefix}strip" "$staging/$binary"
     # Copy the licenses and README.
     cp {README.md,LICENSE.md} "$staging/"
     # Copy documentation and man page.
