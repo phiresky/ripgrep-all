@@ -134,14 +134,17 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
             }
         }
         None => {
-            // allow passthrough if the file is in an archive,
+            // allow passthrough if the file is in an archive or accurate matching is enabled
             // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
-            let allow_cat = !is_real_file;
+            let allow_cat = !is_real_file || args.accurate;
             if allow_cat {
                 spawning::postproc_line_prefix(line_prefix, inp, oup)?;
                 Ok(())
             } else {
-                Err(format_err!("No adapter found for file {:?}", filename))
+                Err(format_err!(
+                    "No adapter found for file {:?}, passthrough disabled.",
+                    filename
+                ))
             }
         }
     }

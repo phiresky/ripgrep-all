@@ -1,3 +1,4 @@
+pub mod decompress;
 pub mod ffmpeg;
 pub mod pandoc;
 pub mod pdfpages;
@@ -11,7 +12,7 @@ use crate::matching::*;
 use crate::preproc::PreprocConfig;
 use failure::*;
 use log::*;
-use regex::{Regex};
+use regex::Regex;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::prelude::*;
@@ -78,6 +79,7 @@ pub fn get_all_adapters() -> (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>
         Rc::new(pandoc::PandocAdapter::new()),
         Rc::new(poppler::PopplerAdapter::new()),
         Rc::new(zip::ZipAdapter::new()),
+        Rc::new(decompress::DecompressAdapter::new()),
         Rc::new(tar::TarAdapter::new()),
         Rc::new(sqlite::SqliteAdapter::new()),
     ];

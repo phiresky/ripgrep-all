@@ -1,3 +1,8 @@
+# 0.9.0 (2019-06-16)
+
+-   Split decompress and tar adapter so we can also read pure .bz2 files etc
+-   Add mime type detection to decompress so we can read e.g. /boot/initramfs.img which is a bz2 file without ending
+
 # 0.8.9 (2019-06-15)
 
 -   Finally fix linux binary package

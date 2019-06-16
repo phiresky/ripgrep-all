@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 
 use std::path::PathBuf;
 
-static EXTENSIONS: &[&str] = &["tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst"];
+static EXTENSIONS: &[&str] = &["tar"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
@@ -34,24 +34,6 @@ impl GetMetadata for TarAdapter {
     }
 }
 
-fn decompress_any<'a, R>(filename: &Path, inp: &'a mut R) -> Fallible<Box<dyn Read + 'a>>
-where
-    R: Read,
-{
-    let extension = filename.extension().map(|e| e.to_string_lossy().to_owned());
-    match extension {
-        Some(e) => Ok(match e.to_owned().as_ref() {
-            "tgz" | "gz" => Box::new(flate2::read::MultiGzDecoder::new(inp)),
-            "tbz" | "tbz2" | "bz2" => Box::new(bzip2::read::BzDecoder::new(inp)),
-            "xz" => Box::new(xz2::read::XzDecoder::new_multi_decoder(inp)),
-            "zst" => Box::new(zstd::stream::read::Decoder::new(inp)?),
-            "tar" => Box::new(inp),
-            ext => Err(format_err!("don't know how to decompress {}", ext))?,
-        }),
-        None => Err(format_err!("no extension")),
-    }
-}
-
 impl FileAdapter for TarAdapter {
     fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
         let AdaptInfo {
@@ -63,9 +45,7 @@ impl FileAdapter for TarAdapter {
             config,
             ..
         } = ai;
-
-        let decompress = decompress_any(filepath_hint, &mut inp)?;
-        let mut archive = ::tar::Archive::new(decompress);
+        let mut archive = ::tar::Archive::new(&mut inp);
         for entry in archive.entries()? {
             let mut file = entry.unwrap();
             if Regular == file.header().entry_type() {
