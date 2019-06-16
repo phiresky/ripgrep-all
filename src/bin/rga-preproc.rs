@@ -1,4 +1,4 @@
-use failure::{Fallible};
+use failure::Fallible;
 use rga::adapters::*;
 use rga::preproc::*;
 use ripgrep_all as rga;
@@ -13,7 +13,6 @@ fn main() -> Fallible<()> {
     //clap::App::new("rga-preproc").arg(Arg::from_usage())
     let path = {
         let filepath = last;
-        eprintln!("inp fname: {:?}", filepath);
         std::env::current_dir()?.join(&filepath)
     };
 
