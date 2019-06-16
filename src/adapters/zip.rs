@@ -45,7 +45,7 @@ fn is_dir(f: &ZipFile) -> bool {
 }
 
 impl FileAdapter for ZipAdapter {
-    fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

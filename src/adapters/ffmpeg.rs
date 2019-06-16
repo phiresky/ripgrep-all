@@ -47,7 +47,7 @@ struct FFprobeStream {
     codec_type: String, // video,audio,subtitle
 }
 impl FileAdapter for FFmpegAdapter {
-    fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,

@@ -53,7 +53,10 @@ pub trait GetMetadata {
     fn metadata(&self) -> &AdapterMeta;
 }
 pub trait FileAdapter: GetMetadata {
-    fn adapt(&self, a: AdaptInfo) -> Fallible<()>;
+    /// adapt a file.
+    ///
+    /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
+    fn adapt(&self, a: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()>;
 }
 pub struct AdaptInfo<'a> {
     /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.
@@ -72,7 +75,10 @@ pub struct AdaptInfo<'a> {
     pub config: PreprocConfig<'a>,
 }
 
-pub fn get_all_adapters() -> (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>) {
+/// (enabledAdapters, disabledAdapters)
+type AdaptersTuple = (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>);
+
+pub fn get_all_adapters() -> AdaptersTuple {
     // order in descending priority
     let enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(ffmpeg::FFmpegAdapter::new()),
@@ -96,7 +102,7 @@ pub fn get_all_adapters() -> (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>
  *  - "" means use default enabled adapter list
  *  - "a,b" means use adapters a,b
  *  - "-a,b" means use default list except for a and b
- *  - "+a,b" means use default list but also a and b
+ *  - "+a,b" means use default list but also a and b (a,b will be prepended to the list so given higher priority)
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
     adapter_names: &[T],

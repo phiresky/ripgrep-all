@@ -63,8 +63,8 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
         lossy_filename: filename.to_string_lossy().to_string(),
     });
     match adapter {
-        Some(ad) => {
-            let meta = ad.metadata();
+        Some((adapter, detection_reason)) => {
+            let meta = adapter.metadata();
             eprintln!("adapter: {}", &meta.name);
             let db_name = format!("{}.v{}", meta.name, meta.version);
             if let Some(cache) = cache.as_mut() {
@@ -91,15 +91,18 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                             args.cache_compression_level.try_into().unwrap(),
                         )?);
                         eprintln!("adapting...");
-                        ad.adapt(AdaptInfo {
-                            line_prefix,
-                            filepath_hint,
-                            is_real_file,
-                            inp,
-                            oup: &mut compbuf,
-                            archive_recursion_depth,
-                            config: PreprocConfig { cache: None, args },
-                        })?;
+                        adapter.adapt(
+                            AdaptInfo {
+                                line_prefix,
+                                filepath_hint,
+                                is_real_file,
+                                inp,
+                                oup: &mut compbuf,
+                                archive_recursion_depth,
+                                config: PreprocConfig { cache: None, args },
+                            },
+                            detection_reason,
+                        )?;
                         let compressed = compbuf
                             .into_inner()
                             .map_err(|_| "could not finish zstd")
@@ -121,15 +124,18 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                 Ok(())
             } else {
                 eprintln!("adapting...");
-                ad.adapt(AdaptInfo {
-                    line_prefix,
-                    filepath_hint,
-                    is_real_file,
-                    inp,
-                    oup,
-                    archive_recursion_depth,
-                    config: PreprocConfig { cache: None, args },
-                })?;
+                adapter.adapt(
+                    AdaptInfo {
+                        line_prefix,
+                        filepath_hint,
+                        is_real_file,
+                        inp,
+                        oup,
+                        archive_recursion_depth,
+                        config: PreprocConfig { cache: None, args },
+                    },
+                    detection_reason,
+                )?;
                 Ok(())
             }
         }

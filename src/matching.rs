@@ -7,8 +7,6 @@ use failure::*;
 
 use regex::{Regex, RegexSet};
 
-
-
 use std::iter::Iterator;
 
 use std::rc::Rc;
@@ -50,7 +48,7 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 pub fn adapter_matcher<T: AsRef<str>>(
 	adapter_names: &[T],
 	slow: bool,
-) -> Fallible<impl Fn(FileMeta) -> Option<Rc<dyn FileAdapter>>> {
+) -> Fallible<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, SlowMatcher)>> {
 	let adapters = get_adapters_filtered(adapter_names)?;
 	// need order later
 	let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
@@ -61,9 +59,9 @@ pub fn adapter_matcher<T: AsRef<str>>(
 		use SlowMatcher::*;
 		for matcher in metadata.get_matchers(slow) {
 			match matcher.as_ref() {
-				MimeType(re) => mime_regexes.push((re.clone(), adapter.clone())),
-				Fast(FastMatcher::FileExtension(re)) => {
-					fname_regexes.push((extension_to_regex(re), adapter.clone()))
+				f @ MimeType(re) => mime_regexes.push((re.clone(), adapter.clone(), f)),
+				f @ Fast(FastMatcher::FileExtension(re)) => {
+					fname_regexes.push((extension_to_regex(re), adapter.clone(), f))
 				}
 			};
 		}
@@ -85,15 +83,20 @@ pub fn adapter_matcher<T: AsRef<str>>(
 		};
 		if fname_matches.len() + mime_matches.len() > 1 {
 			// get first according to original priority list...
-			let fa = fname_matches.iter().map(|e| fname_regexes[*e].1.clone());
-			let fb = mime_matches.iter().map(|e| mime_regexes[*e].1.clone());
+			// todo: kinda ugly
+			let fa = fname_matches
+				.iter()
+				.map(|e| (fname_regexes[*e].1.clone(), fname_regexes[*e].2.clone()));
+			let fb = mime_matches
+				.iter()
+				.map(|e| (mime_regexes[*e].1.clone(), mime_regexes[*e].2.clone()));
 			let mut v = vec![];
 			v.extend(fa);
 			v.extend(fb);
 			v.sort_by_key(|e| {
 				(adapter_names
 					.iter()
-					.position(|r| r == &e.metadata().name)
+					.position(|r| r == &e.0.metadata().name)
 					.expect("impossib7"))
 			});
 			eprintln!(
@@ -101,7 +104,7 @@ pub fn adapter_matcher<T: AsRef<str>>(
 				meta.lossy_filename
 			);
 			for mmatch in v.iter() {
-				eprintln!(" - {}", mmatch.metadata().name);
+				eprintln!(" - {}", mmatch.0.metadata().name);
 			}
 			return Some(v[0].clone());
 		}
@@ -109,10 +112,12 @@ pub fn adapter_matcher<T: AsRef<str>>(
 			if fname_matches.is_empty() {
 				None
 			} else {
-				Some(fname_regexes[fname_matches[0]].1.clone())
+				let (_, adapter, matcher) = fname_regexes[fname_matches[0]];
+				Some((adapter.clone(), matcher.clone()))
 			}
 		} else {
-			Some(mime_regexes[mime_matches[0]].1.clone())
+			let (_, adapter, matcher) = mime_regexes[mime_matches[0]];
+			Some((adapter.clone(), matcher.clone()))
 		}
 	})
 }

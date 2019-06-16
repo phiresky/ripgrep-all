@@ -79,7 +79,7 @@ fn get_inner_filename(filename: &Path) -> PathBuf {
 }
 
 impl FileAdapter for DecompressAdapter {
-    fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

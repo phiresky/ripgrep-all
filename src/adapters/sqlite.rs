@@ -56,7 +56,7 @@ fn format_blob(b: ValueRef) -> String {
 }
 
 impl FileAdapter for SqliteAdapter {
-    fn adapt(&self, ai: AdaptInfo) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,
