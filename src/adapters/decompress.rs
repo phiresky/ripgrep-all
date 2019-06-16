@@ -45,22 +45,33 @@ impl GetMetadata for DecompressAdapter {
     }
 }
 
-fn decompress_any<'a, R>(filename: &Path, inp: &'a mut R) -> Fallible<Box<dyn Read + 'a>>
+fn decompress_any<'a, R>(reason: &SlowMatcher, inp: &'a mut R) -> Fallible<Box<dyn Read + 'a>>
 where
     R: Read,
 {
-    let extension = filename.extension().map(|e| e.to_string_lossy().to_owned());
+    use FastMatcher::*;
+    use SlowMatcher::*;
+    let gz = |inp: &'a mut R| Box::new(flate2::read::MultiGzDecoder::new(inp));
+    let bz2 = |inp: &'a mut R| Box::new(bzip2::read::BzDecoder::new(inp));
+    let xz = |inp: &'a mut R| Box::new(xz2::read::XzDecoder::new_multi_decoder(inp));
+    let zst = |inp: &'a mut R| zstd::stream::read::Decoder::new(inp); // returns result
 
-    match extension {
-        Some(e) => Ok(match e.to_owned().as_ref() {
-            "tgz" | "gz" => Box::new(flate2::read::MultiGzDecoder::new(inp)),
-            "tbz" | "tbz2" | "bz2" => Box::new(bzip2::read::BzDecoder::new(inp)),
-            "xz" => Box::new(xz2::read::XzDecoder::new_multi_decoder(inp)),
-            "zst" => Box::new(zstd::stream::read::Decoder::new(inp)?),
+    Ok(match reason {
+        Fast(FileExtension(ext)) => match ext.as_ref() {
+            "tgz" | "gz" => gz(inp),
+            "tbz" | "tbz2" | "bz2" => bz2(inp),
+            "xz" => xz(inp),
+            "zst" => Box::new(zst(inp)?),
             ext => Err(format_err!("don't know how to decompress {}", ext))?,
-        }),
-        None => Err(format_err!("no extension")),
-    }
+        },
+        MimeType(mime) => match mime.as_ref() {
+            "application/gzip" => gz(inp),
+            "application/x-bzip" => bz2(inp),
+            "application/x-xz" => xz(inp),
+            "application/zstd" => Box::new(zst(inp)?),
+            mime => Err(format_err!("don't know how to decompress mime {}", mime))?,
+        },
+    })
 }
 fn get_inner_filename(filename: &Path) -> PathBuf {
     let extension = filename
@@ -90,7 +101,7 @@ impl FileAdapter for DecompressAdapter {
             ..
         } = ai;
 
-        let mut decompress = decompress_any(filepath_hint, &mut inp)?;
+        let mut decompress = decompress_any(detection_reason, &mut inp)?;
         let ai2: AdaptInfo = AdaptInfo {
             filepath_hint: &get_inner_filename(filepath_hint),
             is_real_file: false,

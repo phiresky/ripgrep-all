@@ -101,7 +101,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                                 archive_recursion_depth,
                                 config: PreprocConfig { cache: None, args },
                             },
-                            detection_reason,
+                            &detection_reason,
                         )?;
                         let compressed = compbuf
                             .into_inner()
@@ -134,7 +134,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                         archive_recursion_depth,
                         config: PreprocConfig { cache: None, args },
                     },
-                    detection_reason,
+                    &detection_reason,
                 )?;
                 Ok(())
             }

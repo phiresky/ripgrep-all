@@ -59,10 +59,14 @@ pub fn adapter_matcher<T: AsRef<str>>(
 		use SlowMatcher::*;
 		for matcher in metadata.get_matchers(slow) {
 			match matcher.as_ref() {
-				f @ MimeType(re) => mime_regexes.push((re.clone(), adapter.clone(), f)),
-				f @ Fast(FastMatcher::FileExtension(re)) => {
-					fname_regexes.push((extension_to_regex(re), adapter.clone(), f))
+				MimeType(re) => {
+					mime_regexes.push((re.clone(), adapter.clone(), MimeType(re.clone())))
 				}
+				Fast(FastMatcher::FileExtension(re)) => fname_regexes.push((
+					extension_to_regex(re),
+					adapter.clone(),
+					Fast(FastMatcher::FileExtension(re.clone())),
+				)),
 			};
 		}
 	}
@@ -112,11 +116,11 @@ pub fn adapter_matcher<T: AsRef<str>>(
 			if fname_matches.is_empty() {
 				None
 			} else {
-				let (_, adapter, matcher) = fname_regexes[fname_matches[0]];
+				let (_, adapter, matcher) = &fname_regexes[fname_matches[0]];
 				Some((adapter.clone(), matcher.clone()))
 			}
 		} else {
-			let (_, adapter, matcher) = mime_regexes[mime_matches[0]];
+			let (_, adapter, matcher) = &mime_regexes[mime_matches[0]];
 			Some((adapter.clone(), matcher.clone()))
 		}
 	})
