@@ -93,7 +93,7 @@ impl<T> FileAdapter for T
 where
     T: SpawningFileAdapter,
 {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

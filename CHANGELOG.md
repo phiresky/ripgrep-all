@@ -1,6 +1,7 @@
 # 0.9.1 (2019-06-16)
 
 -   Add enabled adapters to cache key if caching for archive
+-   Prevent empty trailing page output in pdf reader
 
 # 0.9.0 (2019-06-16)
 

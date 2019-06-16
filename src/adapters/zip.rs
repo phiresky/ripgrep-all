@@ -14,6 +14,7 @@ lazy_static! {
         name: "zip".to_owned(),
         version: 1,
         description: "Reads a zip file as a stream and recurses down into its contents".to_owned(),
+        recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -45,7 +46,7 @@ fn is_dir(f: &ZipFile) -> bool {
 }
 
 impl FileAdapter for ZipAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

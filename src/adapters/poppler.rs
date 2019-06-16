@@ -12,6 +12,7 @@ lazy_static! {
         version: 1,
         description: "Uses pdftotext (from poppler-utils) to extract plain text from PDF files"
             .to_owned(),
+        recurses: false,
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -50,6 +51,9 @@ impl SpawningFileAdapter for PopplerAdapter {
                 // page break
                 line = line.replace('\x0c', "");
                 page += 1;
+                if line.is_empty() {
+                    continue;
+                }
             }
             oup.write_all(format!("{}Page {}: {}\n", line_prefix, page, line).as_bytes())?;
         }

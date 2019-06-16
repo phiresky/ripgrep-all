@@ -72,13 +72,22 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                     let clean_path = filepath_hint.to_owned().clean();
                     let meta = std::fs::metadata(&filepath_hint)?;
 
-                    let key = (
-                        clean_path,
-                        meta.modified().expect("weird OS that can't into mtime"),
-                    );
-                    eprintln!("cache key: {:?}", key);
-
-                    bincode::serialize(&key).expect("could not serialize path") // key in the cache database
+                    if adapter.metadata().recurses {
+                        let key = (
+                            clean_path,
+                            meta.modified().expect("weird OS that can't into mtime"),
+                            &args.adapters[..],
+                        );
+                        eprintln!("cache key: {:?}", key);
+                        bincode::serialize(&key).expect("could not serialize path") // key in the cache database
+                    } else {
+                        let key = (
+                            clean_path,
+                            meta.modified().expect("weird OS that can't into mtime"),
+                        );
+                        eprintln!("cache key: {:?}", key);
+                        bincode::serialize(&key).expect("could not serialize path") // key in the cache database
+                    }
                 };
                 cache.write().unwrap().get_or_run(
                     &db_name,

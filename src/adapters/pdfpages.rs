@@ -17,6 +17,7 @@ lazy_static! {
 		name: "pdfpages".to_owned(),
 		version: 1,
 		description: "Converts a pdf to it's individual pages as png files. Only useful in combination with tesseract".to_owned(),
+		recurses: true,
 		fast_matchers: EXTENSIONS
 			.iter()
 			.map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -42,7 +43,7 @@ impl GetMetadata for PdfPagesAdapter {
 /// A pdf is basically converted to a zip that has Page X.png files.
 /// This way, something like tesseract can process the pages individually
 impl FileAdapter for PdfPagesAdapter {
-	fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
+	fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
 		let AdaptInfo {
 			filepath_hint,
 			is_real_file,

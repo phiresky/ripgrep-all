@@ -48,6 +48,7 @@ lazy_static! {
         description:
             "Uses pandoc to convert binary/unreadable text documents to plain markdown-like text"
                 .to_owned(),
+        recurses: false,
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))

@@ -13,6 +13,7 @@ lazy_static! {
         name: "tar".to_owned(),
         version: 1,
         description: "Reads a tar file as a stream and recurses down into its contents".to_owned(),
+        recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -35,7 +36,7 @@ impl GetMetadata for TarAdapter {
 }
 
 impl FileAdapter for TarAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

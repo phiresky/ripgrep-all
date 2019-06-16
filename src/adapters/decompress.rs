@@ -19,6 +19,7 @@ lazy_static! {
         description:
             "Reads compressed file as a stream and runs a different extractor on the contents."
                 .to_owned(),
+        recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))

@@ -16,6 +16,7 @@ lazy_static! {
         name: "ffmpeg".to_owned(),
         version: 1,
         description: "Uses ffmpeg to extract video metadata/chapters and subtitles".to_owned(),
+        recurses: false,
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -47,7 +48,7 @@ struct FFprobeStream {
     codec_type: String, // video,audio,subtitle
 }
 impl FileAdapter for FFmpegAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,

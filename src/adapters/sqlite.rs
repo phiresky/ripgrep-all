@@ -14,6 +14,7 @@ lazy_static! {
         description:
             "Uses sqlite bindings to convert sqlite databases into a simple plain text format"
                 .to_owned(),
+        recurses: false, // set to true if we decide to make sqlite blobs searchable (gz blob in db is kinda common I think)
         fast_matchers: EXTENSIONS
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
@@ -56,7 +57,7 @@ fn format_blob(b: ValueRef) -> String {
 }
 
 impl FileAdapter for SqliteAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,

@@ -26,7 +26,9 @@ pub struct AdapterMeta {
     /// version identifier. used to key cache entries, change if your output format changes
     pub version: i32,
     pub description: String,
-    /// list of matchers (interpreted as ORed)
+    /// indicates whether this adapter can descend (=call rga_preproc again). if true, the cache key needs to include the list of active adapters
+    pub recurses: bool,
+    /// list of matchers (interpreted as a OR b OR ...)
     pub fast_matchers: Vec<FastMatcher>,
     /// list of matchers when we have mime type detection active (interpreted as ORed)
     /// warning: this *overrides* the fast matchers
@@ -71,7 +73,6 @@ pub struct AdaptInfo<'a> {
     pub oup: &'a mut (dyn Write + Send),
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: &'a str,
-    // pub adapt_subobject: &'a dyn Fn(AdaptInfo) -> Fallible<()>,
     pub config: PreprocConfig<'a>,
 }
 

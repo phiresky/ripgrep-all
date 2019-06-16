@@ -10,6 +10,7 @@ lazy_static! {
 		name: "tesseract".to_owned(),
 		version: 1,
 		description: "Uses tesseract to run OCR on images to make them searchable. May need -j1 to prevent overloading the system. Make sure you have tesseract installed.".to_owned(),
+		recurses: false,
 		fast_matchers: EXTENSIONS
 			.iter()
 			.map(|s| FastMatcher::FileExtension(s.to_string()))
