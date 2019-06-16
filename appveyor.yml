@@ -51,11 +51,11 @@ build: false
 
 # Equivalent to Travis' `script` phase
 test_script:
-    - cargo test --verbose --all --features pcre2
+    - cargo test --verbose --all
 
 before_deploy:
     # Generate artifacts for release
-    - cargo build --release --features pcre2
+    - cargo build --release
     - mkdir staging
     - copy target\release\rga.exe staging
     - copy target\release\rga-preproc.exe staging
