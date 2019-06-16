@@ -1,3 +1,7 @@
+# 0.9.1 (2019-06-16)
+
+-   Add enabled adapters to cache key if caching for archive
+
 # 0.9.0 (2019-06-16)
 
 -   Split decompress and tar adapter so we can also read pure .bz2 files etc
