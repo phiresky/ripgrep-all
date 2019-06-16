@@ -48,7 +48,7 @@ impl FileAdapter for TarAdapter {
         } = ai;
         let mut archive = ::tar::Archive::new(&mut inp);
         for entry in archive.entries()? {
-            let mut file = entry.unwrap();
+            let mut file = entry?;
             if Regular == file.header().entry_type() {
                 let path = PathBuf::from(file.path()?.to_owned());
                 eprintln!(
