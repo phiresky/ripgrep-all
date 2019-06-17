@@ -100,6 +100,18 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 
     Extensions: .jpg, .png
 
+## INSTALLATION:
+
+rga should compile with stable Rust.  To build it, run the following (or the equivalent in your OS):
+
+```
+   ~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
+   ~$ cargo install ripgrep_all
+   ~$ rga --version    # this should work now
+```
+
+You could do `cargo build`, instead of `cargo install ripgrep_all`, to just build rga in the local tree.
+
 ## USAGE:
 
 > rga \[FLAGS\] \[OPTIONS\] PATTERN \[PATH ...\]
