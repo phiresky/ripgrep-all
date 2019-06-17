@@ -1,3 +1,7 @@
+# 0.9.2 (2019-06-17)
+
+-   Fix file ending regex ([#13](https://github.com/phiresky/ripgrep-all/issues/13))
+
 # 0.9.1 (2019-06-16)
 
 -   Add enabled adapters to cache key if caching for archive
