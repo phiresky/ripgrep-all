@@ -131,7 +131,7 @@ mod tests {
             ("hi/test.hi.bz2", "hi/test.hi"),
             ("hello.tar.gz", "hello.tar"),
         ] {
-            assert_eq!(get_inner_filename(&PathBuf::from(a)).to_string_lossy(), *b);
+            assert_eq!(get_inner_filename(&PathBuf::from(a)), PathBuf::from(*b));
         }
     }
 }
