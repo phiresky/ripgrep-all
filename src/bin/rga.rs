@@ -85,8 +85,7 @@ fn main() -> Result<(), exitfailure::ExitFailure> {
         "*".to_owned()
     };
 
-    let exe = std::env::current_exe().expect("Could not get executable location");
-    let preproc_exe = exe.with_file_name("rga-preproc");
+    add_exe_to_path()?;
 
     let rg_args = vec![
         "--no-line-number",
@@ -98,7 +97,7 @@ fn main() -> Result<(), exitfailure::ExitFailure> {
     let mut child = Command::new("rg")
         .args(rg_args)
         .arg("--pre")
-        .arg(preproc_exe)
+        .arg("rga-preproc")
         .arg("--pre-glob")
         .arg(pre_glob)
         .args(passthrough_args)
@@ -106,5 +105,20 @@ fn main() -> Result<(), exitfailure::ExitFailure> {
         .map_err(|e| map_exe_error(e, "rg", "Please make sure you have ripgrep installed."))?;
 
     child.wait()?;
+    Ok(())
+}
+
+/// add the directory that contains `rga` to PATH, so ripgrep can find rga-preproc and rga-preproc can find pandoc etc (if we are on Windows where we include dependent binaries)
+fn add_exe_to_path() -> Fallible<()> {
+    use std::env;
+    let mut exe = env::current_exe().expect("Could not get executable location");
+    // let preproc_exe = exe.with_file_name("rga-preproc");
+    exe.pop(); // dirname
+
+    let path = env::var_os("PATH").unwrap_or("".into());
+    let mut paths = env::split_paths(&path).collect::<Vec<_>>();
+    paths.push(exe); // append: this way system PATH gets higher priority than bundled versions
+    let new_path = env::join_paths(paths)?;
+    env::set_var("PATH", &new_path);
     Ok(())
 }

@@ -12,6 +12,33 @@ mk_artifacts() {
 	"$CARGO" build --target "$TARGET" --release
 }
 
+# run from tmpdir, put results in $1/
+# currently windows only, because other OS probably have a package manager
+# also currently just a fixed version of each tool since it doesn't matter much
+download_other_binaries() {
+    outdir="$1"
+    mkdir -p "$outdir/licenses"
+
+    # ffmpeg
+    wget https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.1.3-win64-static.zip -O ffmpeg.zip
+    unzip ffmpeg.zip
+    cp ffmpeg-*/bin/{ffmpeg,ffprobe}.exe "$outdir"
+    cp ffmpeg-*/LICENSE.txt "$outdir/licenses/ffmpeg"
+
+    # xpdf
+    wget https://xpdfreader-dl.s3.amazonaws.com/xpdf-tools-win-4.01.01.zip -O xpdf.zip
+    unzip xpdf.zip
+    cp xpdf-tools*/bin64/pdftotext.exe "$outdir/"
+    cp xpdf-tools*/COPYING3 "$outdir/licenses/xpdf"
+    
+    wget https://github.com/jgm/pandoc/releases/download/2.7.3/pandoc-2.7.3-windows-x86_64.zip -O pandoc.zip
+    unzip pandoc.zip
+    cp pandoc-*/pandoc.exe "$outdir/"
+    cp pandoc-*/COPYRIGHT.txt "$outdir/licenses/pandoc"
+
+
+}
+
 mk_tarball() {
     # When cross-compiling, use the right `strip` tool on the binary.
     local gcc_prefix="$(gcc_prefix)"
@@ -20,7 +47,8 @@ mk_tarball() {
     local tmpdir="$(mktemp -d)"
     local name="${PROJECT_NAME}-${TRAVIS_TAG}-${TARGET}"
     local staging="$tmpdir/$name"
-    mkdir -p "$staging"/{complete,doc}
+    mkdir -p "$staging/"
+    # mkdir -p "$staging"/{complete,doc}
     # The deployment directory is where the final archive will reside.
     # This path is known by the .travis.yml configuration.
     local out_dir="$(pwd)/deployment"
@@ -52,6 +80,7 @@ mk_tarball() {
     # cp complete/_rg "$staging/complete/"
 
     if is_windows; then
+        (cd "$tmpdir" && download_other_binaries "$name")
         (cd "$tmpdir" && zip -r "$out_dir/$name.zip" "$name")
     else
         (cd "$tmpdir" && tar czf "$out_dir/$name.tar.gz" "$name")
