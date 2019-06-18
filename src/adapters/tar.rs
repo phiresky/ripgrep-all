@@ -3,7 +3,7 @@ use crate::preproc::rga_preproc;
 use ::tar::EntryType::Regular;
 use failure::*;
 use lazy_static::lazy_static;
-
+use log::*;
 use std::path::PathBuf;
 
 static EXTENSIONS: &[&str] = &["tar"];
@@ -51,7 +51,7 @@ impl FileAdapter for TarAdapter {
             let mut file = entry?;
             if Regular == file.header().entry_type() {
                 let path = PathBuf::from(file.path()?.to_owned());
-                eprintln!(
+                debug!(
                     "{}|{}: {} bytes",
                     filepath_hint.display(),
                     path.display(),

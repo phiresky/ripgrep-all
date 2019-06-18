@@ -4,6 +4,7 @@ use crate::matching::*;
 use crate::CachingWriter;
 use failure::Fallible;
 use failure::{format_err, Error};
+use log::*;
 use path_clean::PathClean;
 use std::convert::TryInto;
 use std::io::BufRead;
@@ -22,7 +23,7 @@ pub struct PreprocConfig<'a> {
  * If a cache is passed, read/write to it.
  *
  */
-pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
+pub fn rga_preproc(ai: AdaptInfo) -> Fallible<()> {
     let AdaptInfo {
         filepath_hint,
         is_real_file,
@@ -38,22 +39,22 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
-    eprintln!("depth: {}", archive_recursion_depth);
+    debug!("depth: {}", archive_recursion_depth);
     if archive_recursion_depth >= args.max_archive_recursion {
         writeln!(oup, "{}[rga: max archive recursion reached]", line_prefix)?;
         return Ok(());
     }
 
-    eprintln!("path_hint: {:?}", filepath_hint);
+    debug!("path_hint: {:?}", filepath_hint);
 
     // todo: figure out when using a bufreader is a good idea and when it is not
-    // seems to beed for File::open() reads, but not sure about within archives (tar, zip)
+    // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
     let inp = &mut BufReader::with_capacity(1 << 13, inp);
 
     let mimetype = if args.accurate {
         let buf = inp.fill_buf()?; // fill but do not consume!
         let mimetype = tree_magic::from_u8(buf);
-        eprintln!("mimetype: {:?}", mimetype);
+        debug!("mimetype: {:?}", mimetype);
         Some(mimetype)
     } else {
         None
@@ -78,14 +79,14 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                             meta.modified().expect("weird OS that can't into mtime"),
                             &args.adapters[..],
                         );
-                        eprintln!("cache key: {:?}", key);
+                        debug!("cache key: {:?}", key);
                         bincode::serialize(&key).expect("could not serialize path") // key in the cache database
                     } else {
                         let key = (
                             clean_path,
                             meta.modified().expect("weird OS that can't into mtime"),
                         );
-                        eprintln!("cache key: {:?}", key);
+                        debug!("cache key: {:?}", key);
                         bincode::serialize(&key).expect("could not serialize path") // key in the cache database
                     }
                 };
@@ -99,7 +100,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                             args.cache_max_blob_len.try_into().unwrap(),
                             args.cache_compression_level.try_into().unwrap(),
                         )?);
-                        eprintln!("adapting...");
+                        debug!("adapting...");
                         adapter.adapt(
                             AdaptInfo {
                                 line_prefix,
@@ -118,7 +119,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                             .unwrap()
                             .finish()?;
                         if let Some(cached) = compressed {
-                            eprintln!("compressed len: {}", cached.len());
+                            debug!("compressed len: {}", cached.len());
                             Ok(Some(cached))
                         } else {
                             Ok(None)
@@ -132,7 +133,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<(), Error> {
                 )?;
                 Ok(())
             } else {
-                eprintln!("adapting...");
+                debug!("adapting...");
                 adapter.adapt(
                     AdaptInfo {
                         line_prefix,

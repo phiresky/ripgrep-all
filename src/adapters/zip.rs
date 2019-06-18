@@ -3,6 +3,7 @@ use crate::preproc::rga_preproc;
 use ::zip::read::ZipFile;
 use failure::*;
 use lazy_static::lazy_static;
+use log::*;
 
 // todo:
 // maybe todo: read list of extensions from
@@ -63,7 +64,7 @@ impl FileAdapter for ZipAdapter {
                     if is_dir(&file) {
                         continue;
                     }
-                    eprintln!(
+                    debug!(
                         "{}{}|{}: {} bytes ({} bytes packed)",
                         line_prefix,
                         filepath_hint.to_string_lossy(),

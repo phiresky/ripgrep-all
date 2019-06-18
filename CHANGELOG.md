@@ -2,6 +2,7 @@
 
 -   Fix file ending regex ([#13](https://github.com/phiresky/ripgrep-all/issues/13))
 -   Fix decoding of UTF16 with BOM ([#5](https://github.com/phiresky/ripgrep-all/issues/5))
+-   Shorten the output on failure to two lines (https://github.com/phiresky/ripgrep-all/issues/7), you can use `--no-messages` to completely suppress errors.
 
 # 0.9.1 (2019-06-16)
 

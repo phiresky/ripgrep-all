@@ -1,6 +1,7 @@
 use super::*;
 use failure::*;
 use lazy_static::lazy_static;
+use log::*;
 use rusqlite::types::ValueRef;
 use rusqlite::*;
 use std::convert::TryInto;
@@ -79,7 +80,7 @@ impl FileAdapter for SqliteAdapter {
             .query_map(NO_PARAMS, |r| r.get::<_, String>(0))?
             .filter_map(|e| e.ok())
             .collect();
-        eprintln!("db has {} tables", tables.len());
+        debug!("db has {} tables", tables.len());
         for table in tables {
             // can't use query param at that position
             let mut sel = conn.prepare(&format!(

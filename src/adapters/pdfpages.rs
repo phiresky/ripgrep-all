@@ -1,12 +1,10 @@
 use super::*;
 use crate::adapters::spawning::map_exe_error;
-
 use crate::preproc::rga_preproc;
 use lazy_static::lazy_static;
-
+use log::*;
 use std::fs::File;
 use std::io::BufReader;
-
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -62,7 +60,7 @@ impl FileAdapter for PdfPagesAdapter {
 		let exe_name = "gm";
 		let out_dir = tempfile::Builder::new().prefix("pdfpages-").tempdir()?;
 		let out_fname = out_dir.path().join("out%04d.png");
-		eprintln!("writing to temp dir: {}", out_fname.display());
+		debug!("writing to temp dir: {}", out_fname.display());
 		let mut cmd = Command::new(exe_name);
 		cmd.arg("convert")
 			.arg("-density")

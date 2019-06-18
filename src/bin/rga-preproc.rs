@@ -33,5 +33,11 @@ fn main() -> Fallible<()> {
         config: PreprocConfig { cache, args: &args },
     };
 
-    rga_preproc(ai)
+    match rga_preproc(ai) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            eprintln!("preproc error: {}", e);
+            std::process::exit(1);
+        }
+    }
 }

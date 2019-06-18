@@ -49,7 +49,7 @@ impl<W: Write> Write for CachingWriter<W> {
                 let compressed_len = writer.get_ref().len();
                 trace!("wrote {} to zstd, len now {}", wrote, compressed_len);
                 if compressed_len > self.max_cache_size {
-                    eprintln!("cache longer than max, dropping");
+                    debug!("cache longer than max, dropping");
                     //writer.finish();
                     self.zstd_writer.take().unwrap().finish()?;
                 }
@@ -60,7 +60,7 @@ impl<W: Write> Write for CachingWriter<W> {
         }
     }
     fn flush(&mut self) -> std::io::Result<()> {
-        eprintln!("flushing");
+        debug!("flushing");
         if let Some(writer) = self.zstd_writer.as_mut() {
             writer.flush()?;
         }
