@@ -84,7 +84,7 @@ mk_tarball() {
 
     #if is_windows; then
         (cd "$tmpdir" && download_other_binaries "$name")
-        (cd "$tmpdir" && 7za a "$out_dir/$name.7z" "$name")
+        (cd "$tmpdir" && 7z a "$out_dir/$name.7z" "$name")
     #else
     #    (cd "$tmpdir" && tar czf "$out_dir/$name.tar.gz" "$name")
     #fi
