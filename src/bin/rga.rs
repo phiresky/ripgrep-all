@@ -8,7 +8,7 @@ use structopt::StructOpt;
 
 use std::process::Command;
 
-fn main() -> Fallible<()> {
+fn main() -> Result<(), exitfailure::ExitFailure> {
     env_logger::init();
 
     let (args, passthrough_args) = split_args()?;

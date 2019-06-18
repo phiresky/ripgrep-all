@@ -51,7 +51,11 @@ mk_tarball() {
     # cp "$cargo_out_dir"/{rg.bash,rg.fish,_rg.ps1} "$staging/complete/"
     # cp complete/_rg "$staging/complete/"
 
-    (cd "$tmpdir" && tar czf "$out_dir/$name.tar.gz" "$name")
+    if is_windows; then
+        (cd "$tmpdir" && zip -r "$out_dir/$name.zip" "$name")
+    else
+        (cd "$tmpdir" && tar czf "$out_dir/$name.tar.gz" "$name")
+    fi
     rm -rf "$tmpdir"
 }
 

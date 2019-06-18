@@ -5,7 +5,7 @@ use ripgrep_all as rga;
 
 use std::fs::File;
 
-fn main() -> Fallible<()> {
+fn main() -> Result<(), exitfailure::ExitFailure> {
     env_logger::init();
     let mut arg_arr: Vec<std::ffi::OsString> = std::env::args_os().collect();
     let last = arg_arr.pop().expect("No filename specified");
@@ -32,12 +32,6 @@ fn main() -> Fallible<()> {
         archive_recursion_depth: 0,
         config: PreprocConfig { cache, args: &args },
     };
-
-    match rga_preproc(ai) {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            eprintln!("preproc error: {}", e);
-            std::process::exit(1);
-        }
-    }
+    rga_preproc(ai)?;
+    Ok(())
 }
