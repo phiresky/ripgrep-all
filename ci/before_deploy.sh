@@ -29,10 +29,15 @@ mk_tarball() {
     # contains shell completion files and the man page.
     local cargo_out_dir="$(cargo_out_dir "target/$TARGET")"
 
+    bin_ext=""
+    if is_windows; then
+        bin_ext=".exe"
+    fi
+
     # Copy the binaries and strip it.
     for binary in rga rga-preproc; do
-        cp "target/$TARGET/release/$binary" "$staging/$binary"
-        "${gcc_prefix}strip" "$staging/$binary"
+        cp "target/$TARGET/release/$binary$bin_ext" "$staging/$binary$bin_ext"
+        # "${gcc_prefix}strip" "$staging/$binary"
     done
     # Copy the licenses and README.
     cp {README.md,LICENSE.md} "$staging/"
