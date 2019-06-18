@@ -1,4 +1,5 @@
 use super::*;
+use encoding_rs_io::DecodeReaderBytesBuilder;
 use failure::*;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -10,13 +11,27 @@ use std::process::Stdio;
  *
  * Try to detect binary files and ignore them. Does not ensure any encoding in the output.
  *
- * This is needed because the rg binary detection does not apply to preprocessed files
+ * Binary detection is needed because the rg binary detection does not apply to preprocessed files
  */
+
+/**/
 pub fn postproc_line_prefix(
     line_prefix: &str,
     inp: &mut dyn Read,
     oup: &mut dyn Write,
 ) -> Fallible<()> {
+    // TODO: parse these options from ripgrep's configuration
+    let encoding = None; // detect bom but usually assume utf8
+    let bom_sniffing = true;
+    let mut decode_builder = DecodeReaderBytesBuilder::new();
+    // https://github.com/BurntSushi/ripgrep/blob/a7d26c8f144a4957b75f71087a66692d0b25759a/grep-searcher/src/searcher/mod.rs#L706
+    let inp = decode_builder
+        .encoding(encoding)
+        .utf8_passthru(true)
+        .strip_bom(bom_sniffing)
+        .bom_override(true)
+        .bom_sniffing(bom_sniffing)
+        .build(inp);
     // check for null byte in first 8kB
     let mut reader = BufReader::with_capacity(1 << 12, inp);
     let fourk = reader.fill_buf()?;

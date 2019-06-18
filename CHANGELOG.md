@@ -1,6 +1,7 @@
 # 0.9.2 (2019-06-17)
 
 -   Fix file ending regex ([#13](https://github.com/phiresky/ripgrep-all/issues/13))
+-   Fix decoding of UTF16 with BOM ([#5](https://github.com/phiresky/ripgrep-all/issues/5))
 
 # 0.9.1 (2019-06-16)
 
