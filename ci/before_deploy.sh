@@ -20,22 +20,25 @@ download_other_binaries() {
     mkdir -p "$outdir/licenses"
 
     # ffmpeg
-    wget https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.1.3-win64-static.zip -O ffmpeg.zip
+    wget -q https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.1.3-win64-static.zip -O ffmpeg.zip
     unzip ffmpeg.zip
     cp ffmpeg-*/bin/{ffmpeg,ffprobe}.exe "$outdir"
     cp ffmpeg-*/LICENSE.txt "$outdir/licenses/ffmpeg"
 
     # xpdf
-    wget https://xpdfreader-dl.s3.amazonaws.com/xpdf-tools-win-4.01.01.zip -O xpdf.zip
+    wget -q https://xpdfreader-dl.s3.amazonaws.com/xpdf-tools-win-4.01.01.zip -O xpdf.zip
     unzip xpdf.zip
     cp xpdf-tools*/bin64/pdftotext.exe "$outdir/"
     cp xpdf-tools*/COPYING3 "$outdir/licenses/xpdf"
     
-    wget https://github.com/jgm/pandoc/releases/download/2.7.3/pandoc-2.7.3-windows-x86_64.zip -O pandoc.zip
+    wget -q https://github.com/jgm/pandoc/releases/download/2.7.3/pandoc-2.7.3-windows-x86_64.zip -O pandoc.zip
     unzip pandoc.zip
     cp pandoc-*/pandoc.exe "$outdir/"
     cp pandoc-*/COPYRIGHT.txt "$outdir/licenses/pandoc"
 
+    wget -q https://github.com/BurntSushi/ripgrep/releases/download/11.0.1/ripgrep-11.0.1-x86_64-pc-windows-msvc.zip -O ripgrep.zip
+    unzip ripgrep.zip
+    cp rg.exe "$outdir/"
 
 }
 
@@ -79,12 +82,12 @@ mk_tarball() {
     # cp "$cargo_out_dir"/{rg.bash,rg.fish,_rg.ps1} "$staging/complete/"
     # cp complete/_rg "$staging/complete/"
 
-    if is_windows; then
+    #if is_windows; then
         (cd "$tmpdir" && download_other_binaries "$name")
         (cd "$tmpdir" && 7za a "$out_dir/$name.7z" "$name")
-    else
-        (cd "$tmpdir" && tar czf "$out_dir/$name.tar.gz" "$name")
-    fi
+    #else
+    #    (cd "$tmpdir" && tar czf "$out_dir/$name.tar.gz" "$name")
+    #fi
     rm -rf "$tmpdir"
 }
 
