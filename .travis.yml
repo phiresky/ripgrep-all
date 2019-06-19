@@ -31,6 +31,7 @@ matrix:
         # All *nix releases are done on the nightly channel to take advantage
         # of the regex library's multiple pattern SIMD search.
         - os: linux
+          rust: nightly
           env: TARGET=x86_64-unknown-linux-musl
         - os: osx
           rust: nightly
