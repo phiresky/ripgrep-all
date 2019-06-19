@@ -28,6 +28,44 @@ demo/
 
 ![rga output](doc/demodir.png)
 
+## INSTALLATION
+
+Linux x64, OSX and Windows binaries are available [in GitHub Releases][latestrelease].
+
+[latestrelease]: https://github.com/phiresky/ripgrep-all/releases/latest
+
+### Linux
+
+On Arch Linux, you can simply install from AUR: `yay -S ripgrep-all`.
+
+On Debian-based distributions you can download the [rga binary][latestrelease] and get the dependencies like this:
+
+`apt install ripgrep pandoc poppler-utils ffmpeg cargo`
+
+If ripgrep is not included in your package sources, get it from [here](https://github.com/BurntSushi/ripgrep/releases).
+
+rga will search for all binaries it calls in \$PATH and the directory itself is in.
+
+### Windows
+
+Just unzip the [Windows binary release][latestrelease] anywhere, possibly somewhere in your \$PATH. It includes all necessary and optional dependencies.
+
+### OSX
+
+To get all necessary and optional dependencies:
+
+`brew install ripgrep pandoc poppler tesseract ffmpeg`
+
+### Compile from source
+
+rga should compile with stable Rust (v1.35.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
+
+```
+   ~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
+   ~$ cargo install ripgrep_all
+   ~$ rga --version    # this should work now
+```
+
 ## Available Adapters
 
 ```
@@ -100,23 +138,11 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 
     Extensions: .jpg, .png
 
-## INSTALLATION:
-
-rga should compile with stable Rust.  To build it, run the following (or the equivalent in your OS):
-
-```
-   ~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
-   ~$ cargo install ripgrep_all
-   ~$ rga --version    # this should work now
-```
-
-You could do `cargo build`, instead of `cargo install ripgrep_all`, to just build rga in the local tree.
-
-## USAGE:
+## USAGE
 
 > rga \[FLAGS\] \[OPTIONS\] PATTERN \[PATH ...\]
 
-## FLAGS:
+## FLAGS
 
 **\--rga-accurate**
 
