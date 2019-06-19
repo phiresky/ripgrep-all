@@ -117,7 +117,8 @@ fn add_exe_to_path() -> Fallible<()> {
 
     let path = env::var_os("PATH").unwrap_or("".into());
     let mut paths = env::split_paths(&path).collect::<Vec<_>>();
-    paths.push(exe); // append: this way system PATH gets higher priority than bundled versions
+    paths.push(exe.to_owned()); // append: this way system PATH gets higher priority than bundled versions
+    paths.push(exe.join("lib"));
     let new_path = env::join_paths(paths)?;
     env::set_var("PATH", &new_path);
     Ok(())
