@@ -1,4 +1,3 @@
-use failure::Fallible;
 use rga::adapters::*;
 use rga::preproc::*;
 use ripgrep_all as rga;
