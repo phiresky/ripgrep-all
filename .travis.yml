@@ -1,5 +1,4 @@
 language: rust
-cache: cargo
 dist: xenial
 env:
     global:

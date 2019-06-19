@@ -50,6 +50,8 @@ rga will search for all binaries it calls in \$PATH and the directory itself is 
 
 Just unzip the [Windows binary release][latestrelease] anywhere, possibly somewhere in your \$PATH. It includes all necessary and optional dependencies.
 
+If you get an error like `VCRUNTIME140.DLL could not be found`, you need to install [vc_redist.x64.exe](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads).
+
 ### OSX
 
 To get all necessary and optional dependencies:
