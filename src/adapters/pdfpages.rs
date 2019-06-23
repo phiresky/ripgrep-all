@@ -14,7 +14,7 @@ lazy_static! {
 	static ref METADATA: AdapterMeta = AdapterMeta {
 		name: "pdfpages".to_owned(),
 		version: 1,
-		description: "Converts a pdf to it's individual pages as png files. Only useful in combination with tesseract".to_owned(),
+		description: "Converts a pdf to its individual pages as png files. Only useful in combination with tesseract".to_owned(),
 		recurses: true,
 		fast_matchers: EXTENSIONS
 			.iter()
