@@ -70,7 +70,7 @@ impl FileAdapter for PdfPagesAdapter {
 			.arg(out_fname);
 
 		let mut cmd = cmd.spawn().map_err(|e| {
-			map_exe_error(e, exe_name, "Make sure you have graphicsmagick installed.")
+			map_exe_error(e, exe_name, "Make sure you have imagemagick installed.")
 		})?;
 		let args = config.args;
 
