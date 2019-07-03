@@ -58,6 +58,7 @@ To get all necessary and optional dependencies:
 
 `brew install ripgrep pandoc poppler tesseract ffmpeg`
 
+Then get the latest binary from [Releases][latestrelease].
 ### Compile from source
 
 rga should compile with stable Rust (v1.35.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
