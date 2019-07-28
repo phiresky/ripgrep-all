@@ -36,13 +36,11 @@ matrix:
           rust: nightly
           # XML_CATALOG_FILES is apparently necessary for asciidoc on macOS.
           env: TARGET=x86_64-apple-darwin XML_CATALOG_FILES=/usr/local/etc/xml/catalog
-        # Minimum Rust supported channel. We enable these to make sure ripgrep
-        # continues to work on the advertised minimum Rust version.
         - os: linux
-          rust: 1.35.0
+          rust: stable
           env: TARGET=x86_64-unknown-linux-gnu
         - os: linux
-          rust: 1.35.0
+          rust: stable
           env: TARGET=x86_64-unknown-linux-musl
         #- os: linux
         # rust: 1.35.0
