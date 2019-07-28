@@ -46,7 +46,7 @@ fn format_blob(b: ValueRef) -> String {
         Null => "NULL".to_owned(),
         Integer(i) => format!("{}", i),
         Real(i) => format!("{}", i),
-        Text(i) => format!("'{}'", i.replace("'", "''")),
+        Text(i) => format!("'{}'", String::from_utf8_lossy(i).replace("'", "''")),
         Blob(b) => format!(
             "[blob {}B]",
             size_format::SizeFormatterSI::new(
