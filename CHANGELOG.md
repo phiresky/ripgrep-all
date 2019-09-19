@@ -1,3 +1,7 @@
+# 0.9.3 (2019-09-19)
+
+-   Fix compilation on new Rust by updating rusqlite ([#25](https://github.com/phiresky/ripgrep-all/pull/25))
+
 # 0.9.2 (2019-06-17)
 
 -   Fix file ending regex ([#13](https://github.com/phiresky/ripgrep-all/issues/13))
