@@ -52,13 +52,16 @@ Just unzip the [Windows binary release][latestrelease] anywhere, possibly somewh
 
 If you get an error like `VCRUNTIME140.DLL could not be found`, you need to install [vc_redist.x64.exe](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads).
 
-### OSX
+### Homebrew/Linuxbrew
 
-To get all necessary and optional dependencies:
+`rga` can be installed with [Homebrew](https://brew.sh):
 
-`brew install ripgrep pandoc poppler tesseract ffmpeg`
+`brew install rga`
 
-Then get the latest binary from [Releases][latestrelease].
+To install the dependencies:
+
+`brew install pandoc poppler tesseract ffmpeg`
+
 ### Compile from source
 
 rga should compile with stable Rust (v1.36.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
