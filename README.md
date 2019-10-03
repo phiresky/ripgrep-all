@@ -54,7 +54,7 @@ If you get an error like `VCRUNTIME140.DLL could not be found`, you need to inst
 
 ### Homebrew/Linuxbrew
 
-`rga` can be installed with [Homebrew](https://brew.sh):
+`rga` can be installed with [Homebrew](https://formulae.brew.sh/formula/ripgrep-all#default):
 
 `brew install rga`
 
