@@ -174,8 +174,11 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 
 > Disable caching of results
 >
-> By default, rga caches the extracted text to a database in
-> \~/.cache/rga if it is small enough. This way, repeated searches on
+> By default, rga caches the extracted text, if it is small enough,
+> to a database in `~/Library/Caches/rga` on macOS,
+> `~/.cache/rga` (on other Unixes),
+> or `C:\Users\username\AppData\Local\rga` (on Windows).
+> This way, repeated searches on
 > the same set of files will be much faster. If you pass this flag, all
 > caching will be disabled.
 
@@ -234,4 +237,7 @@ export RUST_LOG=debug
 export RUST_BACKTRACE=1
 ```
 
-Also rember to disable caching with `--rga-no-cache` or clear the cache in `~/.cache/rga` to debug the adapters.
+Also remember to disable caching with `--rga-no-cache` or clear the cache
+(`~/Library/Caches/rga` on macOS, `~/.cache/rga` on other Unixes,
+or `C:\Users\username\AppData\Local\rga` on Windows)
+to debug the adapters.

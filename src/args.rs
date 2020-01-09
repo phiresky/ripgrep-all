@@ -40,7 +40,10 @@ pub struct RgaArgs {
     #[structopt(long = "--rga-no-cache")]
     /// Disable caching of results
     ///
-    /// By default, rga caches the extracted text to a database in ~/.cache/rga if it is small enough.
+    /// By default, rga caches the extracted text, if it is small enough,
+    /// to a database in ~/Library/Caches/rga on macOS,
+	/// ~/.cache/rga on other Unixes,
+    /// or C:\Users\username\AppData\Local\rga` on Windows.
     /// This way, repeated searches on the same set of files will be much faster.
     /// If you pass this flag, all caching will be disabled.
     pub no_cache: bool,
