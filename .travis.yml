@@ -81,7 +81,7 @@ branches:
         - windows
         # Ruby regex to match tags. Required, or travis won't trigger deploys when
         # a new tag is pushed.
-        - /^\d+\.\d+\.\d+.*$/
+        - /^v\d+\.\d+\.\d+.*$/
 notifications:
     email:
         on_success: never

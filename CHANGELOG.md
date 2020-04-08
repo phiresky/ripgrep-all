@@ -1,3 +1,9 @@
+# 0.9.4 (2020-04-08)
+
+-   Allow search in pdf files without extension (https://github.com/phiresky/ripgrep-all/issues/39)
+-   Prefer shipped binaries to system-installed ones (https://github.com/phiresky/ripgrep-all/issues/33)
+-   Upgrade dependencies
+
 # 0.9.3 (2019-09-19)
 
 -   Fix compilation on new Rust by updating rusqlite ([#25](https://github.com/phiresky/ripgrep-all/pull/25))
