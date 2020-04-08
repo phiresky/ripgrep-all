@@ -116,9 +116,11 @@ fn add_exe_to_path() -> Fallible<()> {
     exe.pop(); // dirname
 
     let path = env::var_os("PATH").unwrap_or("".into());
-    let mut paths = env::split_paths(&path).collect::<Vec<_>>();
-    paths.push(exe.to_owned()); // append: this way system PATH gets higher priority than bundled versions
-    paths.push(exe.join("lib"));
+    let paths = env::split_paths(&path).collect::<Vec<_>>();
+    // prepend: prefer bundled versions to system-installed versions of binaries
+    // solves https://github.com/phiresky/ripgrep-all/issues/32
+    // may be somewhat of a security issue if rga binary is in installed in unprivileged locations
+    let paths = [&[exe.to_owned(), exe.join("lib")], &paths[..]].concat();
     let new_path = env::join_paths(paths)?;
     env::set_var("PATH", &new_path);
     Ok(())
