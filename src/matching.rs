@@ -98,10 +98,10 @@ pub fn adapter_matcher<T: AsRef<str>>(
 			v.extend(fa);
 			v.extend(fb);
 			v.sort_by_key(|e| {
-				(adapter_names
+				adapter_names
 					.iter()
 					.position(|r| r == &e.0.metadata().name)
-					.expect("impossib7"))
+					.expect("impossib7")
 			});
 			eprintln!(
 				"Warning: found multiple adapters for {}:",

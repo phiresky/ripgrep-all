@@ -15,33 +15,33 @@ exclude = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tree_magic = { package = "tree_magic_fork", version="0.2" }
-regex = "1.1.6"
-rkv = "0.9.6"
+tree_magic = { package = "tree_magic_fork", version = "0.2.2" }
+regex = "1.3.6"
+rkv = "0.10.4"
 cachedir = "0.1.1"
 path-clean = "0.1.0"
-bincode = "1.1.4"
-serde = { version = "1.0.92", features = ["derive"] }
-zstd = "0.4.24"
-lazy_static = "1.3.0"
-serde_json = "1.0.39"
-failure = "0.1.5"
-zip = "0.5.2"
-crossbeam = "0.7.1"
-clap = { version="2.33.0", features=["wrap_help"] }
-log = "0.4.6"
-env_logger = "0.6.1"
+bincode = "1.2.1"
+serde = { version = "1.0.106", features = ["derive"] }
+zstd = "0.5.1"
+lazy_static = "1.4.0"
+serde_json = "1.0.51"
+failure = "0.1.7"
+zip = "0.5.5"
+crossbeam = "0.7.3"
+clap = { version = "2.33.0", features = ["wrap_help"] }
+log = "0.4.8"
+env_logger = "0.7.1"
 xz2 = "0.1.6"
-flate2 = "1.0.7"
+flate2 = "1.0.14"
 bzip2 = "0.3.3"
 tar = "0.4.26"
-chrono = "0.4.6"
-encoding_rs = "0.8.17"
-encoding_rs_io = "0.1.6"
-rusqlite = { version = "0", features=["vtab", "bundled"] }
+chrono = "0.4.11"
+encoding_rs = "0.8.22"
+encoding_rs_io = "0.1.7"
+rusqlite = { version = "0.21.0", features = ["vtab", "bundled"] }
 size_format = "1.0.2"
-structopt = "0.2.16"
-paste = "0.1.5"
-tempfile = "3.0.8"
+structopt = "0.3.12"
+paste = "0.1.10"
+tempfile = "3.1.0"
 glob = "0.3.0"
 exitfailure = "0.5.1"

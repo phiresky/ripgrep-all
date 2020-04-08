@@ -86,7 +86,7 @@ impl FileAdapter for FFmpegAdapter {
                 return Err(format_err!("ffprobe failed: {:?}", probe.status));
             }
             let p: FFprobeOutput = serde_json::from_slice(&probe.stdout)?;
-            (p.streams.iter().count() > 0)
+            p.streams.iter().count() > 0
         };
         {
             // extract file metadata (especially chapter names in a greppable format)
