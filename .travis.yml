@@ -59,8 +59,8 @@ matrix:
         #        - xsltproc
         #        - libxml2-utils
         - os: windows
-          rust: nightly-x86_64-pc-windows-msvc
-          env: TARGET=x86_64-pc-windows-msvc
+          rust: nightly-x86_64-pc-windows-gnu
+          env: TARGET=x86_64-pc-windows-gnu
 install: ci/install.sh
 script: ci/script.sh
 before_deploy: ci/before_deploy.sh
