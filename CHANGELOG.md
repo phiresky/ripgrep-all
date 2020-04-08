@@ -1,4 +1,4 @@
-# 0.9.4 (2020-04-08)
+# 0.9.5 (2020-04-08)
 
 -   Allow search in pdf files without extension (https://github.com/phiresky/ripgrep-all/issues/39)
 -   Prefer shipped binaries to system-installed ones (https://github.com/phiresky/ripgrep-all/issues/33)
