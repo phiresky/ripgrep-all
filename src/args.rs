@@ -80,7 +80,8 @@ pub struct RgaArgs {
     #[structopt(
         long = "--rga-cache-max-blob-len",
         default_value = "2000000",
-        hidden_short_help = true
+        hidden_short_help = true,
+        require_equals = true
     )]
     /// Max compressed size to cache
     ///
