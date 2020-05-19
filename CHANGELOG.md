@@ -1,7 +1,8 @@
 # 0.9.6 (2020-05-18)
 
-- Fix windows builds
-- Move to Github Actions instead of Travis
+-   Fix windows builds
+-   Case insensitive file extension matching
+-   Move to Github Actions instead of Travis
 
 # 0.9.5 (2020-04-08)
 

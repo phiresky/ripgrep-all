@@ -1,4 +1,5 @@
 use failure::Fallible;
+use log::*;
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
 use rga::args::*;
@@ -75,8 +76,8 @@ fn main() -> Result<(), exitfailure::ExitFailure> {
         let extensions = adapters
             .iter()
             .flat_map(|a| &a.metadata().fast_matchers)
-            .filter_map(|m| match m {
-                FastMatcher::FileExtension(ext) => Some(ext as &str),
+            .flat_map(|m| match m {
+                FastMatcher::FileExtension(ext) => vec![ext.clone(), ext.to_ascii_uppercase()],
             })
             .collect::<Vec<_>>()
             .join(",");
@@ -94,10 +95,13 @@ fn main() -> Result<(), exitfailure::ExitFailure> {
         "--smart-case",
     ];
 
+    let exe = std::env::current_exe().expect("Could not get executable location");
+    let preproc_exe = exe.with_file_name("rga-preproc");
+
     let mut child = Command::new("rg")
         .args(rg_args)
         .arg("--pre")
-        .arg("rga-preproc")
+        .arg(preproc_exe)
         .arg("--pre-glob")
         .arg(pre_glob)
         .args(passthrough_args)
@@ -108,7 +112,7 @@ fn main() -> Result<(), exitfailure::ExitFailure> {
     Ok(())
 }
 
-/// add the directory that contains `rga` to PATH, so ripgrep can find rga-preproc and rga-preproc can find pandoc etc (if we are on Windows where we include dependent binaries)
+/// add the directory that contains `rga` to PATH, so rga-preproc can find pandoc etc (if we are on Windows where we include dependent binaries)
 fn add_exe_to_path() -> Fallible<()> {
     use std::env;
     let mut exe = env::current_exe().expect("Could not get executable location");
