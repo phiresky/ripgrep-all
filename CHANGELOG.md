@@ -3,6 +3,7 @@
 -   Fix windows builds
 -   Case insensitive file extension matching
 -   Move to Github Actions instead of Travis
+-   Fix searching for words that are hyphenated in PDFs (#44)
 
 # 0.9.5 (2020-04-08)
 
