@@ -1,9 +1,10 @@
-# 0.9.6 (2020-05-18)
+# 0.9.6 (2020-05-19)
 
 -   Fix windows builds
 -   Case insensitive file extension matching
 -   Move to Github Actions instead of Travis
 -   Fix searching for words that are hyphenated in PDFs (#44)
+-   Always load rga-preproc binary from location where rga is
 
 # 0.9.5 (2020-04-08)
 
