@@ -17,9 +17,7 @@ lazy_static! {
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
             .collect(),
-        slow_matchers: Some(vec![SlowMatcher::MimeType(
-            "application/pdf".to_owned()
-        )])
+        slow_matchers: Some(vec![SlowMatcher::MimeType("application/pdf".to_owned())])
     };
 }
 #[derive(Default)]

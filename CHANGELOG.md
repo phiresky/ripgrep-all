@@ -1,3 +1,8 @@
+# 0.9.6 (2020-05-18)
+
+- Fix windows builds
+- Move to Github Actions instead of Travis
+
 # 0.9.5 (2020-04-08)
 
 -   Allow search in pdf files without extension (https://github.com/phiresky/ripgrep-all/issues/39)

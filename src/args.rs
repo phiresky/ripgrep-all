@@ -30,8 +30,10 @@ set_default!(max_archive_recursion, 4, i32);
 
 #[derive(StructOpt, Debug, Deserialize, Serialize)]
 #[structopt(
+    name = "ripgrep-all",
     rename_all = "kebab-case",
-    author = "https://github.com/phiresky/ripgrep-all",
+    about = env!("CARGO_PKG_DESCRIPTION"),
+    author = env!("CARGO_PKG_HOMEPAGE"),
     // TODO: long_about does not seem to work to only show this on short help
     after_help = "-h shows a concise overview, --help shows more detail and advanced options.\n\nAll other options not shown here are passed directly to rg, especially [PATTERN] and [PATH ...]"
 )]
@@ -42,7 +44,7 @@ pub struct RgaArgs {
     ///
     /// By default, rga caches the extracted text, if it is small enough,
     /// to a database in ~/Library/Caches/rga on macOS,
-	/// ~/.cache/rga on other Unixes,
+    /// ~/.cache/rga on other Unixes,
     /// or C:\Users\username\AppData\Local\rga` on Windows.
     /// This way, repeated searches on the same set of files will be much faster.
     /// If you pass this flag, all caching will be disabled.

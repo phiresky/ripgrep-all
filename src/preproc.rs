@@ -79,14 +79,16 @@ pub fn rga_preproc(ai: AdaptInfo) -> Fallible<()> {
                             &args.adapters[..],
                         );
                         debug!("cache key: {:?}", key);
-                        bincode::serialize(&key).expect("could not serialize path") // key in the cache database
+                        bincode::serialize(&key).expect("could not serialize path")
+                    // key in the cache database
                     } else {
                         let key = (
                             clean_path,
                             meta.modified().expect("weird OS that can't into mtime"),
                         );
                         debug!("cache key: {:?}", key);
-                        bincode::serialize(&key).expect("could not serialize path") // key in the cache database
+                        bincode::serialize(&key).expect("could not serialize path")
+                        // key in the cache database
                     }
                 };
                 cache.write().unwrap().get_or_run(

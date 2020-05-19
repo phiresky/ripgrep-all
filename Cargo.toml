@@ -5,7 +5,8 @@ description = "rga: ripgrep, but also search in PDFs, E-Books, Office documents,
 license = "AGPL-3.0-or-later"
 readme = "README.md"
 version = "0.9.6-alpha.0"
-repository = "https://github.com/phiresky/ripgrep_all"
+repository = "https://github.com/phiresky/ripgrep-all"
+homepage = "https://github.com/phiresky/ripgrep-all"
 authors = ["phiresky <phireskyde+git@gmail.com>"]
 edition = "2018"
 exclude = [
@@ -38,7 +39,7 @@ tar = "0.4.26"
 chrono = "0.4.11"
 encoding_rs = "0.8.22"
 encoding_rs_io = "0.1.7"
-rusqlite = { version = "0.21.0", features = ["vtab", "bundled"] }
+rusqlite = { version = "0.23.1", features = ["vtab", "bundled"] }
 size_format = "1.0.2"
 structopt = "0.3.12"
 paste = "0.1.10"

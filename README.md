@@ -29,7 +29,7 @@ demo/
 
 ## INSTALLATION
 
-Linux x64, OSX and Windows binaries are available [in GitHub Releases][latestrelease].
+Linux x64, macOS and Windows binaries are available [in GitHub Releases][latestrelease].
 
 [latestrelease]: https://github.com/phiresky/ripgrep-all/releases/latest
 
@@ -47,7 +47,11 @@ rga will search for all binaries it calls in \$PATH and the directory itself is 
 
 ### Windows
 
-Just unzip the [Windows binary release][latestrelease] anywhere, possibly somewhere in your \$PATH. It includes all necessary and optional dependencies.
+Install ripgrep-all via [Chocolatey](https://chocolatey.org/packages/ripgrep-all):
+
+```
+choco install ripgrep-all
+```
 
 If you get an error like `VCRUNTIME140.DLL could not be found`, you need to install [vc_redist.x64.exe](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads).
 
@@ -57,7 +61,7 @@ If you get an error like `VCRUNTIME140.DLL could not be found`, you need to inst
 
 `brew install rga`
 
-To install the dependencies:
+To install the dependencies that are each not strictly necessary but very useful:
 
 `brew install pandoc poppler tesseract ffmpeg`
 
