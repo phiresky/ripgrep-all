@@ -42,7 +42,8 @@ pub struct FileMeta {
 }
 
 pub fn extension_to_regex(extension: &str) -> Regex {
-    Regex::new(&format!("(?i)\\.{}$", &regex::escape(extension))).expect("we know this regex compiles")
+    Regex::new(&format!("(?i)\\.{}$", &regex::escape(extension)))
+        .expect("we know this regex compiles")
 }
 
 pub fn adapter_matcher<T: AsRef<str>>(
