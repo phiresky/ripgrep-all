@@ -65,6 +65,10 @@ pub fn rga_preproc(ai: AdaptInfo) -> Fallible<()> {
     match adapter {
         Some((adapter, detection_reason)) => {
             let meta = adapter.metadata();
+            debug!(
+                "chose adapter '{}' because of matcher {:?}",
+                &meta.name, &detection_reason
+            );
             eprintln!("adapter: {}", &meta.name);
             let db_name = format!("{}.v{}", meta.name, meta.version);
             if let Some(cache) = cache.as_mut() {

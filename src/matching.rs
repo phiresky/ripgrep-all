@@ -11,7 +11,7 @@ use std::iter::Iterator;
 
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FastMatcher {
     // MimeType(Regex),
     /**
@@ -23,7 +23,7 @@ pub enum FastMatcher {
     // todo: maybe allow matching a directory (e.g. /var/lib/postgres)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SlowMatcher {
     /// any type of fast matcher
     Fast(FastMatcher),

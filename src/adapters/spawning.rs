@@ -1,6 +1,7 @@
 use super::*;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use failure::*;
+use log::*;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::process::Command;
@@ -117,9 +118,11 @@ where
             ..
         } = ai;
         let cmd = Command::new(self.get_exe());
+        let cmd = self.command(filepath_hint, cmd);
+        debug!("executing {:?}", cmd);
         pipe_output(
             line_prefix,
-            self.command(filepath_hint, cmd),
+            cmd,
             &mut inp,
             oup,
             self.get_exe(),
