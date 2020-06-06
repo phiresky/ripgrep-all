@@ -23,9 +23,9 @@ pub trait PreprocCache {
 fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
     let app_cache = cachedir::CacheDirConfig::new("rga").get_cache_dir()?;
 
-    let db_arc = rkv::Manager::singleton()
+    rkv::Manager::singleton()
         .write()
-        .expect("could not write db manager")
+        .map_err(|_| format_err!("could not write cache db manager"))?
         .get_or_create(app_cache.as_path(), |p| {
             let mut builder = rkv::Rkv::environment_builder();
             builder
@@ -40,8 +40,7 @@ fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
                 .set_max_readers(128);
             rkv::Rkv::from_env(p, builder)
         })
-        .expect("could not get/create db");
-    Ok(db_arc)
+        .map_err(|e| format_err!("could not get/create cache db: {}", e))
 }
 
 pub struct LmdbCache {

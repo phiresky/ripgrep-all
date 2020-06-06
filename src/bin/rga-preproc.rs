@@ -2,6 +2,7 @@ use rga::adapters::*;
 use rga::preproc::*;
 use ripgrep_all as rga;
 
+use anyhow::Context;
 use std::fs::File;
 
 fn main() -> anyhow::Result<()> {
@@ -20,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     let cache = if args.no_cache {
         None
     } else {
-        Some(rga::preproc_cache::open()?)
+        Some(rga::preproc_cache::open().context("could not open cache")?)
     };
     let ai = AdaptInfo {
         inp: &mut i,

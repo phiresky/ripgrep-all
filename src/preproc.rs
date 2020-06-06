@@ -106,18 +106,26 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
                             args.cache_compression_level.try_into().unwrap(),
                         )?);
                         debug!("adapting...");
-                        adapter.adapt(
-                            AdaptInfo {
-                                line_prefix,
-                                filepath_hint,
-                                is_real_file,
-                                inp,
-                                oup: &mut compbuf,
-                                archive_recursion_depth,
-                                config: PreprocConfig { cache: None, args },
-                            },
-                            &detection_reason,
-                        )?;
+                        adapter
+                            .adapt(
+                                AdaptInfo {
+                                    line_prefix,
+                                    filepath_hint,
+                                    is_real_file,
+                                    inp,
+                                    oup: &mut compbuf,
+                                    archive_recursion_depth,
+                                    config: PreprocConfig { cache: None, args },
+                                },
+                                &detection_reason,
+                            )
+                            .with_context(|| {
+                                format!(
+                                    "adapting {} via {} failed",
+                                    filepath_hint.to_string_lossy(),
+                                    meta.name
+                                )
+                            })?;
                         let compressed = compbuf
                             .into_inner()
                             .map_err(|_| "could not finish zstd") // can't use with_context here
@@ -138,19 +146,28 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
                 )?;
                 Ok(())
             } else {
+                // couldn't open cache
                 debug!("adapting...");
-                adapter.adapt(
-                    AdaptInfo {
-                        line_prefix,
-                        filepath_hint,
-                        is_real_file,
-                        inp,
-                        oup,
-                        archive_recursion_depth,
-                        config: PreprocConfig { cache: None, args },
-                    },
-                    &detection_reason,
-                )?;
+                adapter
+                    .adapt(
+                        AdaptInfo {
+                            line_prefix,
+                            filepath_hint,
+                            is_real_file,
+                            inp,
+                            oup,
+                            archive_recursion_depth,
+                            config: PreprocConfig { cache: None, args },
+                        },
+                        &detection_reason,
+                    )
+                    .with_context(|| {
+                        format!(
+                            "adapting {} via {} without caching failed",
+                            filepath_hint.to_string_lossy(),
+                            meta.name
+                        )
+                    })?;
                 Ok(())
             }
         }
