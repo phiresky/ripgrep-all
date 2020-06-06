@@ -42,7 +42,7 @@ rga-fzf() {
 			fzf --sort --preview="rga --pretty --context 5 {q} {}" \
 				--phony -q "$1" \
 				--bind "change:reload:$RG_PREFIX {q}" \
-				--preview-window=wrap
+				--preview-window="70%:wrap"
 	)" &&
 	echo "opening $file" &&
 	xdg-open "$file"
