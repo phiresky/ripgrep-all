@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
                 format!("Mime Types: {}", slow_matchers)
             };
             print!(
-                " - **{name}**\n     {desc}\n     Extensions: {matchers}\n     {mime}\n",
+                " - **{name}**\n     {desc}  \n     Extensions: {matchers}  \n     {mime}  \n",
                 name = meta.name,
                 desc = meta.description,
                 matchers = matchers,
