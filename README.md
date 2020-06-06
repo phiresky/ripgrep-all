@@ -27,6 +27,28 @@ demo/
 
 ![rga output](doc/demodir.png)
 
+## Integration with fzf
+
+![rga-fzf](doc/rga-fzf.gif)
+
+You can use rga interactively. Add the following to your ~/.{bash,zsh}rc:
+
+```bash
+rga-fzf() {
+	RG_PREFIX="rga --files-with-matches --rga-cache-max-blob-len=10M $RGA_ARGS"
+	local file
+	file="$(
+		FZF_DEFAULT_COMMAND="$RG_PREFIX '$1'" \
+			fzf --sort --preview="rga --pretty --context 5 {q} {}" \
+				--phony -q "$1" \
+				--bind "change:reload:$RG_PREFIX {q}" \
+				--preview-window=wrap
+	)" &&
+	echo "opening $file" &&
+	xdg-open "$file"
+}
+```
+
 ## INSTALLATION
 
 Linux x64, macOS and Windows binaries are available [in GitHub Releases][latestrelease].
@@ -87,13 +109,11 @@ Adapters:
 
 -   **ffmpeg**
     Uses ffmpeg to extract video metadata/chapters and subtitles  
-     Extensions: .mkv, .mp4, .avi  
-
+     Extensions: .mkv, .mp4, .avi
 
 *   **pandoc**
     Uses pandoc to convert binary/unreadable text documents to plain markdown-like text  
-     Extensions: .epub, .odt, .docx, .fb2, .ipynb  
-
+     Extensions: .epub, .odt, .docx, .fb2, .ipynb
 
 -   **poppler**
     Uses pdftotext (from poppler-utils) to extract plain text from PDF files  
@@ -112,8 +132,7 @@ Adapters:
 
 -   **tar**
     Reads a tar file as a stream and recurses down into its contents  
-     Extensions: .tar  
-
+     Extensions: .tar
 
 *   **sqlite**
     Uses sqlite bindings to convert sqlite databases into a simple plain text format  
@@ -129,8 +148,7 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 
 -   **tesseract**
     Uses tesseract to run OCR on images to make them searchable. May need -j1 to prevent overloading the system. Make sure you have tesseract installed.  
-     Extensions: .jpg, .png  
-
+     Extensions: .jpg, .png
 
 ## USAGE:
 
