@@ -43,7 +43,7 @@ impl GetMetadata for PdfPagesAdapter {
 /// A pdf is basically converted to a zip that has Page X.png files.
 /// This way, something like tesseract can process the pages individually
 impl FileAdapter for PdfPagesAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             is_real_file,
@@ -114,7 +114,7 @@ fn split_by_seq<'a>(
     split_seq: &'a [u8],
     split_inx: usize,
     read: &mut Read,
-) -> Fallible<impl IntoIterator<Item = impl Read> + 'a> {
+) -> Result<impl IntoIterator<Item = impl Read> + 'a> {
     let regex = split_seq
         .iter()
         .map(|c| format!("\\x{:0>2x}", c))

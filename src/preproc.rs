@@ -2,7 +2,7 @@ use crate::adapters::*;
 use crate::args::RgaArgs;
 use crate::matching::*;
 use crate::CachingWriter;
-use failure::*;
+use anyhow::*;
 use log::*;
 use path_clean::PathClean;
 use std::convert::TryInto;
@@ -22,7 +22,7 @@ pub struct PreprocConfig<'a> {
  * If a cache is passed, read/write to it.
  *
  */
-pub fn rga_preproc(ai: AdaptInfo) -> Fallible<()> {
+pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
     let AdaptInfo {
         filepath_hint,
         is_real_file,
@@ -98,7 +98,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Fallible<()> {
                 cache.write().unwrap().get_or_run(
                     &db_name,
                     &cache_key,
-                    Box::new(|| -> Fallible<Option<Vec<u8>>> {
+                    Box::new(|| -> Result<Option<Vec<u8>>> {
                         // wrapping BufWriter here gives ~10% perf boost
                         let mut compbuf = BufWriter::new(CachingWriter::new(
                             oup,
@@ -120,7 +120,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Fallible<()> {
                         )?;
                         let compressed = compbuf
                             .into_inner()
-                            .map_err(|_| "could not finish zstd")
+                            .map_err(|_| "could not finish zstd") // can't use with_context here
                             .unwrap()
                             .finish()?;
                         if let Some(cached) = compressed {

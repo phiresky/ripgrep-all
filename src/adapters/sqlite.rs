@@ -1,5 +1,5 @@
 use super::*;
-use failure::*;
+use anyhow::Result;
 use lazy_static::lazy_static;
 use log::*;
 use rusqlite::types::ValueRef;
@@ -58,7 +58,7 @@ fn format_blob(b: ValueRef) -> String {
 }
 
 impl FileAdapter for SqliteAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,

@@ -1,4 +1,4 @@
-use failure::Fallible;
+use anyhow::Result;
 use log::*;
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
@@ -9,7 +9,7 @@ use structopt::StructOpt;
 
 use std::process::Command;
 
-fn main() -> Result<(), exitfailure::ExitFailure> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let (args, passthrough_args) = split_args()?;
@@ -113,7 +113,7 @@ fn main() -> Result<(), exitfailure::ExitFailure> {
 }
 
 /// add the directory that contains `rga` to PATH, so rga-preproc can find pandoc etc (if we are on Windows where we include dependent binaries)
-fn add_exe_to_path() -> Fallible<()> {
+fn add_exe_to_path() -> Result<()> {
     use std::env;
     let mut exe = env::current_exe().expect("Could not get executable location");
     // let preproc_exe = exe.with_file_name("rga-preproc");

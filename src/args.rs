@@ -1,16 +1,42 @@
-use failure::Fallible;
+use anyhow::*;
 use log::*;
+
 use serde::{Deserialize, Serialize};
 
 use std::ffi::OsString;
-use std::iter::IntoIterator;
+use std::{iter::IntoIterator, str::FromStr};
 
 use structopt::StructOpt;
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ReadableBytesCount(i64);
+
+fn parse_readable_bytes_str(s: &str) -> Result<i64, Error> {
+    let suffix = s.chars().last();
+    if let Some(suffix) = suffix {
+        match suffix {
+            'k' | 'M' | 'G' => i64::from_str(s.trim_end_matches(suffix))
+                .with_context(|| format!("Could not parse int"))
+                .map(|e| {
+                    e * match suffix {
+                        'k' => 1000,
+                        'M' => 1000_000,
+                        'G' => 1000_000_000,
+                        _ => panic!("impossible"),
+                    }
+                }),
+            _ => i64::from_str(s).with_context(|| format!("Could not parse int")),
+        }
+    } else {
+        Err(format_err!("empty byte input"))
+    }
+}
+
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {
     t == &T::default()
 }
 
-// ugly, but serde and structopt use different methods to define defaults
+// ugly, but serde and structopt use different methods to define defaults, so need to declare defaults twice
 macro_rules! set_default {
     ($name:ident, $val:expr, $type:ty) => {
         paste::item! {
@@ -25,7 +51,7 @@ macro_rules! set_default {
 }
 
 set_default!(cache_compression_level, 12, u32);
-set_default!(cache_max_blob_len, 2000000, u32);
+set_default!(cache_max_blob_len, 2000000, i64);
 set_default!(max_archive_recursion, 4, i32);
 
 #[derive(StructOpt, Debug, Deserialize, Serialize)]
@@ -83,12 +109,13 @@ pub struct RgaArgs {
         long = "--rga-cache-max-blob-len",
         default_value = "2000000",
         hidden_short_help = true,
-        require_equals = true
+        require_equals = true,
+        parse(try_from_str = parse_readable_bytes_str)
     )]
     /// Max compressed size to cache
     ///
-    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time.
-    pub cache_max_blob_len: u32,
+    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time. Allowed suffixes: k M G
+    pub cache_max_blob_len: i64,
 
     #[serde(
         default = "def_cache_compression_level",
@@ -102,6 +129,8 @@ pub struct RgaArgs {
         help = ""
     )]
     /// ZSTD compression level to apply to adapter outputs before storing in cache db
+    ///
+    ///  Ranges from 1 - 22
     pub cache_compression_level: u32,
 
     #[serde(
@@ -133,7 +162,7 @@ pub struct RgaArgs {
 
 static RGA_CONFIG: &str = "RGA_CONFIG";
 
-pub fn parse_args<I>(args: I) -> Fallible<RgaArgs>
+pub fn parse_args<I>(args: I) -> Result<RgaArgs>
 where
     I: IntoIterator,
     I::Item: Into<OsString> + Clone,
@@ -158,7 +187,7 @@ where
 }
 
 /// Split arguments into the ones we care about and the ones rg cares about
-pub fn split_args() -> Fallible<(RgaArgs, Vec<OsString>)> {
+pub fn split_args() -> Result<(RgaArgs, Vec<OsString>)> {
     let mut app = RgaArgs::clap();
 
     app.p.create_help_and_version();

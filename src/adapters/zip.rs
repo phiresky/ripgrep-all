@@ -1,7 +1,7 @@
 use super::*;
 use crate::preproc::rga_preproc;
 use ::zip::read::ZipFile;
-use failure::*;
+use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
 
@@ -47,7 +47,7 @@ fn is_dir(f: &ZipFile) -> bool {
 }
 
 impl FileAdapter for ZipAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

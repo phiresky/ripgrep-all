@@ -1,7 +1,7 @@
 use super::*;
 use crate::preproc::rga_preproc;
 use ::tar::EntryType::Regular;
-use failure::*;
+use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
 use std::path::PathBuf;
@@ -36,7 +36,7 @@ impl GetMetadata for TarAdapter {
 }
 
 impl FileAdapter for TarAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

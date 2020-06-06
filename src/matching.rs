@@ -3,7 +3,7 @@
  */
 use crate::adapters::*;
 
-use failure::*;
+use anyhow::*;
 
 use regex::{Regex, RegexSet};
 
@@ -49,7 +49,7 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 pub fn adapter_matcher<T: AsRef<str>>(
     adapter_names: &[T],
     slow: bool,
-) -> Fallible<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, SlowMatcher)>> {
+) -> Result<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, SlowMatcher)>> {
     let adapters = get_adapters_filtered(adapter_names)?;
     // need order later
     let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();

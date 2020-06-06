@@ -1,6 +1,6 @@
 use super::spawning::map_exe_error;
 use super::*;
-use failure::*;
+use anyhow::*;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::io::BufReader;
@@ -48,7 +48,7 @@ struct FFprobeStream {
     codec_type: String, // video,audio,subtitle
 }
 impl FileAdapter for FFmpegAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,

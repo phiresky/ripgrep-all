@@ -1,4 +1,4 @@
-use failure::Fallible;
+use anyhow::Result;
 use log::*;
 use std::io::Write;
 
@@ -13,11 +13,7 @@ pub struct CachingWriter<W: Write> {
     out: W,
 }
 impl<W: Write> CachingWriter<W> {
-    pub fn new(
-        out: W,
-        max_cache_size: usize,
-        compression_level: i32,
-    ) -> Fallible<CachingWriter<W>> {
+    pub fn new(out: W, max_cache_size: usize, compression_level: i32) -> Result<CachingWriter<W>> {
         Ok(CachingWriter {
             out,
             max_cache_size,

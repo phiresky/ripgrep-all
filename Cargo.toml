@@ -17,32 +17,31 @@ exclude = [
 
 [dependencies]
 tree_magic = { package = "tree_magic_fork", version = "0.2.2" }
-regex = "1.3.6"
+regex = "1.3.9"
 rkv = "0.10.4"
 cachedir = "0.1.1"
 path-clean = "0.1.0"
 bincode = "1.2.1"
-serde = { version = "1.0.106", features = ["derive"] }
-zstd = "0.5.1"
+serde = { version = "1.0.111", features = ["derive"] }
+zstd = "0.5.2"
 lazy_static = "1.4.0"
-serde_json = "1.0.51"
-failure = "0.1.7"
+serde_json = "1.0.53"
 zip = "0.5.5"
 crossbeam = "0.7.3"
-clap = { version = "2.33.0", features = ["wrap_help"] }
+clap = { version = "2.33.1", features = ["wrap_help"] }
 log = "0.4.8"
 env_logger = "0.7.1"
 xz2 = "0.1.6"
 flate2 = "1.0.14"
 bzip2 = "0.3.3"
-tar = "0.4.26"
+tar = "0.4.28"
 chrono = "0.4.11"
-encoding_rs = "0.8.22"
+encoding_rs = "0.8.23"
 encoding_rs_io = "0.1.7"
 rusqlite = { version = "0.23.1", features = ["vtab", "bundled"] }
 size_format = "1.0.2"
-structopt = "0.3.12"
-paste = "0.1.10"
+structopt = "0.3.14"
+paste = "0.1.16"
 tempfile = "3.1.0"
 glob = "0.3.0"
-exitfailure = "0.5.1"
+anyhow = "1.0.31"

@@ -10,7 +10,7 @@ pub mod tesseract;
 pub mod zip;
 use crate::matching::*;
 use crate::preproc::PreprocConfig;
-use failure::*;
+use anyhow::*;
 use log::*;
 use regex::Regex;
 use std::borrow::Cow;
@@ -58,7 +58,7 @@ pub trait FileAdapter: GetMetadata {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
-    fn adapt(&self, a: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()>;
+    fn adapt(&self, a: AdaptInfo, detection_reason: &SlowMatcher) -> Result<()>;
 }
 pub struct AdaptInfo<'a> {
     /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.
@@ -107,7 +107,7 @@ pub fn get_all_adapters() -> AdaptersTuple {
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
     adapter_names: &[T],
-) -> Fallible<Vec<Rc<dyn FileAdapter>>> {
+) -> Result<Vec<Rc<dyn FileAdapter>>> {
     let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters();
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters

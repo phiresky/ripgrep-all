@@ -42,7 +42,7 @@ impl SpawningFileAdapter for PopplerAdapter {
         cmd.arg("-").arg("-");
         cmd
     }
-    fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Fallible<()> {
+    fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Result<()> {
         // prepend Page X to each line
         let mut page = 1;
         for line in BufReader::new(inp).lines() {

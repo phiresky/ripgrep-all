@@ -4,7 +4,7 @@ use ripgrep_all as rga;
 
 use std::fs::File;
 
-fn main() -> Result<(), exitfailure::ExitFailure> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     let mut arg_arr: Vec<std::ffi::OsString> = std::env::args_os().collect();
     let last = arg_arr.pop().expect("No filename specified");

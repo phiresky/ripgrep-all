@@ -1,6 +1,6 @@
 use super::*;
 use crate::preproc::rga_preproc;
-use failure::*;
+use anyhow::*;
 use lazy_static::lazy_static;
 
 use std::path::PathBuf;
@@ -46,7 +46,7 @@ impl GetMetadata for DecompressAdapter {
     }
 }
 
-fn decompress_any<'a, R>(reason: &SlowMatcher, inp: &'a mut R) -> Fallible<Box<dyn Read + 'a>>
+fn decompress_any<'a, R>(reason: &SlowMatcher, inp: &'a mut R) -> Result<Box<dyn Read + 'a>>
 where
     R: Read,
 {
@@ -91,7 +91,7 @@ fn get_inner_filename(filename: &Path) -> PathBuf {
 }
 
 impl FileAdapter for DecompressAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

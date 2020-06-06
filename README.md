@@ -211,7 +211,7 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 
 > \[default: 12\]
 
-**\--rga-cache-max-blob-len** \<cache-max-blob-len\>
+**\--rga-cache-max-blob-len**=\<cache-max-blob-len\>
 
 > Max compressed size to cache
 >

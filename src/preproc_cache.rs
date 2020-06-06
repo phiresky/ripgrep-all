@@ -1,8 +1,11 @@
-use failure::{format_err, Fallible};
+use anyhow::{format_err, Context, Result};
 use log::*;
-use std::sync::{Arc, RwLock};
+use std::{
+    fmt::Display,
+    sync::{Arc, RwLock},
+};
 
-pub fn open() -> Fallible<Arc<RwLock<dyn PreprocCache>>> {
+pub fn open() -> Result<Arc<RwLock<dyn PreprocCache>>> {
     Ok(Arc::new(RwLock::new(LmdbCache::open()?)))
 }
 pub trait PreprocCache {
@@ -11,13 +14,13 @@ pub trait PreprocCache {
         &mut self,
         db_name: &str,
         key: &[u8],
-        runner: Box<dyn FnOnce() -> Fallible<Option<Vec<u8>>> + 'a>,
-        callback: Box<dyn FnOnce(&[u8]) -> Fallible<()> + 'a>,
-    ) -> Fallible<()>;
+        runner: Box<dyn FnOnce() -> Result<Option<Vec<u8>>> + 'a>,
+        callback: Box<dyn FnOnce(&[u8]) -> Result<()> + 'a>,
+    ) -> Result<()>;
 }
 
 /// opens a LMDB cache
-fn open_cache_db() -> Fallible<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
+fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
     let app_cache = cachedir::CacheDirConfig::new("rga").get_cache_dir()?;
 
     let db_arc = rkv::Manager::singleton()
@@ -46,30 +49,42 @@ pub struct LmdbCache {
 }
 
 impl LmdbCache {
-    pub fn open() -> Fallible<LmdbCache> {
+    pub fn open() -> Result<LmdbCache> {
         Ok(LmdbCache {
             db_arc: open_cache_db()?,
         })
     }
 }
+
+#[derive(Debug)]
+struct RkvErrWrap(rkv::StoreError);
+impl Display for RkvErrWrap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+impl std::error::Error for RkvErrWrap {}
+
 impl PreprocCache for LmdbCache {
     // possible without second lambda?
     fn get_or_run<'a>(
         &mut self,
         db_name: &str,
         key: &[u8],
-        runner: Box<dyn FnOnce() -> Fallible<Option<Vec<u8>>> + 'a>,
-        callback: Box<dyn FnOnce(&[u8]) -> Fallible<()> + 'a>,
-    ) -> Fallible<()> {
+        runner: Box<dyn FnOnce() -> Result<Option<Vec<u8>>> + 'a>,
+        callback: Box<dyn FnOnce(&[u8]) -> Result<()> + 'a>,
+    ) -> Result<()> {
         let db_env = self.db_arc.read().unwrap();
         let db = db_env
             .open_single(db_name, rkv::store::Options::create())
-            .map_err(|p| format_err!("could not open db store: {:?}", p))?;
+            .map_err(RkvErrWrap)
+            .with_context(|| format_err!("could not open cache db store"))?;
 
         let reader = db_env.read().expect("could not get reader");
         let cached = db
             .get(&reader, &key)
-            .map_err(|p| format_err!("could not read from db: {:?}", p))?;
+            .map_err(RkvErrWrap)
+            .with_context(|| format_err!("could not read from db"))?;
 
         match cached {
             Some(rkv::Value::Blob(cached)) => {
@@ -81,12 +96,17 @@ impl PreprocCache for LmdbCache {
                 debug!("did not get cached");
                 drop(reader);
                 if let Some(got) = runner()? {
-                    let mut writer = db_env.write().map_err(|p| {
-                        format_err!("could not open write handle to cache: {:?}", p)
-                    })?;
+                    let mut writer = db_env
+                        .write()
+                        .map_err(RkvErrWrap)
+                        .with_context(|| format_err!("could not open write handle to cache"))?;
                     db.put(&mut writer, &key, &rkv::Value::Blob(&got))
-                        .map_err(|p| format_err!("could not write to cache: {:?}", p))?;
-                    writer.commit()?;
+                        .map_err(RkvErrWrap)
+                        .with_context(|| format_err!("could not write to cache"))?;
+                    writer
+                        .commit()
+                        .map_err(RkvErrWrap)
+                        .with_context(|| format!("could not write cache"))?;
                 }
             }
         };

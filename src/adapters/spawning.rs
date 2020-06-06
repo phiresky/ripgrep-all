@@ -1,6 +1,6 @@
 use super::*;
+use anyhow::*;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use failure::*;
 use log::*;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -20,7 +20,7 @@ pub fn postproc_line_prefix(
     line_prefix: &str,
     inp: &mut dyn Read,
     oup: &mut dyn Write,
-) -> Fallible<()> {
+) -> Result<()> {
     // TODO: parse these options from ripgrep's configuration
     let encoding = None; // detect bom but usually assume utf8
     let bom_sniffing = true;
@@ -57,7 +57,7 @@ pub trait SpawningFileAdapter: GetMetadata {
     fn get_exe(&self) -> &str;
     fn command(&self, filepath_hint: &Path, command: Command) -> Command;
 
-    fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Fallible<()> {
+    fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Result<()> {
         postproc_line_prefix(line_prefix, inp, oup)
     }
 }
@@ -78,8 +78,8 @@ pub fn pipe_output(
     oup: &mut (dyn Write + Send),
     exe_name: &str,
     help: &str,
-    cp: fn(line_prefix: &str, &mut dyn Read, &mut dyn Write) -> Fallible<()>,
-) -> Fallible<()> {
+    cp: fn(line_prefix: &str, &mut dyn Read, &mut dyn Write) -> Result<()>,
+) -> Result<()> {
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -90,7 +90,7 @@ pub fn pipe_output(
 
     // TODO: how to handle this copying better?
     // do we really need threads for this?
-    crossbeam::scope(|s| -> Fallible<()> {
+    crossbeam::scope(|s| -> Result<()> {
         s.spawn(|_| cp(line_prefix, &mut stdo, oup).unwrap()); // errors?
         std::io::copy(inp, &mut stdi)?;
         drop(stdi); // NEEDED! otherwise deadlock
@@ -109,7 +109,7 @@ impl<T> FileAdapter for T
 where
     T: SpawningFileAdapter,
 {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Fallible<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
