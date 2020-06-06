@@ -147,6 +147,8 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 
     Extensions: .jpg, .png
 
+update-readme.sh
+
 ## USAGE
 
 > rga \[FLAGS\] \[OPTIONS\] PATTERN \[PATH ...\]
@@ -230,6 +232,8 @@ All other options not shown here are passed directly to rg, especially
 \[PATTERN\] and \[PATH \...\]
 
 [ripgrep]: https://github.com/BurntSushi/ripgrep
+
+update-readme.sh
 
 ## Development
 
