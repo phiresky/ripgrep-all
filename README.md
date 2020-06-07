@@ -31,15 +31,15 @@ demo/
 
 ![rga-fzf](doc/rga-fzf.gif)
 
-You can use rga interactively. Add the following to your ~/.{bash,zsh}rc:
+You can use rga interactively via fzf. Add the following to your ~/.{bash,zsh}rc:
 
 ```bash
 rga-fzf() {
-	RG_PREFIX="rga --files-with-matches --rga-cache-max-blob-len=10M $RGA_ARGS"
+	RG_PREFIX="rga --files-with-matches --rga-cache-max-blob-len=10M"
 	local file
 	file="$(
 		FZF_DEFAULT_COMMAND="$RG_PREFIX '$1'" \
-			fzf --sort --preview="rga --pretty --context 5 {q} {}" \
+			fzf --sort --preview="[[ ! -z {} ]] && rga --pretty --context 5 {q} {}" \
 				--phony -q "$1" \
 				--bind "change:reload:$RG_PREFIX {q}" \
 				--preview-window="70%:wrap"
