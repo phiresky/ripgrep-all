@@ -19,7 +19,6 @@ exclude = [
 tree_magic = { package = "tree_magic_fork", version = "0.2.2" }
 regex = "1.3.9"
 rkv = "0.10.4"
-cachedir = "0.1.1"
 path-clean = "0.1.0"
 bincode = "1.2.1"
 serde = { version = "1.0.111", features = ["derive"] }
@@ -45,3 +44,6 @@ paste = "0.1.16"
 tempfile = "3.1.0"
 glob = "0.3.0"
 anyhow = "1.0.31"
+schemars = "0.7.6"
+directories-next = "1.0.1"
+derive_more = "0.99.7"

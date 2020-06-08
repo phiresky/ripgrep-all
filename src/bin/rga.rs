@@ -7,12 +7,18 @@ use rga::matching::*;
 use ripgrep_all as rga;
 use structopt::StructOpt;
 
+use schemars::schema_for;
 use std::process::Command;
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let (args, mut passthrough_args) = split_args()?;
+
+    if args.print_config_schema {
+        println!("{}", serde_json::to_string_pretty(&schema_for!(RgaConfig))?);
+        return Ok(());
+    }
 
     if args.list_adapters {
         let (enabled_adapters, disabled_adapters) = get_all_adapters();
@@ -73,7 +79,7 @@ fn main() -> anyhow::Result<()> {
 
     if passthrough_args.len() == 0 {
         // rg would show help. Show own help instead.
-        RgaArgs::clap().print_help()?;
+        RgaConfig::clap().print_help()?;
         println!("");
         return Ok(());
     }

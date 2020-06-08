@@ -1,3 +1,4 @@
+use crate::project_dirs;
 use anyhow::{format_err, Context, Result};
 use log::*;
 use std::{
@@ -21,12 +22,14 @@ pub trait PreprocCache {
 
 /// opens a LMDB cache
 fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
-    let app_cache = cachedir::CacheDirConfig::new("rga").get_cache_dir()?;
+    let pd = project_dirs()?;
+    let app_cache = pd.cache_dir();
+    std::fs::create_dir_all(app_cache)?;
 
     rkv::Manager::singleton()
         .write()
         .map_err(|_| format_err!("could not write cache db manager"))?
-        .get_or_create(app_cache.as_path(), |p| {
+        .get_or_create(app_cache, |p| {
             let mut builder = rkv::Rkv::environment_builder();
             builder
                 .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable cuz it's a cache

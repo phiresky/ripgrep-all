@@ -1,5 +1,5 @@
 use crate::adapters::*;
-use crate::args::RgaArgs;
+use crate::args::RgaConfig;
 use crate::matching::*;
 use crate::CachingWriter;
 use anyhow::*;
@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock};
 #[derive(Clone)]
 pub struct PreprocConfig<'a> {
     pub cache: Option<Arc<RwLock<dyn crate::preproc_cache::PreprocCache>>>,
-    pub args: &'a RgaArgs,
+    pub args: &'a RgaConfig,
 }
 /**
  * preprocess a file as defined in `ai`.
@@ -39,7 +39,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
     debug!("depth: {}", archive_recursion_depth);
-    if archive_recursion_depth >= args.max_archive_recursion {
+    if archive_recursion_depth >= args.max_archive_recursion.0 {
         writeln!(oup, "{}[rga: max archive recursion reached]", line_prefix)?;
         return Ok(());
     }
@@ -102,8 +102,8 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
                         // wrapping BufWriter here gives ~10% perf boost
                         let mut compbuf = BufWriter::new(CachingWriter::new(
                             oup,
-                            args.cache_max_blob_len.try_into().unwrap(),
-                            args.cache_compression_level.try_into().unwrap(),
+                            args.cache_max_blob_len.0.try_into().unwrap(),
+                            args.cache_compression_level.0.try_into().unwrap(),
                         )?);
                         debug!("adapting...");
                         adapter
