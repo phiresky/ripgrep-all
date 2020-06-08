@@ -34,7 +34,10 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
         ..
     } = ai;
     let PreprocConfig { mut cache, args } = config;
-    let adapters = adapter_matcher(&args.adapters[..], args.accurate)?;
+    let adapters = adapter_matcher(
+        get_adapters_filtered(args.custom_adapters.clone(), &args.adapters)?,
+        args.accurate,
+    )?;
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;

@@ -46,11 +46,10 @@ pub fn extension_to_regex(extension: &str) -> Regex {
         .expect("we know this regex compiles")
 }
 
-pub fn adapter_matcher<T: AsRef<str>>(
-    adapter_names: &[T],
+pub fn adapter_matcher(
+    adapters: Vec<Rc<dyn FileAdapter>>,
     slow: bool,
 ) -> Result<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, SlowMatcher)>> {
-    let adapters = get_adapters_filtered(adapter_names)?;
     // need order later
     let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
     let mut fname_regexes = vec![];

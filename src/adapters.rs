@@ -1,3 +1,4 @@
+pub mod custom;
 pub mod decompress;
 pub mod ffmpeg;
 pub mod pandoc;
@@ -11,6 +12,7 @@ pub mod zip;
 use crate::matching::*;
 use crate::preproc::PreprocConfig;
 use anyhow::*;
+use custom::CustomAdapterConfig;
 use log::*;
 use regex::Regex;
 use std::borrow::Cow;
@@ -79,9 +81,21 @@ pub struct AdaptInfo<'a> {
 /// (enabledAdapters, disabledAdapters)
 type AdaptersTuple = (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>);
 
-pub fn get_all_adapters() -> AdaptersTuple {
+pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
     // order in descending priority
-    let enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
+    let mut enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![];
+    let mut disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![];
+    if let Some(custom_adapters) = custom_adapters {
+        for adapter_config in custom_adapters {
+            if adapter_config.default_disabled.unwrap_or(false) {
+                disabled_adapters.push(Rc::new(adapter_config.to_adapter()));
+            } else {
+                enabled_adapters.push(Rc::new(adapter_config.to_adapter()));
+            }
+        }
+    }
+
+    let internal_enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(ffmpeg::FFmpegAdapter::new()),
         Rc::new(pandoc::PandocAdapter::new()),
         Rc::new(poppler::PopplerAdapter::new()),
@@ -90,10 +104,12 @@ pub fn get_all_adapters() -> AdaptersTuple {
         Rc::new(tar::TarAdapter::new()),
         Rc::new(sqlite::SqliteAdapter::new()),
     ];
-    let disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
+    enabled_adapters.extend(internal_enabled_adapters);
+    let internal_disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(pdfpages::PdfPagesAdapter::new()),
         Rc::new(tesseract::TesseractAdapter::new()),
     ];
+    disabled_adapters.extend(internal_disabled_adapters);
     (enabled_adapters, disabled_adapters)
 }
 
@@ -106,9 +122,10 @@ pub fn get_all_adapters() -> AdaptersTuple {
  *  - "+a,b" means use default list but also a and b (a,b will be prepended to the list so given higher priority)
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
-    adapter_names: &[T],
+    custom_adapters: Option<Vec<CustomAdapterConfig>>,
+    adapter_names: &Vec<T>,
 ) -> Result<Vec<Rc<dyn FileAdapter>>> {
-    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters();
+    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters
             .iter()

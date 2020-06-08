@@ -10,6 +10,54 @@ use structopt::StructOpt;
 use schemars::schema_for;
 use std::process::Command;
 
+fn list_adapters(args: RgaConfig) -> Result<()> {
+    let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters.clone());
+
+    println!("Adapters:\n");
+    let print = |adapter: std::rc::Rc<dyn FileAdapter>| {
+        let meta = adapter.metadata();
+        let matchers = meta
+            .fast_matchers
+            .iter()
+            .map(|m| match m {
+                FastMatcher::FileExtension(ext) => format!(".{}", ext),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let slow_matchers = meta
+            .slow_matchers
+            .as_ref()
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|m| match m {
+                SlowMatcher::MimeType(x) => Some(format!("{}", x)),
+                SlowMatcher::Fast(_) => None,
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mime_text = if slow_matchers.is_empty() {
+            "".to_owned()
+        } else {
+            format!("Mime Types: {}", slow_matchers)
+        };
+        print!(
+            " - **{name}**\n     {desc}  \n     Extensions: {matchers}  \n     {mime}  \n",
+            name = meta.name,
+            desc = meta.description.replace("\n", "\n     "),
+            matchers = matchers,
+            mime = mime_text
+        );
+        println!("");
+    };
+    for adapter in enabled_adapters {
+        print(adapter)
+    }
+    println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+pdfpages,tesseract':\n");
+    for adapter in disabled_adapters {
+        print(adapter)
+    }
+    return Ok(());
+}
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
@@ -19,54 +67,8 @@ fn main() -> anyhow::Result<()> {
         println!("{}", serde_json::to_string_pretty(&schema_for!(RgaConfig))?);
         return Ok(());
     }
-
     if args.list_adapters {
-        let (enabled_adapters, disabled_adapters) = get_all_adapters();
-
-        println!("Adapters:\n");
-        let print = |adapter: std::rc::Rc<dyn FileAdapter>| {
-            let meta = adapter.metadata();
-            let matchers = meta
-                .fast_matchers
-                .iter()
-                .map(|m| match m {
-                    FastMatcher::FileExtension(ext) => format!(".{}", ext),
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            let slow_matchers = meta
-                .slow_matchers
-                .as_ref()
-                .unwrap_or(&vec![])
-                .iter()
-                .filter_map(|m| match m {
-                    SlowMatcher::MimeType(x) => Some(format!("{}", x)),
-                    SlowMatcher::Fast(_) => None,
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            let mime_text = if slow_matchers.is_empty() {
-                "".to_owned()
-            } else {
-                format!("Mime Types: {}", slow_matchers)
-            };
-            print!(
-                " - **{name}**\n     {desc}  \n     Extensions: {matchers}  \n     {mime}  \n",
-                name = meta.name,
-                desc = meta.description,
-                matchers = matchers,
-                mime = mime_text
-            );
-            println!("");
-        };
-        for adapter in enabled_adapters {
-            print(adapter)
-        }
-        println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+pdfpages,tesseract':\n");
-        for adapter in disabled_adapters {
-            print(adapter)
-        }
-        return Ok(());
+        return list_adapters(args);
     }
     if let Some(path) = args.fzf_path {
         if path == "_" {
@@ -84,7 +86,7 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let adapters = get_adapters_filtered(&args.adapters)?;
+    let adapters = get_adapters_filtered(args.custom_adapters.clone(), &args.adapters)?;
 
     let pre_glob = if !args.accurate {
         let extensions = adapters

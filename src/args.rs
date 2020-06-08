@@ -1,4 +1,4 @@
-use crate::project_dirs;
+use crate::{adapters::custom::CustomAdapterConfig, project_dirs};
 use anyhow::*;
 use derive_more::FromStr;
 use log::*;
@@ -79,6 +79,12 @@ impl FromStr for CacheMaxBlobLen {
     }
 }
 
+/// # rga configuration
+///
+/// this is kind of a "polyglot" struct, since it serves three functions
+///
+/// 1. describing the command line arguments using structopt+clap and for man page / readme generation
+/// 2. describing the config file format (output as JSON schema via schemars)
 #[derive(StructOpt, Debug, Deserialize, Serialize, JsonSchema, Default)]
 #[structopt(
     name = "ripgrep-all",
@@ -89,16 +95,7 @@ impl FromStr for CacheMaxBlobLen {
     after_help = "-h shows a concise overview, --help shows more detail and advanced options.\n\nAll other options not shown here are passed directly to rg, especially [PATTERN] and [PATH ...]",
     usage = "rga [RGA OPTIONS] [RG OPTIONS] PATTERN [PATH ...]"
 )]
-
-/// # rga configuration
-///
-/// this is kind of a "polyglot" struct, since it serves three functions
-///
-/// 1. describing the command line arguments using structopt+clap
-/// 2. describing the config file format (output as JSON schema via schemars)
 pub struct RgaConfig {
-    #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(long = "--rga-no-cache")]
     /// Disable caching of results
     ///
     /// By default, rga caches the extracted text, if it is small enough,
@@ -107,10 +104,10 @@ pub struct RgaConfig {
     /// or C:\Users\username\AppData\Local\rga on Windows.
     /// This way, repeated searches on the same set of files will be much faster.
     /// If you pass this flag, all caching will be disabled.
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(long = "--rga-no-cache")]
     pub no_cache: bool,
 
-    #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(long = "--rga-accurate")]
     /// Use more accurate but slower matching by mime type
     ///
     /// By default, rga will match files using file extensions.
@@ -119,21 +116,26 @@ pub struct RgaConfig {
     /// will try to detect the mime type of input files using the magic bytes
     /// (similar to the `file` utility), and use that to choose the adapter.
     /// Detection is only done on the first 8KiB of the file, since we can't always seek on the input (in archives).
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(long = "--rga-accurate")]
     pub accurate: bool,
 
+    /// Change which adapters to use and in which priority order (descending)
+    ///
+    /// "foo,bar" means use only adapters foo and bar.
+    /// "-bar,baz" means use all default adapters except for bar and baz.
+    /// "+bar,baz" means use all default adapters and also bar and baz.
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         long = "--rga-adapters",
         require_equals = true,
         require_delimiter = true
     )]
-    /// Change which adapters to use and in which priority order (descending)
-    ///
-    /// "foo,bar" means use only adapters foo and bar.
-    /// "-bar,baz" means use all default adapters except for bar and baz.
-    /// "+bar,baz" means use all default adapters and also bar and baz.
     pub adapters: Vec<String>,
 
+    /// Max compressed size to cache
+    ///
+    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time. Allowed suffixes: k M G
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
@@ -142,11 +144,11 @@ pub struct RgaConfig {
         require_equals = true,
         // parse(try_from_str = parse_readable_bytes_str)
     )]
-    /// Max compressed size to cache
-    ///
-    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time. Allowed suffixes: k M G
     pub cache_max_blob_len: CacheMaxBlobLen,
 
+    /// ZSTD compression level to apply to adapter outputs before storing in cache db
+    ///
+    ///  Ranges from 1 - 22
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
@@ -155,11 +157,9 @@ pub struct RgaConfig {
         require_equals = true,
         help = ""
     )]
-    /// ZSTD compression level to apply to adapter outputs before storing in cache db
-    ///
-    ///  Ranges from 1 - 22
     pub cache_compression_level: CacheCompressionLevel,
 
+    /// Maximum nestedness of archives to recurse into
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
@@ -167,13 +167,22 @@ pub struct RgaConfig {
         require_equals = true,
         hidden_short_help = true
     )]
-    /// Maximum nestedness of archives to recurse into
     pub max_archive_recursion: MaxArchiveRecursion,
 
-    #[serde(skip)]
-    #[structopt(long = "--rga-fzf-path", require_equals = true, hidden = true)]
+    //////////////////////////////////////////
+    //////////////////////////// Config file only
+    //////////////////////////////////////////
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(skip)]
+    pub custom_adapters: Option<Vec<CustomAdapterConfig>>,
+
+    //////////////////////////////////////////
+    //////////////////////////// CMD line only
+    //////////////////////////////////////////
     /// same as passing path directly, except if argument is empty
     /// kinda hacky, but if no file is found, fzf calls rga with empty string as path, which causes No such file or directory from rg. So filter those cases and return specially
+    #[serde(skip)]
+    #[structopt(long = "--rga-fzf-path", require_equals = true, hidden = true)]
     pub fzf_path: Option<String>,
 
     // these arguments are basically "subcommands" that stop the process, so don't serialize them
@@ -195,10 +204,6 @@ pub struct RgaConfig {
     #[serde(skip)]
     #[structopt(long, help = "Show version of ripgrep itself")]
     pub rg_version: bool,
-
-    #[serde(rename = "$schema", default = "default_schema_path")]
-    #[structopt(skip)]
-    pub _schema_key: String,
 }
 fn default_schema_path() -> String {
     "./config.schema.json".to_string()
@@ -206,6 +211,21 @@ fn default_schema_path() -> String {
 
 static RGA_CONFIG: &str = "RGA_CONFIG";
 
+use serde_json::Value;
+fn json_merge(a: &mut Value, b: &Value) {
+    match (a, b) {
+        (&mut Value::Object(ref mut a), &Value::Object(ref b)) => {
+            for (k, v) in b {
+                json_merge(a.entry(k.clone()).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) => {
+            *a = b.clone();
+        }
+    }
+}
+
+// todo: this function is pretty inefficient. loads of json / copying stuff
 pub fn parse_args<I>(args: I) -> Result<RgaConfig>
 where
     I: IntoIterator,
@@ -213,42 +233,101 @@ where
 {
     let proj = project_dirs()?;
     let config_dir = proj.config_dir();
-    if config_dir.join("config.json").exists() {
-        // todo: read config
-    } else {
-        std::fs::create_dir_all(config_dir)?;
-        let mut schemafile = File::create(config_dir.join("config.schema.json"))?;
-
-        schemafile
-            .write(serde_json::to_string_pretty(&schemars::schema_for!(RgaConfig))?.as_bytes())?;
-
-        let mut configfile = File::create(config_dir.join("config.json"))?;
-        let mut v = serde_json::to_value(&RgaConfig::default())?;
-        match &mut v {
-            serde_json::Value::Object(o) => {
-                o["$schema"] = serde_json::Value::String("./config.schema.json".to_string())
+    let config_filename = config_dir.join("config.json");
+    let config_file_config = {
+        if config_filename.exists() {
+            let config_file_contents =
+                std::fs::read_to_string(&config_filename).with_context(|| {
+                    format!(
+                        "Could not read config file json {}",
+                        config_filename.to_string_lossy()
+                    )
+                })?;
+            {
+                // just for error messages
+                let config_json: RgaConfig = serde_json::from_str(&config_file_contents)
+                    .with_context(|| format!("Error in config file: {}", config_file_contents))?;
             }
-            _ => panic!("impos"),
-        }
-        configfile.write(serde_json::to_string_pretty(&v)?.as_bytes())?;
-    }
-    match std::env::var(RGA_CONFIG) {
-        Ok(val) => {
-            debug!(
-                "Loading args from env {}={}, ignoring cmd args",
-                RGA_CONFIG, val
-            );
-            Ok(serde_json::from_str(&val)?)
-        }
-        Err(_) => {
-            let matches = RgaConfig::from_iter(args);
-            let serialized_config = serde_json::to_string(&matches)?;
-            std::env::set_var(RGA_CONFIG, &serialized_config);
-            debug!("{}={}", RGA_CONFIG, serialized_config);
+            let config_json: serde_json::Value = serde_json::from_str(&config_file_contents)
+                .context("Could not parse config json")?;
+            log::debug!("Config JSON: {}", config_json.to_string());
+            config_json
+        } else {
+            // write default config
+            std::fs::create_dir_all(config_dir)?;
+            let mut schemafile = File::create(config_dir.join("config.schema.json"))?;
 
-            Ok(matches)
+            schemafile.write(
+                serde_json::to_string_pretty(&schemars::schema_for!(RgaConfig))?.as_bytes(),
+            )?;
+
+            let mut config_json = serde_json::to_value(&RgaConfig::default())?;
+            match &mut config_json {
+                serde_json::Value::Object(o) => {
+                    o.insert(
+                        "$schema".to_string(),
+                        serde_json::Value::String("./config.schema.json".to_string()),
+                    );
+                }
+                _ => panic!("impos"),
+            }
+            let mut configfile = File::create(config_dir.join("config.json"))?;
+            configfile.write(serde_json::to_string_pretty(&config_json)?.as_bytes())?;
+            config_json
         }
+    };
+    let env_var_config = {
+        let val = std::env::var(RGA_CONFIG).ok();
+        if let Some(val) = val {
+            serde_json::from_str(&val).context("could not parse config from env RGA_CONFIG")?
+        } else {
+            serde_json::to_value(&RgaConfig::default())?
+        }
+    };
+
+    let arg_matches = RgaConfig::from_iter(args);
+    let args_config = {
+        let serialized_config = serde_json::to_value(&arg_matches)?;
+
+        serialized_config
+    };
+
+    log::debug!(
+        "Configs:\n{}: {}\n{}: {}\nArgs: {}",
+        config_filename.to_string_lossy(),
+        serde_json::to_string_pretty(&config_file_config)?,
+        RGA_CONFIG,
+        serde_json::to_string_pretty(&env_var_config)?,
+        serde_json::to_string_pretty(&args_config)?
+    );
+    let mut merged_config = config_file_config.clone();
+    json_merge(&mut merged_config, &env_var_config);
+    json_merge(&mut merged_config, &args_config);
+
+    log::debug!(
+        "Merged config: {}",
+        serde_json::to_string_pretty(&merged_config)?
+    );
+    let mut res: RgaConfig = serde_json::from_value(merged_config.clone())
+        .map_err(|e| {
+            println!("{:?}", e);
+            e
+        })
+        .with_context(|| {
+            format!(
+                "Error parsing merged config: {}",
+                serde_json::to_string_pretty(&merged_config).expect("no tostring")
+            )
+        })?;
+    {
+        // readd values with [serde(skip)]
+        res.fzf_path = arg_matches.fzf_path;
+        res.list_adapters = arg_matches.list_adapters;
+        res.print_config_schema = arg_matches.print_config_schema;
+        res.rg_help = arg_matches.rg_help;
+        res.rg_version = arg_matches.rg_version;
     }
+    Ok(res)
 }
 
 /// Split arguments into the ones we care about and the ones rg cares about
@@ -278,7 +357,7 @@ pub fn split_args() -> Result<(RgaConfig, Vec<OsString>)> {
             }
         });
     debug!("our_args: {:?}", our_args);
-    let matches = parse_args(our_args)?;
+    let matches = parse_args(our_args).context("Could not parse args")?;
     if matches.rg_help {
         passthrough_args.insert(0, "--help".into());
     }
