@@ -147,6 +147,12 @@ pub struct RgaArgs {
     )]
     pub max_archive_recursion: i32,
 
+    #[serde(skip)]
+    #[structopt(long = "--rga-fzf-path", require_equals = true, hidden = true)]
+    /// same as passing path directly, except if argument is empty
+    /// kinda hacky, but if no file is found, fzf calls rga with empty string as path, which causes No such file or directory from rg. So filter those cases and return specially
+    pub fzf_path: Option<String>,
+
     // these arguments stop the process, so don't serialize them
     #[serde(skip)]
     #[structopt(long = "--rga-list-adapters", help = "List all known adapters")]

@@ -12,7 +12,7 @@ use std::process::Command;
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let (args, passthrough_args) = split_args()?;
+    let (args, mut passthrough_args) = split_args()?;
 
     if args.list_adapters {
         let (enabled_adapters, disabled_adapters) = get_all_adapters();
@@ -61,6 +61,14 @@ fn main() -> anyhow::Result<()> {
             print(adapter)
         }
         return Ok(());
+    }
+    if let Some(path) = args.fzf_path {
+        if path == "_" {
+            // fzf found no result, ignore everything and return
+            println!("[no file found]");
+            return Ok(());
+        }
+        passthrough_args.push(std::ffi::OsString::from(&path[1..]));
     }
 
     if passthrough_args.len() == 0 {
