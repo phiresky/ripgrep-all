@@ -9,7 +9,7 @@ use structopt::StructOpt;
 
 use schemars::schema_for;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 fn list_adapters(args: RgaConfig) -> Result<()> {
     let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters.clone());
@@ -60,9 +60,14 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
     return Ok(());
 }
 fn main() -> anyhow::Result<()> {
+    // set debugging as early as possible
+    if std::env::args().position(|e| e == "--debug").is_some() {
+        std::env::set_var("RUST_LOG", "debug");
+    }
+
     env_logger::init();
 
-    let (args, mut passthrough_args) = split_args()?;
+    let (args, mut passthrough_args) = split_args(false)?;
 
     if args.print_config_schema {
         println!("{}", serde_json::to_string_pretty(&schema_for!(RgaConfig))?);

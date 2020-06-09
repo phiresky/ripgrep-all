@@ -205,9 +205,6 @@ pub struct RgaConfig {
     #[structopt(long, help = "Show version of ripgrep itself")]
     pub rg_version: bool,
 }
-fn default_schema_path() -> String {
-    "./config.schema.json".to_string()
-}
 
 static RGA_CONFIG: &str = "RGA_CONFIG";
 
@@ -225,92 +222,92 @@ fn json_merge(a: &mut Value, b: &Value) {
     }
 }
 
-// todo: this function is pretty inefficient. loads of json / copying stuff
-pub fn parse_args<I>(args: I) -> Result<RgaConfig>
+fn read_config_file() -> Result<(String, Value)> {
+    let proj = project_dirs()?;
+    let config_dir = proj.config_dir();
+    let config_filename = config_dir.join("config.json");
+    let config_filename_str = config_filename.to_string_lossy().into_owned();
+    if config_filename.exists() {
+        let config_file_contents = std::fs::read_to_string(config_filename)
+            .with_context(|| format!("Could not read config file json {}", config_filename_str))?;
+        {
+            // just for error messages
+            serde_json::from_str(&config_file_contents)
+                .with_context(|| format!("Error in config file: {}", config_file_contents))?;
+        }
+        let config_json: serde_json::Value =
+            serde_json::from_str(&config_file_contents).context("Could not parse config json")?;
+        Ok((config_filename_str, config_json))
+    } else {
+        // write default config
+        std::fs::create_dir_all(config_dir)?;
+        let mut schemafile = File::create(config_dir.join("config.schema.json"))?;
+
+        schemafile
+            .write(serde_json::to_string_pretty(&schemars::schema_for!(RgaConfig))?.as_bytes())?;
+
+        let mut config_json = serde_json::to_value(&RgaConfig::default())?;
+        match &mut config_json {
+            serde_json::Value::Object(o) => {
+                o.insert(
+                    "$schema".to_string(),
+                    serde_json::Value::String("./config.schema.json".to_string()),
+                );
+            }
+            _ => panic!("impos"),
+        }
+        let mut configfile = File::create(config_dir.join("config.json"))?;
+        configfile.write(serde_json::to_string_pretty(&config_json)?.as_bytes())?;
+        Ok((config_filename_str, config_json))
+    }
+}
+fn read_config_env() -> Result<Value> {
+    let val = std::env::var(RGA_CONFIG).ok();
+    if let Some(val) = val {
+        serde_json::from_str(&val).context("could not parse config from env RGA_CONFIG")
+    } else {
+        serde_json::to_value(&RgaConfig::default()).context("could not create default config")
+    }
+}
+pub fn parse_args<I>(args: I, is_rga_preproc: bool) -> Result<RgaConfig>
 where
     I: IntoIterator,
     I::Item: Into<OsString> + Clone,
 {
-    let proj = project_dirs()?;
-    let config_dir = proj.config_dir();
-    let config_filename = config_dir.join("config.json");
     // TODO: don't read config file in rga-preproc for performance (called for every file)
-    let config_file_config = {
-        if config_filename.exists() {
-            let config_file_contents =
-                std::fs::read_to_string(&config_filename).with_context(|| {
-                    format!(
-                        "Could not read config file json {}",
-                        config_filename.to_string_lossy()
-                    )
-                })?;
-            {
-                // just for error messages
-                let config_json: RgaConfig = serde_json::from_str(&config_file_contents)
-                    .with_context(|| format!("Error in config file: {}", config_file_contents))?;
-            }
-            let config_json: serde_json::Value = serde_json::from_str(&config_file_contents)
-                .context("Could not parse config json")?;
-            log::debug!("Config JSON: {}", config_json.to_string());
-            config_json
-        } else {
-            // write default config
-            std::fs::create_dir_all(config_dir)?;
-            let mut schemafile = File::create(config_dir.join("config.schema.json"))?;
-
-            schemafile.write(
-                serde_json::to_string_pretty(&schemars::schema_for!(RgaConfig))?.as_bytes(),
-            )?;
-
-            let mut config_json = serde_json::to_value(&RgaConfig::default())?;
-            match &mut config_json {
-                serde_json::Value::Object(o) => {
-                    o.insert(
-                        "$schema".to_string(),
-                        serde_json::Value::String("./config.schema.json".to_string()),
-                    );
-                }
-                _ => panic!("impos"),
-            }
-            let mut configfile = File::create(config_dir.join("config.json"))?;
-            configfile.write(serde_json::to_string_pretty(&config_json)?.as_bytes())?;
-            config_json
-        }
-    };
-    let env_var_config = {
-        let val = std::env::var(RGA_CONFIG).ok();
-        if let Some(val) = val {
-            serde_json::from_str(&val).context("could not parse config from env RGA_CONFIG")?
-        } else {
-            serde_json::to_value(&RgaConfig::default())?
-        }
-    };
 
     let arg_matches = RgaConfig::from_iter(args);
-    let args_config = {
-        let serialized_config = serde_json::to_value(&arg_matches)?;
+    let args_config = serde_json::to_value(&arg_matches)?;
 
-        serialized_config
+    let merged_config = {
+        if is_rga_preproc {
+            // only read from env and args
+            let mut merged_config = read_config_env()?;
+            json_merge(&mut merged_config, &args_config);
+            log::debug!("Config: {}", serde_json::to_string(&merged_config)?);
+            merged_config
+        } else {
+            // read from config file, env and args
+            let env_var_config = read_config_env()?;
+            let (config_filename, config_file_config) = read_config_file()?;
+            let mut merged_config = config_file_config.clone();
+            json_merge(&mut merged_config, &env_var_config);
+            json_merge(&mut merged_config, &args_config);
+            log::debug!(
+                "Configs:\n{}: {}\n{}: {}\nArgs: {}\nMerged: {}",
+                config_filename,
+                serde_json::to_string_pretty(&config_file_config)?,
+                RGA_CONFIG,
+                serde_json::to_string_pretty(&env_var_config)?,
+                serde_json::to_string_pretty(&args_config)?,
+                serde_json::to_string_pretty(&merged_config)?
+            );
+            // pass to child processes
+            std::env::set_var(RGA_CONFIG, &merged_config.to_string());
+            merged_config
+        }
     };
 
-    log::debug!(
-        "Configs:\n{}: {}\n{}: {}\nArgs: {}",
-        config_filename.to_string_lossy(),
-        serde_json::to_string_pretty(&config_file_config)?,
-        RGA_CONFIG,
-        serde_json::to_string_pretty(&env_var_config)?,
-        serde_json::to_string_pretty(&args_config)?
-    );
-    let mut merged_config = config_file_config.clone();
-    json_merge(&mut merged_config, &env_var_config);
-    json_merge(&mut merged_config, &args_config);
-
-    // pass to child processes
-    std::env::set_var(RGA_CONFIG, &merged_config.to_string());
-    log::debug!(
-        "Merged config: {}",
-        serde_json::to_string_pretty(&merged_config)?
-    );
     let mut res: RgaConfig = serde_json::from_value(merged_config.clone())
         .map_err(|e| {
             println!("{:?}", e);
@@ -334,7 +331,7 @@ where
 }
 
 /// Split arguments into the ones we care about and the ones rg cares about
-pub fn split_args() -> Result<(RgaConfig, Vec<OsString>)> {
+pub fn split_args(is_rga_preproc: bool) -> Result<(RgaConfig, Vec<OsString>)> {
     let mut app = RgaConfig::clap();
 
     app.p.create_help_and_version();
@@ -359,14 +356,14 @@ pub fn split_args() -> Result<(RgaConfig, Vec<OsString>)> {
                 false
             }
         });
-    debug!("our_args: {:?}", our_args);
-    let matches = parse_args(our_args).context("Could not parse args")?;
+    debug!("rga (our) args: {:?}", our_args);
+    let matches = parse_args(our_args, is_rga_preproc).context("Could not parse args")?;
     if matches.rg_help {
         passthrough_args.insert(0, "--help".into());
     }
     if matches.rg_version {
         passthrough_args.insert(0, "--version".into());
     }
-    debug!("passthrough_args: {:?}", passthrough_args);
+    debug!("rga (passthrough) args: {:?}", passthrough_args);
     Ok((matches, passthrough_args))
 }

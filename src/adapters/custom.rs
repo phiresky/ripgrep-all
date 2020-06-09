@@ -1,16 +1,8 @@
 use super::{spawning::SpawningFileAdapter, AdapterMeta, GetMetadata};
-use crate::{
-    matching::{FastMatcher, SlowMatcher},
-    project_dirs,
-};
-use anyhow::*;
-use derive_more::FromStr;
-use log::*;
+use crate::matching::{FastMatcher, SlowMatcher};
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
-use std::{fs::File, io::Write, iter::IntoIterator, str::FromStr};
-use structopt::StructOpt;
 
 // mostly the same as AdapterMeta + SpawningFileAdapter
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
@@ -51,7 +43,7 @@ impl SpawningFileAdapter for CustomSpawningFileAdapter {
     }
     fn command(
         &self,
-        filepath_hint: &std::path::Path,
+        _filepath_hint: &std::path::Path,
         mut command: std::process::Command,
     ) -> std::process::Command {
         command.args(&self.args);

@@ -1,3 +1,11 @@
+# 0.9.7 (unreleased)
+
+-   auto generate parts of the readme
+-   add loads of debug logs and performance timings when `--debug` is used
+-   better error messages via `anyhow`
+-   add cross-platform rga-fzf binary
+-   add a config file including schema
+
 # 0.9.6 (2020-05-19)
 
 -   Fix windows builds

@@ -9,7 +9,7 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
     let mut arg_arr: Vec<std::ffi::OsString> = std::env::args_os().collect();
     let last = arg_arr.pop().expect("No filename specified");
-    let args = rga::args::parse_args(arg_arr)?;
+    let args = rga::args::parse_args(arg_arr, true)?;
     //clap::App::new("rga-preproc").arg(Arg::from_usage())
     let path = {
         let filepath = last;
