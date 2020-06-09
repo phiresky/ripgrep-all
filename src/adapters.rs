@@ -169,7 +169,7 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
         def_enabled_adapters
     };
     debug!(
-        "Chosen adapters: {}",
+        "Chosen available adapters: {}",
         adapters
             .iter()
             .map(|a| a.metadata().name.clone())

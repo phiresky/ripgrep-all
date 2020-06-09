@@ -1,7 +1,7 @@
 use crate::adapters::*;
 use crate::args::RgaConfig;
 use crate::matching::*;
-use crate::CachingWriter;
+use crate::{print_bytes, print_dur, CachingWriter};
 use anyhow::*;
 use log::*;
 use path_clean::PathClean;
@@ -9,7 +9,10 @@ use std::convert::TryInto;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::BufWriter;
-use std::sync::{Arc, RwLock};
+use std::{
+    sync::{Arc, RwLock},
+    time::Instant,
+};
 
 #[derive(Clone)]
 pub struct PreprocConfig<'a> {
@@ -33,21 +36,18 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
         archive_recursion_depth,
         ..
     } = ai;
+    debug!("path (hint) to preprocess: {:?}", filepath_hint);
     let PreprocConfig { mut cache, args } = config;
-    let adapters = adapter_matcher(
-        get_adapters_filtered(args.custom_adapters.clone(), &args.adapters)?,
-        args.accurate,
-    )?;
+    let filtered_adapters = get_adapters_filtered(args.custom_adapters.clone(), &args.adapters)?;
+    let adapters = adapter_matcher(&filtered_adapters, args.accurate)?;
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
-    debug!("depth: {}", archive_recursion_depth);
+    debug!("Archive recursion depth: {}", archive_recursion_depth);
     if archive_recursion_depth >= args.max_archive_recursion.0 {
         writeln!(oup, "{}[rga: max archive recursion reached]", line_prefix)?;
         return Ok(());
     }
-
-    debug!("path_hint: {:?}", filepath_hint);
 
     // todo: figure out when using a bufreader is a good idea and when it is not
     // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
@@ -69,38 +69,47 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
         Some((adapter, detection_reason)) => {
             let meta = adapter.metadata();
             debug!(
-                "chose adapter '{}' because of matcher {:?}",
+                "Chose adapter '{}' because of matcher {:?}",
                 &meta.name, &detection_reason
             );
-            eprintln!("adapter: {}", &meta.name);
+            eprintln!(
+                "{} adapter: {}",
+                filepath_hint.to_string_lossy(),
+                &meta.name
+            );
             let db_name = format!("{}.v{}", meta.name, meta.version);
             if let Some(cache) = cache.as_mut() {
                 let cache_key: Vec<u8> = {
                     let clean_path = filepath_hint.to_owned().clean();
                     let meta = std::fs::metadata(&filepath_hint)?;
+                    let modified = meta.modified().expect("weird OS that can't into mtime");
 
                     if adapter.metadata().recurses {
                         let key = (
+                            filtered_adapters
+                                .iter()
+                                .map(|a| (a.metadata().name.clone(), a.metadata().version))
+                                .collect::<Vec<_>>(),
                             clean_path,
-                            meta.modified().expect("weird OS that can't into mtime"),
-                            &args.adapters[..],
+                            modified,
                         );
-                        debug!("cache key: {:?}", key);
+                        debug!("Cache key (with recursion): {:?}", key);
                         bincode::serialize(&key).expect("could not serialize path")
-                    // key in the cache database
                     } else {
                         let key = (
+                            adapter.metadata().name.clone(),
+                            adapter.metadata().version,
                             clean_path,
-                            meta.modified().expect("weird OS that can't into mtime"),
+                            modified,
                         );
-                        debug!("cache key: {:?}", key);
+                        debug!("Cache key (no recursion): {:?}", key);
                         bincode::serialize(&key).expect("could not serialize path")
-                        // key in the cache database
                     }
                 };
                 cache.write().unwrap().get_or_run(
                     &db_name,
                     &cache_key,
+                    &adapter.metadata().name,
                     Box::new(|| -> Result<Option<Vec<u8>>> {
                         // wrapping BufWriter here gives ~10% perf boost
                         let mut compbuf = BufWriter::new(CachingWriter::new(
@@ -108,7 +117,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
                             args.cache_max_blob_len.0.try_into().unwrap(),
                             args.cache_compression_level.0.try_into().unwrap(),
                         )?);
-                        debug!("adapting...");
+                        debug!("adapting with caching...");
                         adapter
                             .adapt(
                                 AdaptInfo {
@@ -129,13 +138,16 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
                                     meta.name
                                 )
                             })?;
-                        let compressed = compbuf
+                        let (uncompressed_size, compressed) = compbuf
                             .into_inner()
-                            .map_err(|_| "could not finish zstd") // can't use with_context here
-                            .unwrap()
+                            .map_err(|_| anyhow!("could not finish zstd"))? // can't use with_context here
                             .finish()?;
+                        debug!(
+                            "uncompressed output: {}",
+                            print_bytes(uncompressed_size as f64)
+                        );
                         if let Some(cached) = compressed {
-                            debug!("compressed len: {}", cached.len());
+                            debug!("compressed output: {}", print_bytes(cached.len() as f64));
                             Ok(Some(cached))
                         } else {
                             Ok(None)
@@ -149,8 +161,9 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
                 )?;
                 Ok(())
             } else {
-                // couldn't open cache
-                debug!("adapting...");
+                // no cache arc - probably within archive
+                debug!("adapting without caching...");
+                let start = Instant::now();
                 adapter
                     .adapt(
                         AdaptInfo {
@@ -171,6 +184,11 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<()> {
                             meta.name
                         )
                     })?;
+                debug!(
+                    "running adapter {} took {}",
+                    adapter.metadata().name,
+                    print_dur(start)
+                );
                 Ok(())
             }
         }

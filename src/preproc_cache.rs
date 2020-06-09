@@ -1,9 +1,10 @@
-use crate::project_dirs;
+use crate::{print_bytes, print_dur, project_dirs};
 use anyhow::{format_err, Context, Result};
 use log::*;
 use std::{
     fmt::Display,
     sync::{Arc, RwLock},
+    time::Instant,
 };
 
 pub fn open() -> Result<Arc<RwLock<dyn PreprocCache>>> {
@@ -15,6 +16,7 @@ pub trait PreprocCache {
         &mut self,
         db_name: &str,
         key: &[u8],
+        adapter_name: &str,
         runner: Box<dyn FnOnce() -> Result<Option<Vec<u8>>> + 'a>,
         callback: Box<dyn FnOnce(&[u8]) -> Result<()> + 'a>,
     ) -> Result<()>;
@@ -73,9 +75,11 @@ impl PreprocCache for LmdbCache {
         &mut self,
         db_name: &str,
         key: &[u8],
+        adapter_name: &str,
         runner: Box<dyn FnOnce() -> Result<Option<Vec<u8>>> + 'a>,
         callback: Box<dyn FnOnce(&[u8]) -> Result<()> + 'a>,
     ) -> Result<()> {
+        let start = Instant::now();
         let db_env = self.db_arc.read().unwrap();
         let db = db_env
             .open_single(db_name, rkv::store::Options::create())
@@ -90,14 +94,19 @@ impl PreprocCache for LmdbCache {
 
         match cached {
             Some(rkv::Value::Blob(cached)) => {
-                debug!("got cached");
+                debug!("cache HIT, reading from cache");
+                debug!("reading from cache took {}", print_dur(start));
                 callback(cached)?;
             }
             Some(_) => Err(format_err!("Integrity: value not blob"))?,
             None => {
-                debug!("did not get cached");
+                debug!("cache MISS, running adapter");
                 drop(reader);
-                if let Some(got) = runner()? {
+                let runner_res = runner()?;
+                debug!("running adapter {} took {}", adapter_name, print_dur(start));
+                let start = Instant::now();
+                if let Some(got) = runner_res {
+                    debug!("writing {} to cache", print_bytes(got.len() as f64));
                     let mut writer = db_env
                         .write()
                         .map_err(RkvErrWrap)
@@ -109,6 +118,9 @@ impl PreprocCache for LmdbCache {
                         .commit()
                         .map_err(RkvErrWrap)
                         .with_context(|| format!("could not write cache"))?;
+                    debug!("writing to cache took {}", print_dur(start));
+                } else {
+                    debug!("not caching output");
                 }
             }
         };

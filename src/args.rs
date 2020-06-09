@@ -234,6 +234,7 @@ where
     let proj = project_dirs()?;
     let config_dir = proj.config_dir();
     let config_filename = config_dir.join("config.json");
+    // TODO: don't read config file in rga-preproc for performance (called for every file)
     let config_file_config = {
         if config_filename.exists() {
             let config_file_contents =
@@ -304,6 +305,8 @@ where
     json_merge(&mut merged_config, &env_var_config);
     json_merge(&mut merged_config, &args_config);
 
+    // pass to child processes
+    std::env::set_var(RGA_CONFIG, &merged_config.to_string());
     log::debug!(
         "Merged config: {}",
         serde_json::to_string_pretty(&merged_config)?

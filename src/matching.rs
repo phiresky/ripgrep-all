@@ -47,7 +47,7 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 }
 
 pub fn adapter_matcher(
-    adapters: Vec<Rc<dyn FileAdapter>>,
+    adapters: &Vec<Rc<dyn FileAdapter>>,
     slow: bool,
 ) -> Result<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, SlowMatcher)>> {
     // need order later

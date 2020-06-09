@@ -1,5 +1,5 @@
 use super::*;
-use crate::preproc::rga_preproc;
+use crate::{preproc::rga_preproc, print_bytes};
 use ::tar::EntryType::Regular;
 use anyhow::*;
 use lazy_static::lazy_static;
@@ -52,10 +52,10 @@ impl FileAdapter for TarAdapter {
             if Regular == file.header().entry_type() {
                 let path = PathBuf::from(file.path()?.to_owned());
                 debug!(
-                    "{}|{}: {} bytes",
+                    "{}|{}: {}",
                     filepath_hint.display(),
                     path.display(),
-                    file.header().size()?,
+                    print_bytes(file.header().size()? as f64),
                 );
                 let line_prefix = &format!("{}{}: ", line_prefix, path.display());
                 let ai2: AdaptInfo = AdaptInfo {

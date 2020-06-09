@@ -1,14 +1,15 @@
 use anyhow::Result;
-use log::*;
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
 use rga::args::*;
 use rga::matching::*;
+use rga::print_dur;
 use ripgrep_all as rga;
 use structopt::StructOpt;
 
 use schemars::schema_for;
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 fn list_adapters(args: RgaConfig) -> Result<()> {
     let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters.clone());
@@ -114,17 +115,22 @@ fn main() -> anyhow::Result<()> {
     let exe = std::env::current_exe().expect("Could not get executable location");
     let preproc_exe = exe.with_file_name("rga-preproc");
 
-    let mut child = Command::new("rg")
-        .args(rg_args)
+    let before = Instant::now();
+    let mut cmd = Command::new("rg");
+    cmd.args(rg_args)
         .arg("--pre")
         .arg(preproc_exe)
         .arg("--pre-glob")
         .arg(pre_glob)
-        .args(passthrough_args)
+        .args(passthrough_args);
+    log::debug!("rg command to run: {:?}", cmd);
+    let mut child = cmd
         .spawn()
         .map_err(|e| map_exe_error(e, "rg", "Please make sure you have ripgrep installed."))?;
 
     child.wait()?;
+
+    log::debug!("running rg took {}", print_dur(before));
     Ok(())
 }
 
