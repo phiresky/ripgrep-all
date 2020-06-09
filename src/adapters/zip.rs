@@ -1,5 +1,5 @@
 use super::*;
-use crate::preproc::rga_preproc;
+use crate::{preproc::rga_preproc, print_bytes};
 use ::zip::read::ZipFile;
 use anyhow::*;
 use lazy_static::lazy_static;
@@ -65,12 +65,12 @@ impl FileAdapter for ZipAdapter {
                         continue;
                     }
                     debug!(
-                        "{}{}|{}: {} bytes ({} bytes packed)",
+                        "{}{}|{}: {} ({} packed)",
                         line_prefix,
                         filepath_hint.to_string_lossy(),
                         file.name(),
-                        file.size(),
-                        file.compressed_size()
+                        print_bytes(file.size() as f64),
+                        print_bytes(file.compressed_size() as f64)
                     );
                     let line_prefix = &format!("{}{}: ", line_prefix, file.name());
                     rga_preproc(AdaptInfo {
