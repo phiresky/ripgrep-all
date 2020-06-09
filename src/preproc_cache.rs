@@ -94,7 +94,10 @@ impl PreprocCache for LmdbCache {
 
         match cached {
             Some(rkv::Value::Blob(cached)) => {
-                debug!("cache HIT, reading from cache");
+                debug!(
+                    "cache HIT, reading {} (compressed) from cache",
+                    print_bytes(cached.len() as f64)
+                );
                 debug!("reading from cache took {}", print_dur(start));
                 callback(cached)?;
             }
