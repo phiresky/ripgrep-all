@@ -1,7 +1,6 @@
 pub mod custom;
 pub mod decompress;
 pub mod ffmpeg;
-pub mod pandoc;
 pub mod pdfpages;
 pub mod poppler;
 pub mod spawning;
@@ -12,6 +11,7 @@ pub mod zip;
 use crate::matching::*;
 use crate::preproc::PreprocConfig;
 use anyhow::*;
+use custom::builtin_spawning_adapters;
 use custom::CustomAdapterConfig;
 use log::*;
 use regex::Regex;
@@ -35,6 +35,8 @@ pub struct AdapterMeta {
     /// list of matchers when we have mime type detection active (interpreted as ORed)
     /// warning: this *overrides* the fast matchers
     pub slow_matchers: Option<Vec<SlowMatcher>>,
+    // if true, adapter is only used when user lists it in `--rga-adapters`
+    pub disabled_by_default: bool,
 }
 impl AdapterMeta {
     // todo: this is pretty ugly
@@ -83,34 +85,32 @@ type AdaptersTuple = (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>);
 
 pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
     // order in descending priority
-    let mut enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![];
-    let mut disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![];
+    let mut adapters: Vec<Rc<dyn FileAdapter>> = vec![];
     if let Some(custom_adapters) = custom_adapters {
         for adapter_config in custom_adapters {
-            if adapter_config.default_disabled.unwrap_or(false) {
-                disabled_adapters.push(Rc::new(adapter_config.to_adapter()));
-            } else {
-                enabled_adapters.push(Rc::new(adapter_config.to_adapter()));
-            }
+            adapters.push(Rc::new(adapter_config.to_adapter()));
         }
     }
 
-    let internal_enabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
+    let internal_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(ffmpeg::FFmpegAdapter::new()),
-        Rc::new(pandoc::PandocAdapter::new()),
-        Rc::new(poppler::PopplerAdapter::new()),
         Rc::new(zip::ZipAdapter::new()),
         Rc::new(decompress::DecompressAdapter::new()),
         Rc::new(tar::TarAdapter::new()),
         Rc::new(sqlite::SqliteAdapter::new()),
-    ];
-    enabled_adapters.extend(internal_enabled_adapters);
-    let internal_disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(pdfpages::PdfPagesAdapter::new()),
         Rc::new(tesseract::TesseractAdapter::new()),
     ];
-    disabled_adapters.extend(internal_disabled_adapters);
-    (enabled_adapters, disabled_adapters)
+    adapters.extend(
+        builtin_spawning_adapters
+            .iter()
+            .map(|e| -> Rc<dyn FileAdapter> { Rc::new(e.clone().to_adapter()) }),
+    );
+    adapters.extend(internal_adapters);
+
+    adapters
+        .into_iter()
+        .partition(|e| !e.metadata().disabled_by_default)
 }
 
 /**

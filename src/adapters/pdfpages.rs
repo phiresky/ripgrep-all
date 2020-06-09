@@ -22,7 +22,8 @@ lazy_static! {
             .collect(),
         slow_matchers: Some(vec![SlowMatcher::MimeType(
             "application/pdf".to_owned()
-        )])
+        )]),
+        disabled_by_default: true
     };
 }
 #[derive(Default)]

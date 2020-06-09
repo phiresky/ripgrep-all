@@ -5,7 +5,7 @@ use log::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
-use std::{fs::File, io::Write, iter::IntoIterator, str::FromStr};
+use std::{fs::File, io::Write, iter::IntoIterator, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -179,6 +179,10 @@ pub struct RgaConfig {
     //////////////////////////////////////////
     //////////////////////////// CMD line only
     //////////////////////////////////////////
+    #[serde(skip)]
+    #[structopt(long = "--rga-config-file", require_equals = true)]
+    pub config_file_path: Option<String>,
+
     /// same as passing path directly, except if argument is empty
     /// kinda hacky, but if no file is found, fzf calls rga with empty string as path, which causes No such file or directory from rg. So filter those cases and return specially
     #[serde(skip)]
@@ -222,22 +226,31 @@ fn json_merge(a: &mut Value, b: &Value) {
     }
 }
 
-fn read_config_file() -> Result<(String, Value)> {
+fn read_config_file(path_override: Option<String>) -> Result<(String, Value)> {
     let proj = project_dirs()?;
     let config_dir = proj.config_dir();
-    let config_filename = config_dir.join("config.json");
+    let config_filename = path_override
+        .as_ref()
+        .map(|e| PathBuf::from(e))
+        .unwrap_or(config_dir.join("config.jsonc"));
     let config_filename_str = config_filename.to_string_lossy().into_owned();
     if config_filename.exists() {
         let config_file_contents = std::fs::read_to_string(config_filename)
             .with_context(|| format!("Could not read config file json {}", config_filename_str))?;
         {
             // just for error messages
-            serde_json::from_str(&config_file_contents)
-                .with_context(|| format!("Error in config file: {}", config_file_contents))?;
+            serde_json::from_str::<RgaConfig>(&config_file_contents).with_context(|| {
+                format!(
+                    "Error in config file {}: {}",
+                    config_filename_str, config_file_contents
+                )
+            })?;
         }
         let config_json: serde_json::Value =
             serde_json::from_str(&config_file_contents).context("Could not parse config json")?;
         Ok((config_filename_str, config_json))
+    } else if let Some(p) = path_override.as_ref() {
+        Err(anyhow::anyhow!("Config file not found: {}", p))?
     } else {
         // write default config
         std::fs::create_dir_all(config_dir)?;
@@ -256,7 +269,7 @@ fn read_config_file() -> Result<(String, Value)> {
             }
             _ => panic!("impos"),
         }
-        let mut configfile = File::create(config_dir.join("config.json"))?;
+        let mut configfile = File::create(config_filename)?;
         configfile.write(serde_json::to_string_pretty(&config_json)?.as_bytes())?;
         Ok((config_filename_str, config_json))
     }
@@ -276,7 +289,7 @@ where
 {
     // TODO: don't read config file in rga-preproc for performance (called for every file)
 
-    let arg_matches = RgaConfig::from_iter(args);
+    let arg_matches: RgaConfig = RgaConfig::from_iter(args);
     let args_config = serde_json::to_value(&arg_matches)?;
 
     let merged_config = {
@@ -288,8 +301,9 @@ where
             merged_config
         } else {
             // read from config file, env and args
+            let (config_filename, config_file_config) =
+                read_config_file(arg_matches.config_file_path)?;
             let env_var_config = read_config_env()?;
-            let (config_filename, config_file_config) = read_config_file()?;
             let mut merged_config = config_file_config.clone();
             json_merge(&mut merged_config, &env_var_config);
             json_merge(&mut merged_config, &args_config);
@@ -357,7 +371,7 @@ pub fn split_args(is_rga_preproc: bool) -> Result<(RgaConfig, Vec<OsString>)> {
             }
         });
     debug!("rga (our) args: {:?}", our_args);
-    let matches = parse_args(our_args, is_rga_preproc).context("Could not parse args")?;
+    let matches = parse_args(our_args, is_rga_preproc).context("Could not parse config")?;
     if matches.rg_help {
         passthrough_args.insert(0, "--help".into());
     }

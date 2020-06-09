@@ -44,7 +44,7 @@ paste = "0.1.16"
 tempfile = "3.1.0"
 glob = "0.3.0"
 anyhow = "1.0.31"
-schemars = "0.7.6"
+schemars = {version = "0.8.0-alpha-2", features = ["preserve_order"]}
 directories-next = "1.0.1"
 derive_more = "0.99.7"
 pretty-bytes = "0.2.2"

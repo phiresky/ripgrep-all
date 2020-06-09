@@ -20,7 +20,8 @@ lazy_static! {
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
             .collect(),
-        slow_matchers: Some(vec![SlowMatcher::MimeType("application/zip".to_owned())])
+        slow_matchers: Some(vec![SlowMatcher::MimeType("application/zip".to_owned())]),
+        disabled_by_default: false
     };
 }
 #[derive(Default)]

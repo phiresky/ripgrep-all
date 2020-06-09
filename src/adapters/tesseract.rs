@@ -15,7 +15,8 @@ lazy_static! {
             .iter()
             .map(|s| FastMatcher::FileExtension(s.to_string()))
             .collect(),
-        slow_matchers: None
+        slow_matchers: None,
+        disabled_by_default: true
     };
 }
 #[derive(Default)]

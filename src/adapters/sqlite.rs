@@ -22,7 +22,8 @@ lazy_static! {
             .collect(),
         slow_matchers: Some(vec![SlowMatcher::MimeType(
             "application/x-sqlite3".to_owned()
-        )])
+        )]),
+        disabled_by_default: false
     };
 }
 

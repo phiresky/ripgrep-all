@@ -61,7 +61,7 @@ On Arch Linux, you can simply install from AUR: `yay -S ripgrep-all`.
 
 On Debian-based distributions you can download the [rga binary][latestrelease] and get the dependencies like this:
 
-`apt install ripgrep pandoc poppler-utils ffmpeg cargo`
+`apt install ripgrep pandoc poppler-utils ffmpeg`
 
 If ripgrep is not included in your package sources, get it from [here](https://github.com/BurntSushi/ripgrep/releases).
 

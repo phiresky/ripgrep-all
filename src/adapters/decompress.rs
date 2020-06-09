@@ -30,6 +30,7 @@ lazy_static! {
                 .map(|s| SlowMatcher::MimeType(s.to_string()))
                 .collect()
         ),
+        disabled_by_default: false
     };
 }
 #[derive(Default)]
