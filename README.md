@@ -37,7 +37,7 @@ You can use rga interactively via fzf. Add the following to your ~/.{bash,zsh}rc
 
 ```bash
 rga-fzf() {
-	RG_PREFIX="rga --files-with-matches --rga-cache-max-blob-len=10M"
+	RG_PREFIX="rga --files-with-matches"
 	local file
 	file="$(
 		FZF_DEFAULT_COMMAND="$RG_PREFIX '$1'" \
