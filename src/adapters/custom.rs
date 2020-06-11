@@ -3,9 +3,12 @@ use super::{
     AdapterMeta, GetMetadata,
 };
 use crate::matching::{FastMatcher, SlowMatcher};
+use anyhow::{Context, Result};
 use lazy_static::lazy_static;
+use regex::{Captures, Regex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 // mostly the same as AdapterMeta + SpawningFileAdapter
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
@@ -115,17 +118,59 @@ impl GetMetadata for CustomSpawningFileAdapter {
         &self.meta
     }
 }
+fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
+    lazy_static::lazy_static! {
+        static ref ARG_REP: Regex = Regex::new(r"\{([a-z_]+)\}").unwrap();
+    }
+    let mut err = None;
+    let r = ARG_REP.replace_all(arg, |m: &Captures| -> String {
+        let idx = m.get(0).unwrap().range();
+        if arg.chars().nth(idx.start - 1) == Some('{') {
+            // skip
+            return m.get(0).unwrap().as_str().to_string();
+        }
+        if arg.chars().nth(idx.end + 1) == Some('}') {
+            // skip
+            return m.get(0).unwrap().as_str().to_string();
+        }
+        let key = m.get(1).unwrap().as_str();
+        if key == "file_extension" {
+            return filepath_hint
+                .extension()
+                .map(|e| e.to_string_lossy().to_string())
+                .unwrap_or("".to_string());
+        }
+        err = Some(anyhow::anyhow!(
+            "Unknown arg replacement key '{}' in '{}'",
+            key,
+            arg
+        ));
+        "".to_string()
+        //let
+    });
+    if let Some(err) = err {
+        Err(err)
+    } else {
+        Ok(r.to_string())
+    }
+}
 impl SpawningFileAdapterTrait for CustomSpawningFileAdapter {
     fn get_exe(&self) -> &str {
         &self.binary
     }
     fn command(
         &self,
-        _filepath_hint: &std::path::Path,
+        filepath_hint: &std::path::Path,
         mut command: std::process::Command,
-    ) -> std::process::Command {
-        command.args(&self.args);
-        command
+    ) -> Result<std::process::Command> {
+        command.args(
+            self.args
+                .iter()
+                .map(|arg| arg_replacer(arg, &filepath_hint))
+                .collect::<Result<Vec<_>>>()?,
+        );
+        log::debug!("running command {:?}", command);
+        Ok(command)
     }
 }
 impl CustomAdapterConfig {

@@ -16,7 +16,7 @@ fn main() -> anyhow::Result<()> {
         std::env::current_dir()?.join(&filepath)
     };
 
-    let i = File::open(&path)?;
+    let i = File::open(&path).context("Specified input file not found")?;
     let mut o = std::io::stdout();
     let cache = if args.no_cache {
         None
@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
         archive_recursion_depth: 0,
         config: PreprocConfig { cache, args },
     };
-    let mut oup = rga_preproc(ai)?;
+    let mut oup = rga_preproc(ai).context("during preprocessing")?;
     std::io::copy(&mut oup, &mut o).context("copying adapter output to stdout")?;
     Ok(())
 }

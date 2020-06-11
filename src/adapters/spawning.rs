@@ -2,6 +2,7 @@ use super::*;
 use anyhow::*;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use log::*;
+use regex::Regex;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::process::Command;
@@ -55,7 +56,7 @@ pub fn postproc_line_prefix(
 }
 pub trait SpawningFileAdapterTrait: GetMetadata {
     fn get_exe(&self) -> &str;
-    fn command(&self, filepath_hint: &Path, command: Command) -> Command;
+    fn command(&self, filepath_hint: &Path, command: Command) -> Result<Command>;
 
     /*fn postproc(&self, line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Result<()> {
         postproc_line_prefix(line_prefix, inp, oup)
@@ -146,7 +147,10 @@ impl FileAdapter for SpawningFileAdapter {
         } = ai;
 
         let cmd = Command::new(self.inner.get_exe());
-        let cmd = self.inner.command(&filepath_hint, cmd);
+        let cmd = self
+            .inner
+            .command(&filepath_hint, cmd)
+            .with_context(|| format!("Could not set cmd arguments for {}", self.inner.get_exe()))?;
         debug!("executing {:?}", cmd);
         pipe_output(&line_prefix, cmd, &mut inp, self.inner.get_exe(), "")
     }

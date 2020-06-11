@@ -34,6 +34,7 @@ where
     inner: R,
     next_read: Vec<u8>,
     replacer: Box<dyn FnMut(u8) -> Vec<u8>>,
+    haystacker: Box<dyn Fn(&[u8]) -> Option<usize>>,
 }
 
 impl<R> ByteReplacer<R>
@@ -77,7 +78,7 @@ where
 
         match read {
             Ok(u) => {
-                match memchr::memchr2(b'\n', b'\x0c', &buf[0..u]) {
+                match (self.haystacker)(&buf[0..u]) {
                     Some(i) => {
                         let data = (self.replacer)(buf[i]);
 
@@ -98,6 +99,7 @@ pub fn postprocB(_line_prefix: &str, inp: impl Read) -> Result<impl Read> {
     Ok(ByteReplacer {
         inner: inp,
         next_read: Vec::new(),
+        haystacker: Box::new(|buf| memchr::memchr2(b'\n', b'\x0c', buf)),
         replacer: Box::new(move |b| match b {
             b'\n' => format!("\nPage {}:", page_count).into_bytes(),
             b'\x0c' => {

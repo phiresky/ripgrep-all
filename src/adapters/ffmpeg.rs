@@ -2,9 +2,11 @@ use super::spawning::map_exe_error;
 use super::*;
 use anyhow::*;
 use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::io::BufReader;
 use std::process::*;
+use writing::{WritingFileAdapter, WritingFileAdapterTrait};
 // todo:
 // maybe todo: read list of extensions from
 // ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
@@ -26,12 +28,12 @@ lazy_static! {
     };
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct FFmpegAdapter;
 
 impl FFmpegAdapter {
-    pub fn new() -> FFmpegAdapter {
-        FFmpegAdapter
+    pub fn new() -> WritingFileAdapter {
+        WritingFileAdapter::new(Box::new(FFmpegAdapter))
     }
 }
 impl GetMetadata for FFmpegAdapter {
@@ -48,12 +50,16 @@ struct FFprobeOutput {
 struct FFprobeStream {
     codec_type: String, // video,audio,subtitle
 }
-impl FileAdapter for FFmpegAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
+impl WritingFileAdapterTrait for FFmpegAdapter {
+    fn adapt_write(
+        &self,
+        ai: AdaptInfo,
+        _detection_reason: &SlowMatcher,
+        oup: &mut dyn Write,
+    ) -> Result<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,
-            oup,
             line_prefix,
             ..
         } = ai;
@@ -80,7 +86,7 @@ impl FileAdapter for FFmpegAdapter {
                     "stream=codec_type",
                 ])
                 .arg("-i")
-                .arg(inp_fname)
+                .arg(&inp_fname)
                 .output()
                 .map_err(spawn_fail)?;
             if !probe.status.success() {
@@ -107,7 +113,7 @@ impl FileAdapter for FFmpegAdapter {
                     //"-count_packets",
                 ])
                 .arg("-i")
-                .arg(inp_fname)
+                .arg(&inp_fname)
                 .stdout(Stdio::piped())
                 .spawn()?;
             for line in BufReader::new(probe.stdout.as_mut().unwrap()).lines() {
@@ -125,7 +131,7 @@ impl FileAdapter for FFmpegAdapter {
                 .arg("-loglevel")
                 .arg("panic")
                 .arg("-i")
-                .arg(inp_fname)
+                .arg(&inp_fname)
                 .arg("-f")
                 .arg("webvtt")
                 .arg("-");

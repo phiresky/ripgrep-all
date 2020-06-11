@@ -2,6 +2,7 @@ use super::{FileAdapter, GetMetadata, ReadBox};
 use anyhow::Result;
 use std::io::Write;
 
+// this trait / struct split is necessary because of "conflicting trait implementation" otherwise with SpawningFileAdapter
 #[dyn_clonable::clonable]
 pub trait WritingFileAdapterTrait: GetMetadata + Send + Clone {
     fn adapt_write(
