@@ -16,7 +16,7 @@ exclude = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tree_magic = { package = "tree_magic_fork", version = "0.2.2" }
+tree_magic = { package = "tree_magic_mini", version = "1.0.0" }
 regex = "1.3.9"
 rkv = "0.10.4"
 path-clean = "0.1.0"

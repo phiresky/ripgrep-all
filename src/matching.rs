@@ -38,7 +38,7 @@ pub struct FileMeta {
     // and since we probably only want to do only matching on ascii stuff anyways, this is the filename as a string with non-valid bytes removed
     pub lossy_filename: String,
     // only given when slow matching is enabled
-    pub mimetype: Option<String>,
+    pub mimetype: Option<&'static str>,
 }
 
 pub fn extension_to_regex(extension: &str) -> Regex {
