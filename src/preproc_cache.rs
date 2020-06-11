@@ -10,7 +10,7 @@ use std::{
 pub fn open() -> Result<Arc<RwLock<dyn PreprocCache>>> {
     Ok(Arc::new(RwLock::new(LmdbCache::open()?)))
 }
-pub trait PreprocCache {
+pub trait PreprocCache: Send + Sync {
     // possible without second lambda?
     fn get_or_run<'a>(
         &mut self,

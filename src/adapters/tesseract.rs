@@ -1,6 +1,6 @@
 use super::*;
 use lazy_static::lazy_static;
-use spawning::SpawningFileAdapter;
+use spawning::{SpawningFileAdapter, SpawningFileAdapterTrait};
 use std::process::Command;
 
 static EXTENSIONS: &[&str] = &["jpg", "png"];
@@ -33,7 +33,7 @@ impl GetMetadata for TesseractAdapter {
         &METADATA
     }
 }
-impl SpawningFileAdapter for TesseractAdapter {
+impl SpawningFileAdapterTrait for TesseractAdapter {
     fn get_exe(&self) -> &str {
         "tesseract"
     }

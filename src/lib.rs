@@ -1,11 +1,16 @@
 #![warn(clippy::all)]
+#![feature(negative_impls)]
+#![feature(specialization)]
 
 pub mod adapters;
 pub mod args;
 mod caching_writer;
 pub mod matching;
+pub mod pipe;
 pub mod preproc;
 pub mod preproc_cache;
+#[cfg(test)]
+pub mod test_utils;
 use anyhow::Context;
 use anyhow::Result;
 pub use caching_writer::CachingWriter;

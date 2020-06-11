@@ -1,4 +1,7 @@
-use super::{spawning::SpawningFileAdapter, AdapterMeta, GetMetadata};
+use super::{
+    spawning::{SpawningFileAdapter, SpawningFileAdapterTrait},
+    AdapterMeta, GetMetadata,
+};
 use crate::matching::{FastMatcher, SlowMatcher};
 use lazy_static::lazy_static;
 use schemars::JsonSchema;
@@ -112,7 +115,7 @@ impl GetMetadata for CustomSpawningFileAdapter {
         &self.meta
     }
 }
-impl SpawningFileAdapter for CustomSpawningFileAdapter {
+impl SpawningFileAdapterTrait for CustomSpawningFileAdapter {
     fn get_exe(&self) -> &str {
         &self.binary
     }
@@ -126,12 +129,12 @@ impl SpawningFileAdapter for CustomSpawningFileAdapter {
     }
 }
 impl CustomAdapterConfig {
-    pub fn to_adapter(self) -> CustomSpawningFileAdapter {
-        CustomSpawningFileAdapter {
+    pub fn to_adapter(&self) -> SpawningFileAdapter {
+        let ad = CustomSpawningFileAdapter {
             binary: self.binary.clone(),
             args: self.args.clone(),
             meta: AdapterMeta {
-                name: self.name,
+                name: self.name.clone(),
                 version: self.version,
                 description: format!(
                     "{}\nRuns: {} {}",
@@ -145,7 +148,7 @@ impl CustomAdapterConfig {
                     .iter()
                     .map(|s| FastMatcher::FileExtension(s.to_string()))
                     .collect(),
-                slow_matchers: self.mimetypes.map(|mimetypes| {
+                slow_matchers: self.mimetypes.as_ref().map(|mimetypes| {
                     mimetypes
                         .iter()
                         .map(|s| SlowMatcher::MimeType(s.to_string()))
@@ -153,6 +156,43 @@ impl CustomAdapterConfig {
                 }),
                 disabled_by_default: self.disabled_by_default.unwrap_or(false),
             },
-        }
+        };
+        SpawningFileAdapter::new(Box::new(ad))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::FileAdapter;
+    use super::*;
+    use crate::test_utils::*;
+    use anyhow::Result;
+    use std::fs::File;
+
+    #[test]
+    fn poppler() -> Result<()> {
+        let adapter = builtin_spawning_adapters
+            .iter()
+            .find(|e| e.name == "poppler")
+            .expect("no poppler adapter");
+
+        let adapter = adapter.to_adapter();
+
+        let filepath = test_data_dir().join("short.pdf");
+
+        let (a, d) = simple_adapt_info(&filepath, Box::new(File::open(&filepath)?));
+        let mut r = adapter.adapt(a, &d)?;
+        let mut o = Vec::new();
+        r.read_to_end(&mut o)?;
+        assert_eq!(
+            String::from_utf8(o)?,
+            "hello world
+this is just a test.
+
+1
+
+\u{c}"
+        );
+        Ok(())
     }
 }

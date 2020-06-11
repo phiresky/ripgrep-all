@@ -33,6 +33,12 @@ pub enum SlowMatcher {
     MimeType(String),
 }
 
+impl From<FastMatcher> for SlowMatcher {
+    fn from(t: FastMatcher) -> Self {
+        SlowMatcher::Fast(t)
+    }
+}
+
 pub struct FileMeta {
     // filename is not actually a utf8 string, but since we can't do regex on OsStr and can't get a &[u8] from OsStr either,
     // and since we probably only want to do only matching on ascii stuff anyways, this is the filename as a string with non-valid bytes removed

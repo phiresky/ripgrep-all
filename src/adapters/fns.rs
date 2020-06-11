@@ -92,7 +92,7 @@ where
     }
 }
 
-pub fn postprocB(line_prefix: &str, inp: impl Read) -> Result<impl Read> {
+pub fn postprocB(_line_prefix: &str, inp: impl Read) -> Result<impl Read> {
     let mut page_count = 1;
 
     Ok(ByteReplacer {

@@ -1,6 +1,6 @@
 use super::*;
 use crate::preproc::rga_preproc;
-use anyhow::*;
+use anyhow::Result;
 use lazy_static::lazy_static;
 
 use std::path::PathBuf;
@@ -47,16 +47,13 @@ impl GetMetadata for DecompressAdapter {
     }
 }
 
-fn decompress_any<'a, R>(reason: &SlowMatcher, inp: &'a mut R) -> Result<Box<dyn Read + 'a>>
-where
-    R: Read,
-{
+fn decompress_any(reason: &SlowMatcher, inp: ReadBox) -> Result<ReadBox> {
     use FastMatcher::*;
     use SlowMatcher::*;
-    let gz = |inp: &'a mut R| Box::new(flate2::read::MultiGzDecoder::new(inp));
-    let bz2 = |inp: &'a mut R| Box::new(bzip2::read::BzDecoder::new(inp));
-    let xz = |inp: &'a mut R| Box::new(xz2::read::XzDecoder::new_multi_decoder(inp));
-    let zst = |inp: &'a mut R| zstd::stream::read::Decoder::new(inp); // returns result
+    let gz = |inp: ReadBox| Box::new(flate2::read::MultiGzDecoder::new(inp));
+    let bz2 = |inp: ReadBox| Box::new(bzip2::read::BzDecoder::new(inp));
+    let xz = |inp: ReadBox| Box::new(xz2::read::XzDecoder::new_multi_decoder(inp));
+    let zst = |inp: ReadBox| zstd::stream::read::Decoder::new(inp); // returns result
 
     Ok(match reason {
         Fast(FileExtension(ext)) => match ext.as_ref() {
@@ -92,35 +89,33 @@ fn get_inner_filename(filename: &Path) -> PathBuf {
 }
 
 impl FileAdapter for DecompressAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Result<()> {
+    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Result<ReadBox> {
         let AdaptInfo {
             filepath_hint,
-            mut inp,
-            oup,
+            inp,
             line_prefix,
             archive_recursion_depth,
             config,
             ..
         } = ai;
 
-        let mut decompress = decompress_any(detection_reason, &mut inp)?;
         let ai2: AdaptInfo = AdaptInfo {
-            filepath_hint: &get_inner_filename(filepath_hint),
+            filepath_hint: get_inner_filename(&filepath_hint),
             is_real_file: false,
             archive_recursion_depth: archive_recursion_depth + 1,
-            inp: &mut decompress,
-            oup,
+            inp: decompress_any(detection_reason, inp)?,
             line_prefix,
             config: config.clone(),
         };
-        rga_preproc(ai2)?;
-        Ok(())
+        rga_preproc(ai2)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::*;
+    use std::fs::File;
     #[test]
     fn test_inner_filename() {
         for (a, b) in &[
@@ -134,5 +129,41 @@ mod tests {
         ] {
             assert_eq!(get_inner_filename(&PathBuf::from(a)), PathBuf::from(*b));
         }
+    }
+
+    #[test]
+    fn gz() -> Result<()> {
+        let adapter = DecompressAdapter;
+
+        let filepath = test_data_dir().join("hello.gz");
+
+        let (a, d) = simple_adapt_info(&filepath, Box::new(File::open(&filepath)?));
+        let mut r = adapter.adapt(a, &d)?;
+        let mut o = Vec::new();
+        r.read_to_end(&mut o)?;
+        assert_eq!(String::from_utf8(o)?, "hello\n");
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_gz() -> Result<()> {
+        let adapter = DecompressAdapter;
+
+        let filepath = test_data_dir().join("short.pdf.gz");
+
+        let (a, d) = simple_adapt_info(&filepath, Box::new(File::open(&filepath)?));
+        let mut r = adapter.adapt(a, &d)?;
+        let mut o = Vec::new();
+        r.read_to_end(&mut o)?;
+        assert_eq!(
+            String::from_utf8(o)?,
+            "hello world
+this is just a test.
+
+1
+
+\u{c}"
+        );
+        Ok(())
     }
 }

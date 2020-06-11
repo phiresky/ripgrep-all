@@ -5,7 +5,7 @@ use log::*;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::process::Command;
-use std::process::Stdio;
+use std::process::{Child, Stdio};
 
 /**
  * Copy a Read to a Write, while prefixing every line with a prefix.
@@ -53,14 +53,36 @@ pub fn postproc_line_prefix(
     }
     Ok(())
 }
-pub trait SpawningFileAdapter: GetMetadata {
+pub trait SpawningFileAdapterTrait: GetMetadata {
     fn get_exe(&self) -> &str;
     fn command(&self, filepath_hint: &Path, command: Command) -> Command;
 
-    fn postproc(line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Result<()> {
+    /*fn postproc(&self, line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Result<()> {
         postproc_line_prefix(line_prefix, inp, oup)
+    }*/
+}
+
+pub struct SpawningFileAdapter {
+    inner: Box<dyn SpawningFileAdapterTrait>,
+}
+
+impl SpawningFileAdapter {
+    pub fn new(inner: Box<dyn SpawningFileAdapterTrait>) -> SpawningFileAdapter {
+        SpawningFileAdapter { inner }
     }
 }
+
+impl GetMetadata for SpawningFileAdapter {
+    fn metadata(&self) -> &AdapterMeta {
+        self.inner.metadata()
+    }
+}
+
+/*impl<T: SpawningFileAdapterTrait> From<T> for SpawningFileAdapter {
+    fn from(e: dyn T) -> Self {
+        SpawningFileAdapter { inner: Box::new(e) }
+    }
+}*/
 
 /// replace a Command.spawn() error "File not found" with a more readable error
 /// to indicate some program is not installed
@@ -71,63 +93,61 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
         _ => Error::from(err),
     }
 }
+
+struct ProcWaitReader {
+    proce: Child,
+}
+impl Read for ProcWaitReader {
+    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+        let status = self.proce.wait()?;
+        if status.success() {
+            Ok(0)
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format_err!("subprocess failed: {:?}", status),
+            ))
+        }
+    }
+}
 pub fn pipe_output(
-    line_prefix: &str,
+    _line_prefix: &str,
     mut cmd: Command,
     inp: &mut (dyn Read),
-    oup: &mut (dyn Write + Send),
     exe_name: &str,
     help: &str,
-    cp: fn(line_prefix: &str, &mut dyn Read, &mut dyn Write) -> Result<()>,
-) -> Result<()> {
+) -> Result<ReadBox> {
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
         .map_err(|e| map_exe_error(e, exe_name, help))?;
     let mut stdi = cmd.stdin.take().expect("is piped");
-    let mut stdo = cmd.stdout.take().expect("is piped");
+    let stdo = cmd.stdout.take().expect("is piped");
 
     // TODO: how to handle this copying better?
     // do we really need threads for this?
-    crossbeam::scope(|s| -> Result<()> {
-        s.spawn(|_| cp(line_prefix, &mut stdo, oup).unwrap()); // errors?
+    crossbeam::scope(|_s| -> Result<()> {
         std::io::copy(inp, &mut stdi)?;
         drop(stdi); // NEEDED! otherwise deadlock
         Ok(())
     })
     .unwrap()?;
-    let status = cmd.wait()?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format_err!("subprocess failed: {:?}", status))
-    }
+    Ok(Box::new(stdo.chain(ProcWaitReader { proce: cmd })))
 }
 
-impl<T> FileAdapter for T
-where
-    T: SpawningFileAdapter,
-{
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
+impl FileAdapter for SpawningFileAdapter {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<ReadBox> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
-            oup,
             line_prefix,
             ..
         } = ai;
-        let cmd = Command::new(self.get_exe());
-        let cmd = self.command(filepath_hint, cmd);
+
+        let cmd = Command::new(self.inner.get_exe());
+        let cmd = self.inner.command(&filepath_hint, cmd);
         debug!("executing {:?}", cmd);
-        pipe_output(
-            line_prefix,
-            cmd,
-            &mut inp,
-            oup,
-            self.get_exe(),
-            "",
-            Self::postproc,
-        )
+        pipe_output(&line_prefix, cmd, &mut inp, self.inner.get_exe(), "")
     }
 }

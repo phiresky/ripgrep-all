@@ -16,7 +16,7 @@ fn main() -> anyhow::Result<()> {
         std::env::current_dir()?.join(&filepath)
     };
 
-    let mut i = File::open(&path)?;
+    let i = File::open(&path)?;
     let mut o = std::io::stdout();
     let cache = if args.no_cache {
         None
@@ -24,14 +24,14 @@ fn main() -> anyhow::Result<()> {
         Some(rga::preproc_cache::open().context("could not open cache")?)
     };
     let ai = AdaptInfo {
-        inp: &mut i,
-        filepath_hint: &path,
+        inp: Box::new(i),
+        filepath_hint: path,
         is_real_file: true,
-        oup: &mut o,
-        line_prefix: "",
+        line_prefix: "".to_string(),
         archive_recursion_depth: 0,
-        config: PreprocConfig { cache, args: &args },
+        config: PreprocConfig { cache, args },
     };
-    rga_preproc(ai)?;
+    let mut oup = rga_preproc(ai)?;
+    std::io::copy(&mut oup, &mut o).context("copying adapter output to stdout")?;
     Ok(())
 }

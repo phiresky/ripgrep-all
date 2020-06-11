@@ -85,7 +85,7 @@ impl FromStr for CacheMaxBlobLen {
 ///
 /// 1. describing the command line arguments using structopt+clap and for man page / readme generation
 /// 2. describing the config file format (output as JSON schema via schemars)
-#[derive(StructOpt, Debug, Deserialize, Serialize, JsonSchema, Default)]
+#[derive(StructOpt, Debug, Deserialize, Serialize, JsonSchema, Default, Clone)]
 #[structopt(
     name = "ripgrep-all",
     rename_all = "kebab-case",

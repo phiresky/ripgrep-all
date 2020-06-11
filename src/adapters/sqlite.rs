@@ -5,6 +5,7 @@ use log::*;
 use rusqlite::types::ValueRef;
 use rusqlite::*;
 use std::convert::TryInto;
+use writing::{WritingFileAdapter, WritingFileAdapterTrait};
 
 static EXTENSIONS: &[&str] = &["db", "db3", "sqlite", "sqlite3"];
 
@@ -27,12 +28,12 @@ lazy_static! {
     };
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SqliteAdapter;
 
 impl SqliteAdapter {
-    pub fn new() -> SqliteAdapter {
-        SqliteAdapter
+    pub fn new() -> WritingFileAdapter {
+        WritingFileAdapter::new(Box::new(SqliteAdapter {}))
     }
 }
 impl GetMetadata for SqliteAdapter {
@@ -58,12 +59,16 @@ fn format_blob(b: ValueRef) -> String {
     }
 }
 
-impl FileAdapter for SqliteAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
+impl WritingFileAdapterTrait for SqliteAdapter {
+    fn adapt_write(
+        &self,
+        ai: AdaptInfo,
+        _detection_reason: &SlowMatcher,
+        oup: &mut dyn Write,
+    ) -> Result<()> {
         let AdaptInfo {
             is_real_file,
             filepath_hint,
-            oup,
             line_prefix,
             ..
         } = ai;
@@ -113,6 +118,32 @@ impl FileAdapter for SqliteAdapter {
                 )?;
             }
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{test_utils::*};
+    use std::{fs::File};
+
+    #[test]
+    fn simple() -> Result<()> {
+        let adapter: Box<dyn FileAdapter> = Box::new(SqliteAdapter::new());
+        let fname = test_data_dir().join("hello.sqlite3");
+        let rd = File::open(&fname)?;
+        let (a, d) = simple_adapt_info(&fname, Box::new(rd));
+        let mut res = adapter.adapt(a, &d)?;
+
+        let mut buf = Vec::new();
+        res.read_to_end(&mut buf)?;
+
+        assert_eq!(
+            String::from_utf8(buf)?,
+            "PREFIX:tbl: greeting='hello', from='sqlite database!'\nPREFIX:tbl2: x=123, y=456.789\n",
+        );
+
         Ok(())
     }
 }
