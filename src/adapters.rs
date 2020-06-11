@@ -1,6 +1,7 @@
 pub mod custom;
 pub mod decompress;
 pub mod ffmpeg;
+pub mod fns;
 pub mod pdfpages;
 pub mod poppler;
 pub mod spawning;

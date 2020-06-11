@@ -959,6 +959,7 @@ dependencies = [
  "glob",
  "lazy_static",
  "log",
+ "memchr",
  "paste",
  "path-clean",
  "pretty-bytes",

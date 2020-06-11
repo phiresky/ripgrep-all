@@ -48,3 +48,4 @@ schemars = {version = "0.8.0-alpha-2", features = ["preserve_order"]}
 directories-next = "1.0.1"
 derive_more = "0.99.7"
 pretty-bytes = "0.2.2"
+memchr = "2.3.3"
