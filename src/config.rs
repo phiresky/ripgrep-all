@@ -41,7 +41,23 @@ impl Default for MaxArchiveRecursion {
     }
 }
 
-#[derive(JsonSchema, Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+#[derive(JsonSchema, Debug, Serialize, Deserialize, Clone, PartialEq, FromStr)]
+pub struct CachePath(pub String);
+
+impl ToString for CachePath {
+    fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+}
+impl Default for CachePath {
+    fn default() -> Self {
+        let pd = project_dirs().expect("could not get cache path");
+        let app_cache = pd.cache_dir();
+        CachePath(app_cache.to_str().expect("cache path not utf8").to_owned())
+    }
+}
+
+#[derive(JsonSchema, Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 pub struct CacheMaxBlobLen(pub usize);
 
 impl ToString for CacheMaxBlobLen {
@@ -96,18 +112,6 @@ impl FromStr for CacheMaxBlobLen {
     usage = "rga [RGA OPTIONS] [RG OPTIONS] PATTERN [PATH ...]"
 )]
 pub struct RgaConfig {
-    /// Disable caching of results
-    ///
-    /// By default, rga caches the extracted text, if it is small enough,
-    /// to a database in ~/.cache/rga on Linux,
-    /// ~/Library/Caches/rga on macOS,
-    /// or C:\Users\username\AppData\Local\rga on Windows.
-    /// This way, repeated searches on the same set of files will be much faster.
-    /// If you pass this flag, all caching will be disabled.
-    #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(long = "--rga-no-cache")]
-    pub no_cache: bool,
-
     /// Use more accurate but slower matching by mime type
     ///
     /// By default, rga will match files using file extensions.
@@ -133,31 +137,9 @@ pub struct RgaConfig {
     )]
     pub adapters: Vec<String>,
 
-    /// Max compressed size to cache
-    ///
-    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time. Allowed suffixes: k M G
     #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(
-        default_value,
-        long = "--rga-cache-max-blob-len",
-        hidden_short_help = true,
-        require_equals = true,
-        // parse(try_from_str = parse_readable_bytes_str)
-    )]
-    pub cache_max_blob_len: CacheMaxBlobLen,
-
-    /// ZSTD compression level to apply to adapter outputs before storing in cache db
-    ///
-    ///  Ranges from 1 - 22
-    #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(
-        default_value,
-        long = "--rga-cache-compression-level",
-        hidden_short_help = true,
-        require_equals = true,
-        help = ""
-    )]
-    pub cache_compression_level: CacheCompressionLevel,
+    #[structopt(flatten)]
+    pub cache: CacheConfig,
 
     /// Maximum nestedness of archives to recurse into
     #[serde(default, skip_serializing_if = "is_default")]
@@ -208,6 +190,60 @@ pub struct RgaConfig {
     #[serde(skip)]
     #[structopt(long, help = "Show version of ripgrep itself")]
     pub rg_version: bool,
+}
+
+#[derive(StructOpt, Debug, Deserialize, Serialize, JsonSchema, Default, Clone, PartialEq)]
+pub struct CacheConfig {
+    /// Disable caching of results
+    ///
+    /// By default, rga caches the extracted text, if it is small enough,
+    /// to a database in ~/.cache/rga on Linux,
+    /// ~/Library/Caches/rga on macOS,
+    /// or C:\Users\username\AppData\Local\rga on Windows.
+    /// This way, repeated searches on the same set of files will be much faster.
+    /// If you pass this flag, all caching will be disabled.
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(long = "--rga-no-cache")]
+    pub disabled: bool,
+
+    /// Max compressed size to cache
+    ///
+    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time. Allowed suffixes: k M G
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(
+        default_value,
+        long = "--rga-cache-max-blob-len",
+        hidden_short_help = true,
+        require_equals = true,
+        // parse(try_from_str = parse_readable_bytes_str)
+    )]
+    pub max_blob_len: CacheMaxBlobLen,
+
+    /// ZSTD compression level to apply to adapter outputs before storing in cache db
+    ///
+    ///  Ranges from 1 - 22
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(
+        default_value,
+        long = "--rga-cache-compression-level",
+        hidden_short_help = true,
+        require_equals = true,
+        help = ""
+    )]
+    pub compression_level: CacheCompressionLevel,
+
+    /// ZSTD compression level to apply to adapter outputs before storing in cache db
+    ///
+    ///  Ranges from 1 - 22
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(
+        default_value,
+        long = "--rga-cache-path",
+        hidden_short_help = true,
+        require_equals = true,
+        help = ""
+    )]
+    pub path: CachePath,
 }
 
 static RGA_CONFIG: &str = "RGA_CONFIG";

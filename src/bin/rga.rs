@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rga::adapters::spawning::map_exe_error;
 use rga::adapters::*;
-use rga::args::*;
+use rga::config::{split_args, RgaConfig};
 use rga::matching::*;
 use rga::print_dur;
 use ripgrep_all as rga;

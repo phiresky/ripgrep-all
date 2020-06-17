@@ -3,8 +3,8 @@
 #![feature(specialization)]
 
 pub mod adapters;
-pub mod args;
 mod caching_writer;
+pub mod config;
 pub mod matching;
 pub mod pipe;
 pub mod preproc;
@@ -13,7 +13,7 @@ pub mod preproc_cache;
 pub mod test_utils;
 use anyhow::Context;
 use anyhow::Result;
-pub use caching_writer::CachingWriter;
+pub use caching_writer::CachingReader;
 use directories_next::ProjectDirs;
 use std::time::Instant;
 

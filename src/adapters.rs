@@ -10,8 +10,7 @@ pub mod sqlite;
 //pub mod tesseract;
 pub mod writing;
 // pub mod zip;
-use crate::matching::*;
-use crate::preproc::PreprocConfig;
+use crate::{config::RgaConfig, matching::*};
 use anyhow::*;
 use custom::builtin_spawning_adapters;
 use custom::CustomAdapterConfig;
@@ -79,7 +78,7 @@ pub struct AdaptInfo {
     pub inp: ReadBox,
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: String,
-    pub config: PreprocConfig,
+    pub config: RgaConfig,
 }
 
 /// (enabledAdapters, disabledAdapters)

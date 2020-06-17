@@ -4,7 +4,8 @@
 -   add loads of debug logs and performance timings when `--debug` is used
 -   better error messages via `anyhow`
 -   add cross-platform rga-fzf binary
--   add a config file including schema
+-   add a config file (~/.config/ripgrep-all) that is generated on first use, including schema
+-   change adapter interface from `(&Read, &Write) -> ()` to `Read -> Read` to allow chaining of adapters
 
 # 0.9.6 (2020-05-19)
 

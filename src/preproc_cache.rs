@@ -1,37 +1,37 @@
-use crate::{print_bytes, print_dur, project_dirs};
+use crate::{config::CacheConfig, print_bytes, print_dur, project_dirs};
 use anyhow::{format_err, Context, Result};
 use log::*;
 use std::{
     fmt::Display,
+    path::Path,
     sync::{Arc, RwLock},
     time::Instant,
 };
 
-pub fn open() -> Result<Arc<RwLock<dyn PreprocCache>>> {
-    Ok(Arc::new(RwLock::new(LmdbCache::open()?)))
-}
 pub trait PreprocCache: Send + Sync {
-    // possible without second lambda?
+    /*/// gets cache at specified key.
+    /// if cache hit, return the resulting data
+    /// else, run the given lambda, and store its result in the cache if present
     fn get_or_run<'a>(
         &mut self,
         db_name: &str,
         key: &[u8],
-        adapter_name: &str,
+        debug_name: &str,
         runner: Box<dyn FnOnce() -> Result<Option<Vec<u8>>> + 'a>,
-        callback: Box<dyn FnOnce(&[u8]) -> Result<()> + 'a>,
-    ) -> Result<()>;
+    ) -> Result<Option<Vec<u8>>>;*/
+
+    fn get(&self, db_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>>;
+    fn set(&mut self, db_name: &str, key: &[u8], value: &[u8]) -> Result<()>;
 }
 
 /// opens a LMDB cache
-fn open_cache_db() -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
-    let pd = project_dirs()?;
-    let app_cache = pd.cache_dir();
-    std::fs::create_dir_all(app_cache)?;
+fn open_cache_db(path: &Path) -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
+    std::fs::create_dir_all(path)?;
 
     rkv::Manager::singleton()
         .write()
         .map_err(|_| format_err!("could not write cache db manager"))?
-        .get_or_create(app_cache, |p| {
+        .get_or_create(path, |p| {
             let mut builder = rkv::Rkv::environment_builder();
             builder
                 .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable cuz it's a cache
@@ -53,10 +53,14 @@ pub struct LmdbCache {
 }
 
 impl LmdbCache {
-    pub fn open() -> Result<LmdbCache> {
-        Ok(LmdbCache {
-            db_arc: open_cache_db()?,
-        })
+    pub fn open(config: &CacheConfig) -> Result<Option<LmdbCache>> {
+        if config.disabled {
+            return Ok(None);
+        }
+        let path = Path::new(&config.path.0);
+        Ok(Some(LmdbCache {
+            db_arc: open_cache_db(&path)?,
+        }))
     }
 }
 
@@ -70,27 +74,22 @@ impl Display for RkvErrWrap {
 impl std::error::Error for RkvErrWrap {}
 
 impl PreprocCache for LmdbCache {
-    // possible without second lambda?
-    fn get_or_run<'a>(
-        &mut self,
-        db_name: &str,
-        key: &[u8],
-        adapter_name: &str,
-        runner: Box<dyn FnOnce() -> Result<Option<Vec<u8>>> + 'a>,
-        callback: Box<dyn FnOnce(&[u8]) -> Result<()> + 'a>,
-    ) -> Result<()> {
+    fn get(&self, db_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let start = Instant::now();
-        let db_env = self.db_arc.read().unwrap();
+        let db_env = self
+            .db_arc
+            .read()
+            .map_err(|_| anyhow::anyhow!("Could not open lock, some lock writer panicked"))?;
         let db = db_env
             .open_single(db_name, rkv::store::Options::create())
             .map_err(RkvErrWrap)
-            .with_context(|| format_err!("could not open cache db store"))?;
+            .context("could not open cache db store")?;
 
         let reader = db_env.read().expect("could not get reader");
         let cached = db
             .get(&reader, &key)
             .map_err(RkvErrWrap)
-            .with_context(|| format_err!("could not read from db"))?;
+            .context("could not read from db")?;
 
         match cached {
             Some(rkv::Value::Blob(cached)) => {
@@ -99,34 +98,38 @@ impl PreprocCache for LmdbCache {
                     print_bytes(cached.len() as f64)
                 );
                 debug!("reading from cache took {}", print_dur(start));
-                callback(cached)?;
+                Ok(Some(Vec::from(cached)))
             }
             Some(_) => Err(format_err!("Integrity: value not blob"))?,
-            None => {
-                debug!("cache MISS, running adapter");
-                drop(reader);
-                let runner_res = runner()?;
-                debug!("running adapter {} took {}", adapter_name, print_dur(start));
-                let start = Instant::now();
-                if let Some(got) = runner_res {
-                    debug!("writing {} to cache", print_bytes(got.len() as f64));
-                    let mut writer = db_env
-                        .write()
-                        .map_err(RkvErrWrap)
-                        .with_context(|| format_err!("could not open write handle to cache"))?;
-                    db.put(&mut writer, &key, &rkv::Value::Blob(&got))
-                        .map_err(RkvErrWrap)
-                        .with_context(|| format_err!("could not write to cache"))?;
-                    writer
-                        .commit()
-                        .map_err(RkvErrWrap)
-                        .with_context(|| format!("could not write cache"))?;
-                    debug!("writing to cache took {}", print_dur(start));
-                } else {
-                    debug!("not caching output");
-                }
-            }
-        };
+            None => Ok(None),
+        }
+    }
+    fn set(&mut self, db_name: &str, key: &[u8], got: &[u8]) -> Result<()> {
+        let start = Instant::now();
+        debug!("writing {} to cache", print_bytes(got.len() as f64));
+        let db_env = self
+            .db_arc
+            .read()
+            .map_err(|_| anyhow::anyhow!("Could not open lock, some lock writer panicked"))?;
+
+        let db = db_env
+            .open_single(db_name, rkv::store::Options::create())
+            .map_err(RkvErrWrap)
+            .context("could not open cache db store")?;
+
+        let mut writer = db_env
+            .write()
+            .map_err(RkvErrWrap)
+            .with_context(|| format_err!("could not open write handle to cache"))?;
+
+        db.put(&mut writer, &key, &rkv::Value::Blob(&got))
+            .map_err(RkvErrWrap)
+            .with_context(|| format_err!("could not write to cache"))?;
+        writer
+            .commit()
+            .map_err(RkvErrWrap)
+            .with_context(|| format!("could not write cache"))?;
+        debug!("writing to cache took {}", print_dur(start));
         Ok(())
     }
 }
