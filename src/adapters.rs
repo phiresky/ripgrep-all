@@ -34,10 +34,10 @@ pub struct AdapterMeta {
     /// indicates whether this adapter can descend (=call rga_preproc again). if true, the cache key needs to include the list of active adapters
     pub recurses: bool,
     /// list of matchers (interpreted as a OR b OR ...)
-    pub fast_matchers: Vec<FastMatcher>,
+    pub fast_matchers: Vec<FastFileMatcher>,
     /// list of matchers when we have mime type detection active (interpreted as ORed)
     /// warning: this *overrides* the fast matchers
-    pub slow_matchers: Option<Vec<SlowMatcher>>,
+    pub slow_matchers: Option<Vec<FileMatcher>>,
     // if true, adapter is only used when user lists it in `--rga-adapters`
     pub disabled_by_default: bool,
 }
@@ -46,13 +46,13 @@ impl AdapterMeta {
     pub fn get_matchers<'a>(
         &'a self,
         slow: bool,
-    ) -> Box<dyn Iterator<Item = Cow<SlowMatcher>> + 'a> {
+    ) -> Box<dyn Iterator<Item = Cow<FileMatcher>> + 'a> {
         match (slow, &self.slow_matchers) {
             (true, Some(ref sm)) => Box::new(sm.iter().map(|e| Cow::Borrowed(e))),
             (_, _) => Box::new(
                 self.fast_matchers
                     .iter()
-                    .map(|e| Cow::Owned(SlowMatcher::Fast(e.clone()))),
+                    .map(|e| Cow::Owned(FileMatcher::Fast(e.clone()))),
             ),
         }
     }
@@ -65,7 +65,7 @@ pub trait FileAdapter: GetMetadata {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
-    fn adapt(&self, a: AdaptInfo, detection_reason: &SlowMatcher) -> Result<ReadBox>;
+    fn adapt(&self, a: AdaptInfo, detection_reason: &FileMatcher) -> Result<ReadBox>;
 }
 pub struct AdaptInfo {
     /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.

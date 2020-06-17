@@ -19,9 +19,9 @@ lazy_static! {
         recurses: false, // set to true if we decide to make sqlite blobs searchable (gz blob in db is kinda common I think)
         fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| FastMatcher::FileExtension(s.to_string()))
+            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
-        slow_matchers: Some(vec![SlowMatcher::MimeType(
+        slow_matchers: Some(vec![FileMatcher::MimeType(
             "application/x-sqlite3".to_owned()
         )]),
         disabled_by_default: false
@@ -63,7 +63,7 @@ impl WritingFileAdapterTrait for SqliteAdapter {
     fn adapt_write(
         &self,
         ai: AdaptInfo,
-        _detection_reason: &SlowMatcher,
+        _detection_reason: &FileMatcher,
         oup: &mut dyn Write,
     ) -> Result<()> {
         let AdaptInfo {
@@ -125,8 +125,8 @@ impl WritingFileAdapterTrait for SqliteAdapter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{test_utils::*};
-    use std::{fs::File};
+    use crate::test_utils::*;
+    use std::fs::File;
 
     #[test]
     fn simple() -> Result<()> {

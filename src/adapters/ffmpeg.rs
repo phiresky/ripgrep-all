@@ -21,7 +21,7 @@ lazy_static! {
         recurses: false,
         fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| FastMatcher::FileExtension(s.to_string()))
+            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
         slow_matchers: None,
         disabled_by_default: false
@@ -54,7 +54,7 @@ impl WritingFileAdapterTrait for FFmpegAdapter {
     fn adapt_write(
         &self,
         ai: AdaptInfo,
-        _detection_reason: &SlowMatcher,
+        _detection_reason: &FileMatcher,
         oup: &mut dyn Write,
     ) -> Result<()> {
         let AdaptInfo {

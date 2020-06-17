@@ -8,7 +8,7 @@ pub trait WritingFileAdapterTrait: GetMetadata + Send + Clone {
     fn adapt_write(
         &self,
         a: super::AdaptInfo,
-        detection_reason: &crate::matching::SlowMatcher,
+        detection_reason: &crate::matching::FileMatcher,
         oup: &mut dyn Write,
     ) -> Result<()>;
 }
@@ -32,7 +32,7 @@ impl FileAdapter for WritingFileAdapter {
     fn adapt(
         &self,
         a: super::AdaptInfo,
-        detection_reason: &crate::matching::SlowMatcher,
+        detection_reason: &crate::matching::FileMatcher,
     ) -> anyhow::Result<ReadBox> {
         let (r, w) = crate::pipe::pipe();
         let cc = self.inner.clone();

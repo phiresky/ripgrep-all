@@ -21,7 +21,7 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
             .fast_matchers
             .iter()
             .map(|m| match m {
-                FastMatcher::FileExtension(ext) => format!(".{}", ext),
+                FastFileMatcher::FileExtension(ext) => format!(".{}", ext),
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -31,8 +31,8 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
             .unwrap_or(&vec![])
             .iter()
             .filter_map(|m| match m {
-                SlowMatcher::MimeType(x) => Some(format!("{}", x)),
-                SlowMatcher::Fast(_) => None,
+                FileMatcher::MimeType(x) => Some(format!("{}", x)),
+                FileMatcher::Fast(_) => None,
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -99,7 +99,7 @@ fn main() -> anyhow::Result<()> {
             .iter()
             .flat_map(|a| &a.metadata().fast_matchers)
             .flat_map(|m| match m {
-                FastMatcher::FileExtension(ext) => vec![ext.clone(), ext.to_ascii_uppercase()],
+                FastFileMatcher::FileExtension(ext) => vec![ext.clone(), ext.to_ascii_uppercase()],
             })
             .collect::<Vec<_>>()
             .join(",");

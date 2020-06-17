@@ -22,12 +22,12 @@ lazy_static! {
         recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| FastMatcher::FileExtension(s.to_string()))
+            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
         slow_matchers: Some(
             MIME_TYPES
                 .iter()
-                .map(|s| SlowMatcher::MimeType(s.to_string()))
+                .map(|s| FileMatcher::MimeType(s.to_string()))
                 .collect()
         ),
         disabled_by_default: false
@@ -47,9 +47,9 @@ impl GetMetadata for DecompressAdapter {
     }
 }
 
-fn decompress_any(reason: &SlowMatcher, inp: ReadBox) -> Result<ReadBox> {
-    use FastMatcher::*;
-    use SlowMatcher::*;
+fn decompress_any(reason: &FileMatcher, inp: ReadBox) -> Result<ReadBox> {
+    use FastFileMatcher::*;
+    use FileMatcher::*;
     let gz = |inp: ReadBox| Box::new(flate2::read::MultiGzDecoder::new(inp));
     let bz2 = |inp: ReadBox| Box::new(bzip2::read::BzDecoder::new(inp));
     let xz = |inp: ReadBox| Box::new(xz2::read::XzDecoder::new_multi_decoder(inp));
@@ -89,7 +89,7 @@ fn get_inner_filename(filename: &Path) -> PathBuf {
 }
 
 impl FileAdapter for DecompressAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &SlowMatcher) -> Result<ReadBox> {
+    fn adapt(&self, ai: AdaptInfo, detection_reason: &FileMatcher) -> Result<ReadBox> {
         let AdaptInfo {
             filepath_hint,
             inp,

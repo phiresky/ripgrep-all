@@ -1,7 +1,7 @@
 use crate::{
     adapters::{AdaptInfo, ReadBox},
     config::RgaConfig,
-    matching::{FastMatcher, SlowMatcher},
+    matching::{FastFileMatcher, FileMatcher},
 };
 use std::path::{Path, PathBuf};
 
@@ -11,7 +11,7 @@ pub fn test_data_dir() -> PathBuf {
     d
 }
 
-pub fn simple_adapt_info(filepath: &Path, inp: ReadBox) -> (AdaptInfo, SlowMatcher) {
+pub fn simple_adapt_info(filepath: &Path, inp: ReadBox) -> (AdaptInfo, FileMatcher) {
     (
         AdaptInfo {
             filepath_hint: filepath.to_owned(),
@@ -21,7 +21,9 @@ pub fn simple_adapt_info(filepath: &Path, inp: ReadBox) -> (AdaptInfo, SlowMatch
             line_prefix: "PREFIX:".to_string(),
             config: RgaConfig::default(),
         },
-        FastMatcher::FileExtension(filepath.extension().unwrap().to_string_lossy().into_owned())
-            .into(),
+        FastFileMatcher::FileExtension(
+            filepath.extension().unwrap().to_string_lossy().into_owned(),
+        )
+        .into(),
     )
 }

@@ -138,7 +138,7 @@ pub fn pipe_output(
 }
 
 impl FileAdapter for SpawningFileAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<ReadBox> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<ReadBox> {
         let AdaptInfo {
             filepath_hint,
             mut inp,

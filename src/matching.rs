@@ -11,8 +11,9 @@ use std::iter::Iterator;
 
 use std::rc::Rc;
 
+// match only based on file path
 #[derive(Clone, Debug)]
-pub enum FastMatcher {
+pub enum FastFileMatcher {
     // MimeType(Regex),
     /**
      * without the leading dot, e.g. "jpg" or "tar.gz". Matched as /.*\.ext$/
@@ -24,18 +25,18 @@ pub enum FastMatcher {
 }
 
 #[derive(Clone, Debug)]
-pub enum SlowMatcher {
+pub enum FileMatcher {
     /// any type of fast matcher
-    Fast(FastMatcher),
+    Fast(FastFileMatcher),
     ///
     /// match by exact mime type extracted using tree_magic
     /// TODO: allow match ignoring suffix etc?
     MimeType(String),
 }
 
-impl From<FastMatcher> for SlowMatcher {
-    fn from(t: FastMatcher) -> Self {
-        SlowMatcher::Fast(t)
+impl From<FastFileMatcher> for FileMatcher {
+    fn from(t: FastFileMatcher) -> Self {
+        FileMatcher::Fast(t)
     }
 }
 
@@ -55,23 +56,23 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 pub fn adapter_matcher(
     adapters: &Vec<Rc<dyn FileAdapter>>,
     slow: bool,
-) -> Result<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, SlowMatcher)>> {
+) -> Result<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, FileMatcher)>> {
     // need order later
     let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
     let mut fname_regexes = vec![];
     let mut mime_regexes = vec![];
     for adapter in adapters.into_iter() {
         let metadata = adapter.metadata();
-        use SlowMatcher::*;
+        use FileMatcher::*;
         for matcher in metadata.get_matchers(slow) {
             match matcher.as_ref() {
                 MimeType(re) => {
                     mime_regexes.push((re.clone(), adapter.clone(), MimeType(re.clone())))
                 }
-                Fast(FastMatcher::FileExtension(re)) => fname_regexes.push((
+                Fast(FastFileMatcher::FileExtension(re)) => fname_regexes.push((
                     extension_to_regex(re),
                     adapter.clone(),
-                    Fast(FastMatcher::FileExtension(re.clone())),
+                    Fast(FastFileMatcher::FileExtension(re.clone())),
                 )),
             };
         }

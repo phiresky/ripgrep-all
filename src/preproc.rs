@@ -91,7 +91,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
 fn run_adapter(
     ai: AdaptInfo,
     adapter: Rc<dyn FileAdapter>,
-    detection_reason: SlowMatcher,
+    detection_reason: FileMatcher,
     filtered_adapters: &Vec<Rc<dyn FileAdapter>>,
 ) -> Result<ReadBox> {
     let AdaptInfo {

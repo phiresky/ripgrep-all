@@ -2,7 +2,7 @@ use super::{
     spawning::{SpawningFileAdapter, SpawningFileAdapterTrait},
     AdapterMeta, GetMetadata,
 };
-use crate::matching::{FastMatcher, SlowMatcher};
+use crate::matching::{FastFileMatcher, FileMatcher};
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
@@ -191,12 +191,12 @@ impl CustomAdapterConfig {
                 fast_matchers: self
                     .extensions
                     .iter()
-                    .map(|s| FastMatcher::FileExtension(s.to_string()))
+                    .map(|s| FastFileMatcher::FileExtension(s.to_string()))
                     .collect(),
                 slow_matchers: self.mimetypes.as_ref().map(|mimetypes| {
                     mimetypes
                         .iter()
-                        .map(|s| SlowMatcher::MimeType(s.to_string()))
+                        .map(|s| FileMatcher::MimeType(s.to_string()))
                         .collect()
                 }),
                 disabled_by_default: self.disabled_by_default.unwrap_or(false),
