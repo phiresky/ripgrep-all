@@ -59,9 +59,14 @@ Linux x64, macOS and Windows binaries are available [in GitHub Releases][latestr
 
 ### Linux
 
-On Arch Linux, you can simply install from AUR: `yay -S ripgrep-all`.
+#### Arch Linux
+simply install from AUR: `yay -S ripgrep-all`.
 
-On Debian-based distributions you can download the [rga binary][latestrelease] and get the dependencies like this:
+#### Nix
+`nix-env -iA nixpkgs.ripgrep-all`
+
+#### Debian-based
+download the [rga binary][latestrelease] and get the dependencies like this:
 
 `apt install ripgrep pandoc poppler-utils ffmpeg`
 
