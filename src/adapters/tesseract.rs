@@ -13,9 +13,10 @@ lazy_static! {
         recurses: false,
         fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| FastMatcher::FileExtension(s.to_string()))
+            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
         slow_matchers: None,
+        keep_fast_matchers_if_accurate: true,
         disabled_by_default: true
     };
 }
@@ -40,6 +41,6 @@ impl SpawningFileAdapterTrait for TesseractAdapter {
     fn command(&self, _filepath_hint: &Path, mut cmd: Command) -> Command {
         // rg already does threading
         cmd.env("OMP_THREAD_LIMIT", "1").arg("-").arg("-");
-        cmd
+        Some(cmd)
     }
 }

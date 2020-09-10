@@ -1,12 +1,7 @@
-use crate::{config::CacheConfig, print_bytes, print_dur, project_dirs};
+use crate::{config::CacheConfig, print_bytes, print_dur};
 use anyhow::{format_err, Context, Result};
 use log::*;
-use std::{
-    fmt::Display,
-    path::Path,
-    sync::{Arc, RwLock},
-    time::Instant,
-};
+use std::{fmt::Display, path::Path, time::Instant};
 
 pub trait PreprocCache: Send + Sync {
     /*/// gets cache at specified key.

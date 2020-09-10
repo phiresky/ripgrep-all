@@ -2,14 +2,14 @@ use super::{FileAdapter, GetMetadata, ReadBox};
 use anyhow::Result;
 use std::io::Write;
 
-// this trait / struct split is necessary because of "conflicting trait implementation" otherwise with SpawningFileAdapter
+// this trait / struct split is ugly but necessary because of "conflicting trait implementation" otherwise with SpawningFileAdapter
 #[dyn_clonable::clonable]
 pub trait WritingFileAdapterTrait: GetMetadata + Send + Clone {
-    fn adapt_write(
+    fn adapt_write<'a>(
         &self,
-        a: super::AdaptInfo,
+        a: super::AdaptInfo<'a>,
         detection_reason: &crate::matching::FileMatcher,
-        oup: &mut dyn Write,
+        oup: &mut (dyn Write + 'a),
     ) -> Result<()>;
 }
 
@@ -29,17 +29,17 @@ impl GetMetadata for WritingFileAdapter {
 }
 
 impl FileAdapter for WritingFileAdapter {
-    fn adapt(
+    fn adapt<'a>(
         &self,
-        a: super::AdaptInfo,
+        ai_outer: super::AdaptInfo<'a>,
         detection_reason: &crate::matching::FileMatcher,
-    ) -> anyhow::Result<ReadBox> {
+    ) -> anyhow::Result<ReadBox<'a>> {
         let (r, w) = crate::pipe::pipe();
         let cc = self.inner.clone();
         let detc = detection_reason.clone();
         std::thread::spawn(move || {
             let mut oup = w;
-            let ai = a;
+            let ai = ai_outer;
             let res = cc.adapt_write(ai, &detc, &mut oup);
             if let Err(e) = res {
                 oup.write_err(std::io::Error::new(std::io::ErrorKind::Other, e))

@@ -1,7 +1,6 @@
 use crate::adapters::*;
 use crate::matching::*;
 use crate::{
-    config::RgaConfig,
     preproc_cache::{LmdbCache, PreprocCache},
     print_bytes, print_dur, CachingReader,
 };
@@ -12,7 +11,7 @@ use std::convert::TryInto;
 
 use std::io::{BufRead, BufReader};
 
-use std::{path::PathBuf, rc::Rc, time::Instant};
+use std::{rc::Rc, time::Instant};
 /**
  * preprocess a file as defined in `ai`.
  *
@@ -88,12 +87,12 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     }
 }
 
-fn run_adapter(
-    ai: AdaptInfo,
+fn run_adapter<'a>(
+    ai: AdaptInfo<'a>,
     adapter: Rc<dyn FileAdapter>,
     detection_reason: FileMatcher,
     filtered_adapters: &Vec<Rc<dyn FileAdapter>>,
-) -> Result<ReadBox> {
+) -> Result<ReadBox<'a>> {
     let AdaptInfo {
         filepath_hint,
         is_real_file,

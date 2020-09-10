@@ -5,6 +5,7 @@ use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
 use std::path::PathBuf;
+use writing::{WritingFileAdapter, WritingFileAdapterTrait};
 
 static EXTENSIONS: &[&str] = &["tar"];
 
@@ -16,18 +17,19 @@ lazy_static! {
         recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| FastMatcher::FileExtension(s.to_string()))
+            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
         slow_matchers: None,
+        keep_fast_matchers_if_accurate: true,
         disabled_by_default: false
     };
 }
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TarAdapter;
 
 impl TarAdapter {
-    pub fn new() -> TarAdapter {
-        TarAdapter
+    pub fn new() -> WritingFileAdapter {
+        WritingFileAdapter::new(Box::new(TarAdapter))
     }
 }
 impl GetMetadata for TarAdapter {
@@ -36,12 +38,16 @@ impl GetMetadata for TarAdapter {
     }
 }
 
-impl FileAdapter for TarAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
+impl WritingFileAdapterTrait for TarAdapter {
+    fn adapt_write(
+        &self,
+        ai: AdaptInfo,
+        _detection_reason: &FileMatcher,
+        oup: &mut dyn Write,
+    ) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
-            oup,
             line_prefix,
             archive_recursion_depth,
             config,
@@ -60,10 +66,10 @@ impl FileAdapter for TarAdapter {
                 );
                 let line_prefix = &format!("{}{}: ", line_prefix, path.display());
                 let ai2: AdaptInfo = AdaptInfo {
-                    filepath_hint: &path,
+                    filepath_hint: path,
                     is_real_file: false,
                     archive_recursion_depth: archive_recursion_depth + 1,
-                    inp: &mut file,
+                    inp: Box::new(file),
                     oup,
                     line_prefix,
                     config: config.clone(),

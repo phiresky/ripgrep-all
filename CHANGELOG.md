@@ -6,6 +6,7 @@
 -   add cross-platform rga-fzf binary
 -   add a config file (~/.config/ripgrep-all) that is generated on first use, including schema
 -   change adapter interface from `(&Read, &Write) -> ()` to `Read -> Read` to allow chaining of adapters
+    -   this means that all adapters are now run in their own thread, data passed via a pipe. might cause performance regressions
 
 # 0.9.6 (2020-05-19)
 

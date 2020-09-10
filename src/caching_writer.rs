@@ -1,6 +1,6 @@
 use anyhow::Result;
 use log::*;
-use std::io::{BufReader, Read, Write};
+use std::io::{Read, Write};
 
 /**
  * wrap a writer so that it is passthrough,

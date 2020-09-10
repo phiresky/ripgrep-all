@@ -30,7 +30,8 @@ lazy_static! {
                 .map(|s| FileMatcher::MimeType(s.to_string()))
                 .collect()
         ),
-        disabled_by_default: false
+        disabled_by_default: false,
+        keep_fast_matchers_if_accurate: true
     };
 }
 #[derive(Default)]

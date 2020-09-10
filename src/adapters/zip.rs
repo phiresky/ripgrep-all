@@ -4,6 +4,7 @@ use ::zip::read::ZipFile;
 use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
+use writing::{WritingFileAdapter, WritingFileAdapterTrait};
 
 // todo:
 // maybe todo: read list of extensions from
@@ -18,18 +19,19 @@ lazy_static! {
         recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| FastMatcher::FileExtension(s.to_string()))
+            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
-        slow_matchers: Some(vec![SlowMatcher::MimeType("application/zip".to_owned())]),
+        slow_matchers: Some(vec![FileMatcher::MimeType("application/zip".to_owned())]),
+        keep_fast_matchers_if_accurate: false,
         disabled_by_default: false
     };
 }
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ZipAdapter;
 
 impl ZipAdapter {
-    pub fn new() -> ZipAdapter {
-        ZipAdapter
+    pub fn new() -> WritingFileAdapter {
+        WritingFileAdapter::new(Box::new(ZipAdapter))
     }
 }
 impl GetMetadata for ZipAdapter {
@@ -47,12 +49,16 @@ fn is_dir(f: &ZipFile) -> bool {
         .map_or(false, |c| c == '/' || c == '\\')
 }
 
-impl FileAdapter for ZipAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
+impl WritingFileAdapterTrait for ZipAdapter {
+    fn adapt_write<'a>(
+        &self,
+        ai: AdaptInfo<'a>,
+        _detection_reason: &FileMatcher,
+        oup: &mut (dyn Write + 'a),
+    ) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
-            oup,
             line_prefix,
             archive_recursion_depth,
             config,
@@ -73,16 +79,18 @@ impl FileAdapter for ZipAdapter {
                         print_bytes(file.size() as f64),
                         print_bytes(file.compressed_size() as f64)
                     );
-                    let line_prefix = &format!("{}{}: ", line_prefix, file.name());
-                    rga_preproc(AdaptInfo {
-                        filepath_hint: &file.sanitized_name(),
+                    let line_prefix = format!("{}{}: ", line_prefix, file.name());
+                    let mut rd = rga_preproc(AdaptInfo {
+                        filepath_hint: file.sanitized_name().clone(),
                         is_real_file: false,
                         inp: &mut file,
-                        oup,
                         line_prefix,
                         archive_recursion_depth: archive_recursion_depth + 1,
                         config: config.clone(),
                     })?;
+                    // copy read stream from inner file to output
+                    std::io::copy(&mut rd, oup);
+                    drop(rd);
                 }
                 Err(e) => return Err(e.into()),
             }

@@ -3,7 +3,7 @@ use super::{
     AdapterMeta, GetMetadata,
 };
 use crate::matching::{FastFileMatcher, FileMatcher};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use schemars::JsonSchema;
@@ -25,6 +25,8 @@ pub struct CustomAdapterConfig {
     pub extensions: Vec<String>,
     /// if not null and --rga-accurate is enabled, mime type matching is used instead of file name matching
     pub mimetypes: Option<Vec<String>>,
+    /// if --rga-accurate, only match by mime types, ignore extensions completely
+    pub match_only_by_mime: Option<bool>,
     /// the name or path of the binary to run
     pub binary: String,
     /// The arguments to run the program with. Placeholders:
@@ -89,7 +91,8 @@ lazy_static! {
                 "--wrap=none",
                 "--atx-headers"
             ]),
-            disabled_by_default: None
+            disabled_by_default: None,
+            match_only_by_mime: None
         },
         CustomAdapterConfig {
             name: "poppler".to_owned(),
@@ -103,6 +106,7 @@ lazy_static! {
             binary: "pdftotext".to_string(),
             args: strs(&["-", "-"]),
             disabled_by_default: None,
+            match_only_by_mime: None
             // postprocessors: [{name: "add_page_numbers_by_pagebreaks"}]
         }
     ];
@@ -199,6 +203,7 @@ impl CustomAdapterConfig {
                         .map(|s| FileMatcher::MimeType(s.to_string()))
                         .collect()
                 }),
+                keep_fast_matchers_if_accurate: !self.match_only_by_mime.unwrap_or(false),
                 disabled_by_default: self.disabled_by_default.unwrap_or(false),
             },
         };

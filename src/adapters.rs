@@ -2,14 +2,13 @@ pub mod custom;
 pub mod decompress;
 pub mod ffmpeg;
 pub mod fns;
-//pub mod pdfpages;
-pub mod poppler;
+// pub mod pdfpages;
 pub mod spawning;
 pub mod sqlite;
-//pub mod tar;
-//pub mod tesseract;
+// pub mod tar;
+// pub mod tesseract;
 pub mod writing;
-// pub mod zip;
+pub mod zip;
 use crate::{config::RgaConfig, matching::*};
 use anyhow::*;
 use custom::builtin_spawning_adapters;
@@ -23,7 +22,7 @@ use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub type ReadBox = Box<dyn Read + Send>;
+pub type ReadBox<'a> = Box<dyn Read + Send + 'a>;
 
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
@@ -38,6 +37,10 @@ pub struct AdapterMeta {
     /// list of matchers when we have mime type detection active (interpreted as ORed)
     /// warning: this *overrides* the fast matchers
     pub slow_matchers: Option<Vec<FileMatcher>>,
+    /// if true, slow_matchers is merged with fast matchers if accurate is enabled
+    /// for example, in sqlite you want this disabled since the db extension can mean other things and the mime type matching is very accurate for sqlite.
+    /// but for tar you want it enabled, since the tar extension is very accurate but the tar mime matcher can have false negatives
+    pub keep_fast_matchers_if_accurate: bool,
     // if true, adapter is only used when user lists it in `--rga-adapters`
     pub disabled_by_default: bool,
 }
@@ -47,9 +50,21 @@ impl AdapterMeta {
         &'a self,
         slow: bool,
     ) -> Box<dyn Iterator<Item = Cow<FileMatcher>> + 'a> {
-        match (slow, &self.slow_matchers) {
-            (true, Some(ref sm)) => Box::new(sm.iter().map(|e| Cow::Borrowed(e))),
-            (_, _) => Box::new(
+        match (
+            slow,
+            self.keep_fast_matchers_if_accurate,
+            &self.slow_matchers,
+        ) {
+            (true, false, Some(ref sm)) => Box::new(sm.iter().map(|e| Cow::Borrowed(e))),
+            (true, true, Some(ref sm)) => Box::new(
+                sm.iter().map(|e| Cow::Borrowed(e)).chain(
+                    self.fast_matchers
+                        .iter()
+                        .map(|e| Cow::Owned(FileMatcher::Fast(e.clone()))),
+                ),
+            ),
+            // don't have slow matchers or slow matching disabled
+            (true, _, None) | (false, _, _) => Box::new(
                 self.fast_matchers
                     .iter()
                     .map(|e| Cow::Owned(FileMatcher::Fast(e.clone()))),
@@ -65,9 +80,9 @@ pub trait FileAdapter: GetMetadata {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
-    fn adapt(&self, a: AdaptInfo, detection_reason: &FileMatcher) -> Result<ReadBox>;
+    fn adapt<'a>(&self, a: AdaptInfo<'a>, detection_reason: &FileMatcher) -> Result<ReadBox<'a>>;
 }
-pub struct AdaptInfo {
+pub struct AdaptInfo<'a> {
     /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.
     pub filepath_hint: PathBuf,
     /// true if filepath_hint is an actual file on the file system
@@ -75,7 +90,7 @@ pub struct AdaptInfo {
     /// depth at which this file is in archives. 0 for real filesystem
     pub archive_recursion_depth: i32,
     /// stream to read the file from. can be from a file or from some decoder
-    pub inp: ReadBox,
+    pub inp: ReadBox<'a>,
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: String,
     pub config: RgaConfig,
@@ -95,12 +110,12 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
 
     let internal_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         Rc::new(ffmpeg::FFmpegAdapter::new()),
-        //Rc::new(zip::ZipAdapter::new()),
+        Rc::new(zip::ZipAdapter::new()),
         Rc::new(decompress::DecompressAdapter::new()),
         // Rc::new(tar::TarAdapter::new()),
         Rc::new(sqlite::SqliteAdapter::new()),
         // Rc::new(pdfpages::PdfPagesAdapter::new()),
-        //Rc::new(tesseract::TesseractAdapter::new()),
+        // Rc::new(tesseract::TesseractAdapter::new()),
     ];
     adapters.extend(
         builtin_spawning_adapters

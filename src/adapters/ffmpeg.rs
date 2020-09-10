@@ -24,7 +24,8 @@ lazy_static! {
             .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
         slow_matchers: None,
-        disabled_by_default: false
+        disabled_by_default: false,
+        keep_fast_matchers_if_accurate: true
     };
 }
 

@@ -18,11 +18,12 @@ lazy_static! {
         recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
-            .map(|s| FastMatcher::FileExtension(s.to_string()))
+            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
-        slow_matchers: Some(vec![SlowMatcher::MimeType(
+        slow_matchers: Some(vec![FileMatcher::MimeType(
             "application/pdf".to_owned()
         )]),
+        keep_fast_matchers_if_accurate: true,
         disabled_by_default: true
     };
 }
@@ -44,7 +45,7 @@ impl GetMetadata for PdfPagesAdapter {
 /// A pdf is basically converted to a zip that has Page X.png files.
 /// This way, something like tesseract can process the pages individually
 impl FileAdapter for PdfPagesAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &SlowMatcher) -> Result<()> {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<()> {
         let AdaptInfo {
             filepath_hint,
             is_real_file,

@@ -24,6 +24,7 @@ lazy_static! {
         slow_matchers: Some(vec![FileMatcher::MimeType(
             "application/x-sqlite3".to_owned()
         )]),
+        keep_fast_matchers_if_accurate: false,
         disabled_by_default: false
     };
 }

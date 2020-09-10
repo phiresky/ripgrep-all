@@ -2,7 +2,7 @@ use super::*;
 use anyhow::*;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use log::*;
-use regex::Regex;
+
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::process::Command;
@@ -111,13 +111,13 @@ impl Read for ProcWaitReader {
         }
     }
 }
-pub fn pipe_output(
+pub fn pipe_output<'a>(
     _line_prefix: &str,
     mut cmd: Command,
-    inp: &mut (dyn Read),
+    inp: &mut (dyn Read + 'a),
     exe_name: &str,
     help: &str,
-) -> Result<ReadBox> {
+) -> Result<ReadBox<'a>> {
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -138,7 +138,7 @@ pub fn pipe_output(
 }
 
 impl FileAdapter for SpawningFileAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<ReadBox> {
+    fn adapt<'a>(&self, ai: AdaptInfo<'a>, _detection_reason: &FileMatcher) -> Result<ReadBox<'a>> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
