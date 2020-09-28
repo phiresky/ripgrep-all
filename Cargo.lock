@@ -752,6 +752,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "owning_ref"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
+dependencies = [
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -957,6 +966,7 @@ dependencies = [
  "lazy_static",
  "log",
  "memchr",
+ "owning_ref",
  "paste",
  "path-clean",
  "pretty-bytes",
@@ -1118,6 +1128,12 @@ name = "smallvec"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbee7696b84bbf3d89a1c2eccff0850e3047ed46bfcd2e92c29a2d074d57e252"
+
+[[package]]
+name = "stable_deref_trait"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "static_assertions"
@@ -1432,6 +1448,8 @@ dependencies = [
 [[package]]
 name = "zip"
 version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "543adf038106b64cfca4711c82c917d785e3540e04f7996554488f988ec43124"
 dependencies = [
  "byteorder",
  "bzip2 0.3.3",

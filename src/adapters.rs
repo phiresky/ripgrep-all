@@ -1,18 +1,18 @@
-pub mod custom;
-pub mod decompress;
-pub mod ffmpeg;
+//pub mod custom;
+// pub mod decompress;
+// pub mod ffmpeg;
 pub mod fns;
 // pub mod pdfpages;
-pub mod spawning;
-pub mod sqlite;
+// pub mod spawning;
+// pub mod sqlite;
 // pub mod tar;
 // pub mod tesseract;
-pub mod writing;
+// pub mod writing;
 pub mod zip;
 use crate::{config::RgaConfig, matching::*};
 use anyhow::*;
-use custom::builtin_spawning_adapters;
-use custom::CustomAdapterConfig;
+// use custom::builtin_spawning_adapters;
+//use custom::CustomAdapterConfig;
 use log::*;
 
 use std::borrow::Cow;
@@ -22,7 +22,7 @@ use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub type ReadBox<'a> = Box<dyn Read + Send + 'a>;
+pub type ReadBox<'a> = Box<dyn Read + 'a>;
 
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
@@ -80,8 +80,18 @@ pub trait FileAdapter: GetMetadata {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
-    fn adapt<'a>(&self, a: AdaptInfo<'a>, detection_reason: &FileMatcher) -> Result<ReadBox<'a>>;
+    fn adapt<'a>(
+        &self,
+        a: AdaptInfo<'a>,
+        detection_reason: &FileMatcher,
+    ) -> Result<Box<dyn ReadIter + 'a>>;
 }
+
+pub trait ReadIter {
+    // next takes a 'a-lived reference and returns a Read that lives as long as the reference
+    fn next<'a>(&'a mut self) -> Option<AdaptInfo<'a>>;
+}
+
 pub struct AdaptInfo<'a> {
     /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.
     pub filepath_hint: PathBuf,
@@ -99,29 +109,29 @@ pub struct AdaptInfo<'a> {
 /// (enabledAdapters, disabledAdapters)
 type AdaptersTuple = (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>);
 
-pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
+pub fn get_all_adapters(/*custom_adapters: Option<Vec<CustomAdapterConfig>>*/) -> AdaptersTuple {
     // order in descending priority
     let mut adapters: Vec<Rc<dyn FileAdapter>> = vec![];
-    if let Some(custom_adapters) = custom_adapters {
+    /*if let Some(custom_adapters) = custom_adapters {
         for adapter_config in custom_adapters {
             adapters.push(Rc::new(adapter_config.to_adapter()));
         }
-    }
+    }*/
 
     let internal_adapters: Vec<Rc<dyn FileAdapter>> = vec![
-        Rc::new(ffmpeg::FFmpegAdapter::new()),
+        //Rc::new(ffmpeg::FFmpegAdapter::new()),
         Rc::new(zip::ZipAdapter::new()),
-        Rc::new(decompress::DecompressAdapter::new()),
+        //Rc::new(decompress::DecompressAdapter::new()),
         // Rc::new(tar::TarAdapter::new()),
-        Rc::new(sqlite::SqliteAdapter::new()),
+        //Rc::new(sqlite::SqliteAdapter::new()),
         // Rc::new(pdfpages::PdfPagesAdapter::new()),
         // Rc::new(tesseract::TesseractAdapter::new()),
     ];
-    adapters.extend(
+    /*adapters.extend(
         builtin_spawning_adapters
             .iter()
             .map(|e| -> Rc<dyn FileAdapter> { Rc::new(e.clone().to_adapter()) }),
-    );
+    );*/
     adapters.extend(internal_adapters);
 
     adapters
@@ -138,10 +148,10 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
  *  - "+a,b" means use default list but also a and b (a,b will be prepended to the list so given higher priority)
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
-    custom_adapters: Option<Vec<CustomAdapterConfig>>,
+    /*custom_adapters: Option<Vec<CustomAdapterConfig>>,*/
     adapter_names: &Vec<T>,
 ) -> Result<Vec<Rc<dyn FileAdapter>>> {
-    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
+    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(/*custom_adapters*/);
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters
             .iter()

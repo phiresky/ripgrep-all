@@ -4,7 +4,6 @@ use ::zip::read::ZipFile;
 use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
-use writing::{WritingFileAdapter, WritingFileAdapterTrait};
 
 // todo:
 // maybe todo: read list of extensions from
@@ -30,8 +29,8 @@ lazy_static! {
 pub struct ZipAdapter;
 
 impl ZipAdapter {
-    pub fn new() -> WritingFileAdapter {
-        WritingFileAdapter::new(Box::new(ZipAdapter))
+    pub fn new() -> ZipAdapter {
+        ZipAdapter
     }
 }
 impl GetMetadata for ZipAdapter {
@@ -49,22 +48,49 @@ fn is_dir(f: &ZipFile) -> bool {
         .map_or(false, |c| c == '/' || c == '\\')
 }
 
-impl WritingFileAdapterTrait for ZipAdapter {
-    fn adapt_write<'a>(
+struct OutIter<'a> {
+    inp: AdaptInfo<'a>,
+}
+impl<'a> ReadIter for OutIter<'a> {
+    fn next<'b>(&'b mut self) -> Option<AdaptInfo<'b>> {
+        let line_prefix = "todo";
+        let filepath_hint = std::path::PathBuf::from("hello");
+        let archive_recursion_depth = 1;
+        ::zip::read::read_zipfile_from_stream(&mut self.inp.inp)
+            .unwrap()
+            .and_then(|file| {
+                if is_dir(&file) {
+                    return None;
+                }
+                debug!(
+                    "{}{}|{}: {} ({} packed)",
+                    line_prefix,
+                    filepath_hint.to_string_lossy(),
+                    file.name(),
+                    print_bytes(file.size() as f64),
+                    print_bytes(file.compressed_size() as f64)
+                );
+                let line_prefix = format!("{}{}: ", line_prefix, file.name());
+                Some(AdaptInfo {
+                    filepath_hint: file.sanitized_name().clone(),
+                    is_real_file: false,
+                    inp: Box::new(file),
+                    line_prefix,
+                    archive_recursion_depth: archive_recursion_depth + 1,
+                    config: RgaConfig::default(), //config.clone(),
+                })
+            })
+    }
+}
+
+impl FileAdapter for ZipAdapter {
+    fn adapt<'a>(
         &self,
         ai: AdaptInfo<'a>,
-        _detection_reason: &FileMatcher,
-        oup: &mut (dyn Write + 'a),
-    ) -> Result<()> {
-        let AdaptInfo {
-            filepath_hint,
-            mut inp,
-            line_prefix,
-            archive_recursion_depth,
-            config,
-            ..
-        } = ai;
-        loop {
+        detection_reason: &FileMatcher,
+    ) -> Result<Box<dyn ReadIter + 'a>> {
+        Ok(Box::new(OutIter { inp: ai }))
+        /*loop {
             match ::zip::read::read_zipfile_from_stream(&mut inp) {
                 Ok(None) => break,
                 Ok(Some(mut file)) => {
@@ -95,6 +121,6 @@ impl WritingFileAdapterTrait for ZipAdapter {
                 Err(e) => return Err(e.into()),
             }
         }
-        Ok(())
+        Ok(())*/
     }
 }

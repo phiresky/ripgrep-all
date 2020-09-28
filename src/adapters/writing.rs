@@ -1,6 +1,8 @@
 use super::{FileAdapter, GetMetadata, ReadBox};
 use anyhow::Result;
+use std::io::Read;
 use std::io::Write;
+use std::thread::Thread;
 
 // this trait / struct split is ugly but necessary because of "conflicting trait implementation" otherwise with SpawningFileAdapter
 #[dyn_clonable::clonable]
@@ -25,6 +27,17 @@ impl WritingFileAdapter {
 impl GetMetadata for WritingFileAdapter {
     fn metadata(&self) -> &super::AdapterMeta {
         self.inner.metadata()
+    }
+}
+
+struct PipedReadWriter<'a> {
+    inner: ReadBox<'a>,
+    pipe_thread: Thread,
+}
+
+impl<'a> Read for PipedReadWriter<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        todo!()
     }
 }
 

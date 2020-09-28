@@ -25,7 +25,6 @@ serde = { version = "1.0.115", features = ["derive"] }
 zstd = "0.5.3"
 lazy_static = "1.4.0"
 serde_json = "1.0.57"
-zip = {path="../zip-rs"}
 crossbeam = "0.7.3"
 clap = { version = "2.33.3", features = ["wrap_help"] }
 log = "0.4.11"
@@ -52,3 +51,5 @@ memchr = "2.3.3"
 crossbeam-channel = "0.4.4"
 dyn-clone = "1.0.2"
 dyn-clonable = "0.9.0"
+zip = "0.5.8"
+owning_ref = "0.4.1"

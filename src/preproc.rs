@@ -6,8 +6,9 @@ use crate::{
 };
 use anyhow::*;
 use log::*;
+use owning_ref::OwningRefMut;
 use path_clean::PathClean;
-use std::convert::TryInto;
+use std::{convert::TryInto, io::Read};
 
 use std::io::{BufRead, BufReader};
 
@@ -30,7 +31,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     } = ai;
     debug!("path (hint) to preprocess: {:?}", filepath_hint);
     let filtered_adapters =
-        get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
+        get_adapters_filtered(/*config.custom_adapters.clone(),*/ &config.adapters)?;
     let adapters = adapter_matcher(&filtered_adapters, config.accurate)?;
     let filename = filepath_hint
         .file_name()
@@ -85,6 +86,48 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
             }
         }
     }
+}
+
+struct ConcattyReader<'a> {
+    inp: Box<dyn ReadIter + 'a>,
+    cur: Option<AdaptInfo<'a>>,
+}
+impl<'a> ConcattyReader<'a> {
+    fn ascend(&mut self) {
+        self.cur = unsafe {
+            // would love to make this safe, but how?
+            let r: *mut Box<dyn ReadIter + 'a> = &mut self.inp;
+            (*r).next()
+        };
+        eprintln!(
+            "ascended to {}",
+            self.cur
+                .as_ref()
+                .map(|e| e.filepath_hint.to_string_lossy().into_owned())
+                .unwrap_or("END".to_string())
+        );
+    }
+}
+impl<'a> Read for ConcattyReader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match &mut self.cur {
+            None => Ok(0), // last file ended
+            Some(cur) => match cur.inp.read(buf) {
+                Err(e) => Err(e),
+                Ok(0) => {
+                    // current file ended, go to next file
+                    self.ascend();
+                    self.read(buf)
+                }
+                Ok(n) => Ok(n),
+            },
+        }
+    }
+}
+fn concattyreader<'a>(inp: Box<dyn ReadIter + 'a>) -> Box<dyn Read + 'a> {
+    let mut r = ConcattyReader { inp, cur: None };
+    r.ascend();
+    Box::new(r)
 }
 
 fn run_adapter<'a>(
@@ -173,6 +216,8 @@ fn run_adapter<'a>(
                             meta.name
                         )
                     })?;
+                while let Some(innerinp) = inp.next() {}
+                /*let inp = concattyreader(inp);
                 let inp = CachingReader::new(
                     inp,
                     cache_max_blob_len.0.try_into().unwrap(),
@@ -188,7 +233,7 @@ fn run_adapter<'a>(
                         }
                         Ok(())
                     }),
-                )?;
+                )?;*/
 
                 Ok(Box::new(inp))
             }
@@ -203,7 +248,7 @@ fn run_adapter<'a>(
                     line_prefix,
                     filepath_hint: filepath_hint.clone(),
                     is_real_file,
-                    inp: Box::new(inp),
+                    inp,
                     archive_recursion_depth,
                     config,
                 },
@@ -221,6 +266,6 @@ fn run_adapter<'a>(
             adapter.metadata().name,
             print_dur(start)
         );
-        Ok(oread)
+        Ok(concattyreader(oread))
     }
 }
