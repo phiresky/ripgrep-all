@@ -3,11 +3,10 @@
 //impl<T> FileAdapter for T where T: RunFnAdapter {}
 
 use anyhow::Result;
-use std::io::{BufRead, BufReader};
-use std::{
-    cmp::min,
-    io::{Read, Write},
-};
+
+use std::{cmp::min, io::Read};
+
+use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata, SingleReadIter};
 
 struct ByteReplacer<R>
 where
@@ -75,18 +74,64 @@ where
     }
 }
 
-pub fn postprocB(_line_prefix: &str, inp: impl Read) -> Result<impl Read> {
+pub struct PostprocPrefix {}
+impl GetMetadata for PostprocPrefix {
+    fn metadata(&self) -> &super::AdapterMeta {
+        lazy_static::lazy_static! {
+            static ref METADATA: AdapterMeta = AdapterMeta {
+                name: "postprocprefix".to_owned(),
+                version: 1,
+                description: "Adds the line prefix to each line".to_owned(),
+                recurses: true,
+                fast_matchers: vec![],
+                slow_matchers: None,
+                keep_fast_matchers_if_accurate: false,
+                disabled_by_default: false
+            };
+        }
+        &METADATA
+    }
+}
+impl FileAdapter for PostprocPrefix {
+    fn adapt<'a>(
+        &self,
+        a: super::AdaptInfo<'a>,
+        _detection_reason: &crate::matching::FileMatcher,
+    ) -> Result<Box<dyn super::ReadIter + 'a>> {
+        let read = postproc_prefix(&a.line_prefix, a.inp)?;
+        // keep adapt info (filename etc) except replace inp
+        let ai = AdaptInfo {
+            inp: Box::new(read),
+            postprocess: false,
+            ..a
+        };
+        Ok(Box::new(SingleReadIter::new(ai)))
+    }
+}
+
+pub fn postproc_prefix(line_prefix: &str, inp: impl Read) -> Result<impl Read> {
+    let line_prefix = line_prefix.to_string(); // clone since we need it later
+    Ok(ByteReplacer {
+        inner: inp,
+        next_read: format!("{}", line_prefix).into_bytes(),
+        haystacker: Box::new(|buf| memchr::memchr(b'\n', buf)),
+        replacer: Box::new(move |_| format!("\n{}", line_prefix).into_bytes()),
+    })
+}
+
+pub fn postproc_pagebreaks(line_prefix: &str, inp: impl Read) -> Result<impl Read> {
+    let line_prefix = line_prefix.to_string(); // clone since
     let mut page_count = 1;
 
     Ok(ByteReplacer {
         inner: inp,
-        next_read: Vec::new(),
+        next_read: format!("{}Page {}:", line_prefix, page_count).into_bytes(),
         haystacker: Box::new(|buf| memchr::memchr2(b'\n', b'\x0c', buf)),
         replacer: Box::new(move |b| match b {
-            b'\n' => format!("\nPage {}:", page_count).into_bytes(),
+            b'\n' => format!("\n{}Page {}:", line_prefix, page_count).into_bytes(),
             b'\x0c' => {
                 page_count += 1;
-                format!("\nPage {}:", page_count).into_bytes()
+                format!("\n{}Page {}:", line_prefix, page_count).into_bytes()
             }
             _ => b"[[imposs]]".to_vec(),
         }),
@@ -95,13 +140,13 @@ pub fn postprocB(_line_prefix: &str, inp: impl Read) -> Result<impl Read> {
 
 #[cfg(test)]
 mod tests {
-    use super::postprocB;
+    use super::postproc_pagebreaks;
     use anyhow::Result;
     use std::io::Read;
 
     fn test_from_strs(a: &str, b: &str) -> Result<()> {
         let mut oup = Vec::new();
-        postprocB("", a.as_bytes())?.read_to_end(&mut oup)?;
+        postproc_pagebreaks("", a.as_bytes())?.read_to_end(&mut oup)?;
         let c = String::from_utf8_lossy(&oup);
         if b != c {
             anyhow::bail!("{}\nshould be\n{}\nbut is\n{}", a, b, c);
@@ -113,14 +158,14 @@ mod tests {
     #[test]
     fn post1() -> Result<()> {
         let inp = "What is this\nThis is a test\nFoo";
-        let oup = "What is this\nPage 1:This is a test\nPage 1:Foo";
+        let oup = "Page 1:What is this\nPage 1:This is a test\nPage 1:Foo";
 
         test_from_strs(inp, oup)?;
 
         println!("\n\n\n\n");
 
         let inp = "What is this\nThis is a test\nFoo\x0c\nHelloooo\nHow are you?\x0c\nGreat!";
-        let oup = "What is this\nPage 1:This is a test\nPage 1:Foo\nPage 2:\nPage 2:Helloooo\nPage 2:How are you?\nPage 3:\nPage 3:Great!";
+        let oup = "Page 1:What is this\nPage 1:This is a test\nPage 1:Foo\nPage 2:\nPage 2:Helloooo\nPage 2:How are you?\nPage 3:\nPage 3:Great!";
 
         test_from_strs(inp, oup)?;
 

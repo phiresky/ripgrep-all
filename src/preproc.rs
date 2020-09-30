@@ -1,14 +1,14 @@
 use crate::adapters::*;
-use crate::matching::*;
+use crate::{matching::*, recurse::RecursingConcattyReader};
 use crate::{
     preproc_cache::{LmdbCache, PreprocCache},
     print_bytes, print_dur, CachingReader,
 };
 use anyhow::*;
 use log::*;
-use owning_ref::OwningRefMut;
 use path_clean::PathClean;
-use std::{convert::TryInto, io::Read};
+use postproc::PostprocPrefix;
+use std::convert::TryInto;
 
 use std::io::{BufRead, BufReader};
 
@@ -27,7 +27,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
         line_prefix,
         config,
         archive_recursion_depth,
-        ..
+        postprocess,
     } = ai;
     debug!("path (hint) to preprocess: {:?}", filepath_hint);
     let filtered_adapters =
@@ -58,76 +58,45 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
         mimetype,
         lossy_filename: filename.to_string_lossy().to_string(),
     });
-    match adapter {
-        Some((adapter, detection_reason)) => run_adapter(
-            AdaptInfo {
-                filepath_hint,
-                is_real_file,
-                inp: Box::new(inp),
-                line_prefix,
-                config,
-                archive_recursion_depth,
-            },
-            adapter,
-            detection_reason,
-            &filtered_adapters,
-        ),
+    let (adapter, detection_reason) = match adapter {
+        Some((a, d)) => (a, d),
         None => {
             // allow passthrough if the file is in an archive or accurate matching is enabled
             // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
             let allow_cat = !is_real_file || config.accurate;
             if allow_cat {
-                Ok(Box::new(inp))
+                if postprocess {
+                    (
+                        Rc::new(PostprocPrefix {}) as Rc<dyn FileAdapter>,
+                        FileMatcher::Fast(FastFileMatcher::FileExtension("default".to_string())), // todo: separate enum value for this
+                    )
+                } else {
+                    return Ok(Box::new(inp));
+                }
             } else {
-                Err(format_err!(
+                return Err(format_err!(
                     "No adapter found for file {:?}, passthrough disabled.",
                     filename
-                ))
+                ));
             }
         }
-    }
-}
-
-struct ConcattyReader<'a> {
-    inp: Box<dyn ReadIter + 'a>,
-    cur: Option<AdaptInfo<'a>>,
-}
-impl<'a> ConcattyReader<'a> {
-    fn ascend(&mut self) {
-        self.cur = unsafe {
-            // would love to make this safe, but how?
-            let r: *mut Box<dyn ReadIter + 'a> = &mut self.inp;
-            (*r).next()
-        };
-        eprintln!(
-            "ascended to {}",
-            self.cur
-                .as_ref()
-                .map(|e| e.filepath_hint.to_string_lossy().into_owned())
-                .unwrap_or("END".to_string())
-        );
-    }
-}
-impl<'a> Read for ConcattyReader<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match &mut self.cur {
-            None => Ok(0), // last file ended
-            Some(cur) => match cur.inp.read(buf) {
-                Err(e) => Err(e),
-                Ok(0) => {
-                    // current file ended, go to next file
-                    self.ascend();
-                    self.read(buf)
-                }
-                Ok(n) => Ok(n),
-            },
-        }
-    }
-}
-fn concattyreader<'a>(inp: Box<dyn ReadIter + 'a>) -> Box<dyn Read + 'a> {
-    let mut r = ConcattyReader { inp, cur: None };
-    r.ascend();
-    Box::new(r)
+    };
+    let path_hint_copy = filepath_hint.clone();
+    run_adapter(
+        AdaptInfo {
+            filepath_hint,
+            is_real_file,
+            inp: Box::new(inp),
+            line_prefix,
+            config,
+            archive_recursion_depth,
+            postprocess,
+        },
+        adapter,
+        detection_reason,
+        &filtered_adapters,
+    )
+    .with_context(|| format!("run_adapter({})", &path_hint_copy.to_string_lossy()))
 }
 
 fn run_adapter<'a>(
@@ -143,7 +112,7 @@ fn run_adapter<'a>(
         line_prefix,
         config,
         archive_recursion_depth,
-        ..
+        postprocess,
     } = ai;
     let meta = adapter.metadata();
     debug!(
@@ -159,10 +128,18 @@ fn run_adapter<'a>(
     let cache_compression_level = config.cache.compression_level;
     let cache_max_blob_len = config.cache.max_blob_len;
 
-    if let Some(mut cache) = LmdbCache::open(&config.cache)? {
+    let cache = if is_real_file {
+        LmdbCache::open(&config.cache)?
+    } else {
+        None
+    };
+
+    if let Some(mut cache) = cache {
         let cache_key: Vec<u8> = {
             let clean_path = filepath_hint.to_owned().clean();
-            let meta = std::fs::metadata(&filepath_hint)?;
+            let meta = std::fs::metadata(&filepath_hint).with_context(|| {
+                format!("reading metadata for {}", filepath_hint.to_string_lossy())
+            })?;
             let modified = meta.modified().expect("weird OS that can't into mtime");
 
             if adapter.metadata().recurses {
@@ -206,6 +183,7 @@ fn run_adapter<'a>(
                             inp: Box::new(inp),
                             archive_recursion_depth,
                             config,
+                            postprocess,
                         },
                         &detection_reason,
                     )
@@ -216,8 +194,7 @@ fn run_adapter<'a>(
                             meta.name
                         )
                     })?;
-                while let Some(innerinp) = inp.next() {}
-                /*let inp = concattyreader(inp);
+                let inp = RecursingConcattyReader::concat(inp)?;
                 let inp = CachingReader::new(
                     inp,
                     cache_max_blob_len.0.try_into().unwrap(),
@@ -233,7 +210,7 @@ fn run_adapter<'a>(
                         }
                         Ok(())
                     }),
-                )?;*/
+                )?;
 
                 Ok(Box::new(inp))
             }
@@ -251,6 +228,7 @@ fn run_adapter<'a>(
                     inp,
                     archive_recursion_depth,
                     config,
+                    postprocess,
                 },
                 &detection_reason,
             )
@@ -266,6 +244,6 @@ fn run_adapter<'a>(
             adapter.metadata().name,
             print_dur(start)
         );
-        Ok(concattyreader(oread))
+        Ok(RecursingConcattyReader::concat(oread)?)
     }
 }

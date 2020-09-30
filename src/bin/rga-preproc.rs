@@ -26,6 +26,7 @@ fn main() -> anyhow::Result<()> {
         is_real_file: true,
         line_prefix: "".to_string(),
         archive_recursion_depth: 0,
+        postprocess: true,
         config,
     };
 

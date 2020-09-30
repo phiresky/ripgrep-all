@@ -1,13 +1,9 @@
 use super::*;
-use crate::{preproc::rga_preproc, print_bytes};
-use ::zip::read::ZipFile;
+use crate::print_bytes;
 use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
 
-// todo:
-// maybe todo: read list of extensions from
-//ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
 static EXTENSIONS: &[&str] = &["zip"];
 
 lazy_static! {
@@ -39,27 +35,19 @@ impl GetMetadata for ZipAdapter {
     }
 }
 
-// https://github.com/mvdnes/zip-rs/commit/b9af51e654793931af39f221f143b9dea524f349
-fn is_dir(f: &ZipFile) -> bool {
-    f.name()
-        .chars()
-        .rev()
-        .next()
-        .map_or(false, |c| c == '/' || c == '\\')
-}
-
-struct OutIter<'a> {
+struct ZipAdaptIter<'a> {
     inp: AdaptInfo<'a>,
 }
-impl<'a> ReadIter for OutIter<'a> {
+impl<'a> ReadIter for ZipAdaptIter<'a> {
     fn next<'b>(&'b mut self) -> Option<AdaptInfo<'b>> {
-        let line_prefix = "todo";
-        let filepath_hint = std::path::PathBuf::from("hello");
+        let line_prefix = &self.inp.line_prefix;
+        let filepath_hint = &self.inp.filepath_hint;
         let archive_recursion_depth = 1;
+        let postprocess = self.inp.postprocess;
         ::zip::read::read_zipfile_from_stream(&mut self.inp.inp)
             .unwrap()
             .and_then(|file| {
-                if is_dir(&file) {
+                if file.is_dir() {
                     return None;
                 }
                 debug!(
@@ -72,11 +60,12 @@ impl<'a> ReadIter for OutIter<'a> {
                 );
                 let line_prefix = format!("{}{}: ", line_prefix, file.name());
                 Some(AdaptInfo {
-                    filepath_hint: file.sanitized_name().clone(),
+                    filepath_hint: PathBuf::from(file.name()),
                     is_real_file: false,
                     inp: Box::new(file),
                     line_prefix,
                     archive_recursion_depth: archive_recursion_depth + 1,
+                    postprocess,
                     config: RgaConfig::default(), //config.clone(),
                 })
             })
@@ -86,41 +75,56 @@ impl<'a> ReadIter for OutIter<'a> {
 impl FileAdapter for ZipAdapter {
     fn adapt<'a>(
         &self,
-        ai: AdaptInfo<'a>,
-        detection_reason: &FileMatcher,
+        inp: AdaptInfo<'a>,
+        _detection_reason: &FileMatcher,
     ) -> Result<Box<dyn ReadIter + 'a>> {
-        Ok(Box::new(OutIter { inp: ai }))
-        /*loop {
-            match ::zip::read::read_zipfile_from_stream(&mut inp) {
-                Ok(None) => break,
-                Ok(Some(mut file)) => {
-                    if is_dir(&file) {
-                        continue;
-                    }
-                    debug!(
-                        "{}{}|{}: {} ({} packed)",
-                        line_prefix,
-                        filepath_hint.to_string_lossy(),
-                        file.name(),
-                        print_bytes(file.size() as f64),
-                        print_bytes(file.compressed_size() as f64)
-                    );
-                    let line_prefix = format!("{}{}: ", line_prefix, file.name());
-                    let mut rd = rga_preproc(AdaptInfo {
-                        filepath_hint: file.sanitized_name().clone(),
-                        is_real_file: false,
-                        inp: &mut file,
-                        line_prefix,
-                        archive_recursion_depth: archive_recursion_depth + 1,
-                        config: config.clone(),
-                    })?;
-                    // copy read stream from inner file to output
-                    std::io::copy(&mut rd, oup);
-                    drop(rd);
-                }
-                Err(e) => return Err(e.into()),
-            }
+        Ok(Box::new(ZipAdaptIter { inp }))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{recurse::RecursingConcattyReader, test_utils::*};
+
+    fn create_zip(fname: &str, content: &str, add_inner: bool) -> Result<Vec<u8>> {
+        use ::zip::write::FileOptions;
+        use std::io::Write;
+
+        // We use a buffer here, though you'd normally use a `File`
+        let mut zip = ::zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+
+        let options = FileOptions::default().compression_method(::zip::CompressionMethod::Stored);
+        zip.start_file(fname, options)?;
+        zip.write(content.as_bytes())?;
+
+        if add_inner {
+            zip.start_file("inner.zip", options)?;
+            zip.write(&create_zip("inner.txt", "inner text file", false)?)?;
         }
-        Ok(())*/
+        // Apply the changes you've made.
+        // Dropping the `ZipWriter` will have the same effect, but may silently fail
+        Ok(zip.finish()?.into_inner())
+    }
+    #[test]
+    fn recurse() -> Result<()> {
+        let zipfile = create_zip("outer.txt", "outer text file", true)?;
+        let adapter: Box<dyn FileAdapter> = Box::new(ZipAdapter::new());
+
+        let (a, d) = simple_adapt_info(
+            &PathBuf::from("outer.zip"),
+            Box::new(std::io::Cursor::new(zipfile)),
+        );
+        let mut res = RecursingConcattyReader::concat(adapter.adapt(a, &d)?);
+
+        let mut buf = Vec::new();
+        res.read_to_end(&mut buf)?;
+
+        assert_eq!(
+            String::from_utf8(buf)?,
+            "PREFIX:outer.txt:outer text file\n",
+        );
+
+        Ok(())
     }
 }

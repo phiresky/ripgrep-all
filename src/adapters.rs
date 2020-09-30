@@ -1,7 +1,7 @@
-//pub mod custom;
+// pub mod custom;
 // pub mod decompress;
 // pub mod ffmpeg;
-pub mod fns;
+pub mod postproc;
 // pub mod pdfpages;
 // pub mod spawning;
 // pub mod sqlite;
@@ -19,11 +19,11 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::prelude::*;
 use std::iter::Iterator;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 pub type ReadBox<'a> = Box<dyn Read + 'a>;
-
+pub type ReadIterBox<'a> = Box<dyn ReadIter + 'a>;
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
     pub name: String,
@@ -92,6 +92,20 @@ pub trait ReadIter {
     fn next<'a>(&'a mut self) -> Option<AdaptInfo<'a>>;
 }
 
+pub struct SingleReadIter<'a> {
+    ai: Option<AdaptInfo<'a>>,
+}
+impl SingleReadIter<'_> {
+    pub fn new<'a>(ai: AdaptInfo<'a>) -> SingleReadIter<'a> {
+        SingleReadIter { ai: Some(ai) }
+    }
+}
+impl ReadIter for SingleReadIter<'_> {
+    fn next<'a>(&'a mut self) -> Option<AdaptInfo<'a>> {
+        self.ai.take()
+    }
+}
+
 pub struct AdaptInfo<'a> {
     /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.
     pub filepath_hint: PathBuf,
@@ -103,6 +117,7 @@ pub struct AdaptInfo<'a> {
     pub inp: ReadBox<'a>,
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: String,
+    pub postprocess: bool,
     pub config: RgaConfig,
 }
 
