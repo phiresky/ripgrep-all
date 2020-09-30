@@ -1,7 +1,7 @@
 #![warn(clippy::all)]
 #![feature(negative_impls)]
-#![feature(specialization)]
 
+pub mod adapted_iter;
 pub mod adapters;
 mod caching_writer;
 pub mod config;
@@ -9,7 +9,6 @@ pub mod matching;
 pub mod pipe;
 pub mod preproc;
 pub mod preproc_cache;
-pub mod read_iter;
 pub mod recurse;
 #[cfg(test)]
 pub mod test_utils;

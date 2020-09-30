@@ -1,4 +1,4 @@
-use crate::read_iter::SingleReadIter;
+use crate::adapted_iter::SingleAdaptedFileAsIter;
 
 use super::*;
 use anyhow::*;
@@ -146,7 +146,7 @@ impl FileAdapter for SpawningFileAdapter {
         &self,
         ai: AdaptInfo<'a>,
         _detection_reason: &FileMatcher,
-    ) -> Result<ReadIterBox<'a>> {
+    ) -> Result<AdaptedFilesIterBox<'a>> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
@@ -164,7 +164,7 @@ impl FileAdapter for SpawningFileAdapter {
             .with_context(|| format!("Could not set cmd arguments for {}", self.inner.get_exe()))?;
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, &mut inp, self.inner.get_exe(), "")?;
-        Ok(Box::new(SingleReadIter::new(AdaptInfo {
+        Ok(Box::new(SingleAdaptedFileAsIter::new(AdaptInfo {
             filepath_hint,
             inp: output,
             line_prefix,

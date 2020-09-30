@@ -1,5 +1,5 @@
 use super::*;
-use crate::{print_bytes, read_iter::ReadIter};
+use crate::{adapted_iter::AdaptedFilesIter, print_bytes};
 use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
@@ -40,7 +40,7 @@ impl FileAdapter for ZipAdapter {
         &self,
         inp: AdaptInfo<'a>,
         _detection_reason: &FileMatcher,
-    ) -> Result<Box<dyn ReadIter + 'a>> {
+    ) -> Result<Box<dyn AdaptedFilesIter + 'a>> {
         Ok(Box::new(ZipAdaptIter { inp }))
     }
 }
@@ -48,7 +48,7 @@ impl FileAdapter for ZipAdapter {
 struct ZipAdaptIter<'a> {
     inp: AdaptInfo<'a>,
 }
-impl<'a> ReadIter for ZipAdaptIter<'a> {
+impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
     fn next<'b>(&'b mut self) -> Option<AdaptInfo<'b>> {
         let line_prefix = &self.inp.line_prefix;
         let filepath_hint = &self.inp.filepath_hint;
@@ -115,14 +115,11 @@ mod test {
             &PathBuf::from("outer.zip"),
             Box::new(std::io::Cursor::new(zipfile)),
         );
-        let mut res = RecursingConcattyReader::concat(adapter.adapt(a, &d)?);
-
-        let mut buf = Vec::new();
-        res.read_to_end(&mut buf)?;
+        let buf = adapted_to_vec(adapter.adapt(a, &d)?)?;
 
         assert_eq!(
             String::from_utf8(buf)?,
-            "PREFIX:outer.txt:outer text file\n",
+            "PREFIX:outer.txt: outer text file\nPREFIX:inner.zip: inner.txt: inner text file\n",
         );
 
         Ok(())

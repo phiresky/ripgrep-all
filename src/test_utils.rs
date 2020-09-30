@@ -1,8 +1,11 @@
 use crate::{
+    adapted_iter::AdaptedFilesIterBox,
     adapters::{AdaptInfo, ReadBox},
     config::RgaConfig,
     matching::{FastFileMatcher, FileMatcher},
+    recurse::RecursingConcattyReader,
 };
+use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 pub fn test_data_dir() -> PathBuf {
@@ -27,4 +30,12 @@ pub fn simple_adapt_info<'a>(filepath: &Path, inp: ReadBox<'a>) -> (AdaptInfo<'a
         )
         .into(),
     )
+}
+
+pub fn adapted_to_vec(adapted: AdaptedFilesIterBox<'_>) -> Result<Vec<u8>> {
+    let mut res = RecursingConcattyReader::concat(adapted)?;
+
+    let mut buf = Vec::new();
+    res.read_to_end(&mut buf)?;
+    Ok(buf)
 }

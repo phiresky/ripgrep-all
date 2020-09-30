@@ -9,7 +9,7 @@ pub mod spawning;
 // pub mod tesseract;
 // pub mod writing;
 pub mod zip;
-use crate::{config::RgaConfig, matching::*, read_iter::ReadIterBox};
+use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
 use anyhow::*;
 // use custom::builtin_spawning_adapters;
 //use custom::CustomAdapterConfig;
@@ -84,7 +84,7 @@ pub trait FileAdapter: GetMetadata {
         &self,
         a: AdaptInfo<'a>,
         detection_reason: &FileMatcher,
-    ) -> Result<ReadIterBox<'a>>;
+    ) -> Result<AdaptedFilesIterBox<'a>>;
 }
 
 pub struct AdaptInfo<'a> {

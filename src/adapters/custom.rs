@@ -232,16 +232,16 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::new(File::open(&filepath)?));
         let mut r = adapter.adapt(a, &d)?;
-        let mut o = Vec::new();
-        r.read_to_end(&mut o)?;
+        let o = adapted_to_vec(r)?;
         assert_eq!(
             String::from_utf8(o)?,
-            "hello world
-this is just a test.
-
-1
-
-\u{c}"
+            "PREFIX:hello world
+PREFIX:this is just a test.
+PREFIX:
+PREFIX:1
+PREFIX:
+PREFIX:\u{c}
+"
         );
         Ok(())
     }

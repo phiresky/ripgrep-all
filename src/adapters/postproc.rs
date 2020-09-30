@@ -6,10 +6,39 @@ use anyhow::Result;
 
 use std::{cmp::min, io::Read};
 
-use crate::read_iter::{ReadIterBox, SingleReadIter};
+use crate::adapted_iter::{AdaptedFilesIterBox, SingleAdaptedFileAsIter};
 
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 
+pub struct EnsureEndsWithNewline<R: Read> {
+    inner: R,
+    added_newline: bool,
+}
+impl<R: Read> EnsureEndsWithNewline<R> {
+    pub fn new(r: R) -> EnsureEndsWithNewline<R> {
+        EnsureEndsWithNewline {
+            inner: r,
+            added_newline: false,
+        }
+    }
+}
+impl<R: Read> Read for EnsureEndsWithNewline<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self.inner.read(buf) {
+            Ok(0) => {
+                if self.added_newline {
+                    Ok(0)
+                } else {
+                    buf[0] = b'\n';
+                    self.added_newline = true;
+                    Ok(1)
+                }
+            }
+            Ok(n) => Ok(n),
+            Err(e) => Err(e),
+        }
+    }
+}
 struct ByteReplacer<R>
 where
     R: Read,
@@ -99,15 +128,15 @@ impl FileAdapter for PostprocPrefix {
         &self,
         a: super::AdaptInfo<'a>,
         _detection_reason: &crate::matching::FileMatcher,
-    ) -> Result<ReadIterBox<'a>> {
-        let read = postproc_prefix(&a.line_prefix, a.inp)?;
+    ) -> Result<AdaptedFilesIterBox<'a>> {
+        let read = EnsureEndsWithNewline::new(postproc_prefix(&a.line_prefix, a.inp)?);
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
             inp: Box::new(read),
             postprocess: false,
             ..a
         };
-        Ok(Box::new(SingleReadIter::new(ai)))
+        Ok(Box::new(SingleAdaptedFileAsIter::new(ai)))
     }
 }
 
