@@ -6,7 +6,9 @@ use anyhow::Result;
 
 use std::{cmp::min, io::Read};
 
-use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata, SingleReadIter};
+use crate::read_iter::{ReadIterBox, SingleReadIter};
+
+use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 
 struct ByteReplacer<R>
 where
@@ -97,7 +99,7 @@ impl FileAdapter for PostprocPrefix {
         &self,
         a: super::AdaptInfo<'a>,
         _detection_reason: &crate::matching::FileMatcher,
-    ) -> Result<Box<dyn super::ReadIter + 'a>> {
+    ) -> Result<ReadIterBox<'a>> {
         let read = postproc_prefix(&a.line_prefix, a.inp)?;
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {

@@ -67,16 +67,16 @@ fn main() -> anyhow::Result<()> {
 
     env_logger::init();
 
-    let (args, mut passthrough_args) = split_args(false)?;
+    let (config, mut passthrough_args) = split_args(false)?;
 
-    if args.print_config_schema {
+    if config.print_config_schema {
         println!("{}", serde_json::to_string_pretty(&schema_for!(RgaConfig))?);
         return Ok(());
     }
-    if args.list_adapters {
-        return list_adapters(args);
+    if config.list_adapters {
+        return list_adapters(config);
     }
-    if let Some(path) = args.fzf_path {
+    if let Some(path) = config.fzf_path {
         if path == "_" {
             // fzf found no result, ignore everything and return
             println!("[no file found]");
@@ -92,9 +92,9 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let adapters = get_adapters_filtered(args.custom_adapters.clone(), &args.adapters)?;
+    let adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
 
-    let pre_glob = if !args.accurate {
+    let pre_glob = if !config.accurate {
         let extensions = adapters
             .iter()
             .flat_map(|a| &a.metadata().fast_matchers)

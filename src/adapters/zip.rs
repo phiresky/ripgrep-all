@@ -1,5 +1,5 @@
 use super::*;
-use crate::print_bytes;
+use crate::{print_bytes, read_iter::ReadIter};
 use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
@@ -32,6 +32,16 @@ impl ZipAdapter {
 impl GetMetadata for ZipAdapter {
     fn metadata(&self) -> &AdapterMeta {
         &METADATA
+    }
+}
+
+impl FileAdapter for ZipAdapter {
+    fn adapt<'a>(
+        &self,
+        inp: AdaptInfo<'a>,
+        _detection_reason: &FileMatcher,
+    ) -> Result<Box<dyn ReadIter + 'a>> {
+        Ok(Box::new(ZipAdaptIter { inp }))
     }
 }
 
@@ -69,16 +79,6 @@ impl<'a> ReadIter for ZipAdaptIter<'a> {
                     config: RgaConfig::default(), //config.clone(),
                 })
             })
-    }
-}
-
-impl FileAdapter for ZipAdapter {
-    fn adapt<'a>(
-        &self,
-        inp: AdaptInfo<'a>,
-        _detection_reason: &FileMatcher,
-    ) -> Result<Box<dyn ReadIter + 'a>> {
-        Ok(Box::new(ZipAdaptIter { inp }))
     }
 }
 

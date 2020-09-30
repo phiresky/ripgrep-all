@@ -1,12 +1,14 @@
+use crate::read_iter::SingleReadIter;
+
 use super::*;
 use anyhow::*;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use log::*;
 
-use std::io::prelude::*;
 use std::io::BufReader;
 use std::process::Command;
 use std::process::{Child, Stdio};
+use std::{io::prelude::*, path::Path};
 
 /**
  * Copy a Read to a Write, while prefixing every line with a prefix.
@@ -54,6 +56,8 @@ pub fn postproc_line_prefix(
     }
     Ok(())
 }
+
+// TODO: don't separate the trait and the struct
 pub trait SpawningFileAdapterTrait: GetMetadata {
     fn get_exe(&self) -> &str;
     fn command(&self, filepath_hint: &Path, command: Command) -> Result<Command>;
@@ -138,12 +142,19 @@ pub fn pipe_output<'a>(
 }
 
 impl FileAdapter for SpawningFileAdapter {
-    fn adapt<'a>(&self, ai: AdaptInfo<'a>, _detection_reason: &FileMatcher) -> Result<ReadBox<'a>> {
+    fn adapt<'a>(
+        &self,
+        ai: AdaptInfo<'a>,
+        _detection_reason: &FileMatcher,
+    ) -> Result<ReadIterBox<'a>> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
             line_prefix,
-            ..
+            archive_recursion_depth,
+            postprocess,
+            config,
+            is_real_file,
         } = ai;
 
         let cmd = Command::new(self.inner.get_exe());
@@ -152,6 +163,15 @@ impl FileAdapter for SpawningFileAdapter {
             .command(&filepath_hint, cmd)
             .with_context(|| format!("Could not set cmd arguments for {}", self.inner.get_exe()))?;
         debug!("executing {:?}", cmd);
-        pipe_output(&line_prefix, cmd, &mut inp, self.inner.get_exe(), "")
+        let output = pipe_output(&line_prefix, cmd, &mut inp, self.inner.get_exe(), "")?;
+        Ok(Box::new(SingleReadIter::new(AdaptInfo {
+            filepath_hint,
+            inp: output,
+            line_prefix,
+            is_real_file: false,
+            archive_recursion_depth,
+            postprocess,
+            config,
+        })))
     }
 }

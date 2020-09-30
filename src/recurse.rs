@@ -1,15 +1,15 @@
-use crate::adapters::*;
 use crate::preproc::rga_preproc;
+use crate::{adapters::*, read_iter::ReadIterBox};
 
 use anyhow::*;
 use std::io::Read;
 
 pub struct RecursingConcattyReader<'a> {
-    inp: Box<dyn ReadIter + 'a>,
+    inp: ReadIterBox<'a>,
     cur: Option<ReadBox<'a>>,
 }
 impl<'a> RecursingConcattyReader<'a> {
-    pub fn concat(inp: Box<dyn ReadIter + 'a>) -> Result<Box<dyn Read + 'a>> {
+    pub fn concat(inp: ReadIterBox<'a>) -> Result<Box<dyn Read + 'a>> {
         let mut r = RecursingConcattyReader { inp, cur: None };
         r.ascend()?;
         Ok(Box::new(r))
@@ -20,7 +20,7 @@ impl<'a> RecursingConcattyReader<'a> {
         // we only need to access the inp: ReadIter when the inner reader is done, so this should be safe
         let ai = unsafe {
             // would love to make this safe, but how? something like OwnedRef<inp, cur>
-            (*(inp as *mut Box<dyn ReadIter + 'a>)).next()
+            (*(inp as *mut ReadIterBox<'a>)).next()
         };
         self.cur = match ai {
             Some(ai) => Some(rga_preproc(ai)?),

@@ -1,18 +1,19 @@
-// pub mod custom;
+pub mod custom;
 // pub mod decompress;
 // pub mod ffmpeg;
 pub mod postproc;
 // pub mod pdfpages;
-// pub mod spawning;
+pub mod spawning;
 // pub mod sqlite;
 // pub mod tar;
 // pub mod tesseract;
 // pub mod writing;
 pub mod zip;
-use crate::{config::RgaConfig, matching::*};
+use crate::{config::RgaConfig, matching::*, read_iter::ReadIterBox};
 use anyhow::*;
 // use custom::builtin_spawning_adapters;
 //use custom::CustomAdapterConfig;
+use custom::CustomAdapterConfig;
 use log::*;
 
 use std::borrow::Cow;
@@ -23,7 +24,6 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 pub type ReadBox<'a> = Box<dyn Read + 'a>;
-pub type ReadIterBox<'a> = Box<dyn ReadIter + 'a>;
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
     pub name: String,
@@ -84,26 +84,7 @@ pub trait FileAdapter: GetMetadata {
         &self,
         a: AdaptInfo<'a>,
         detection_reason: &FileMatcher,
-    ) -> Result<Box<dyn ReadIter + 'a>>;
-}
-
-pub trait ReadIter {
-    // next takes a 'a-lived reference and returns a Read that lives as long as the reference
-    fn next<'a>(&'a mut self) -> Option<AdaptInfo<'a>>;
-}
-
-pub struct SingleReadIter<'a> {
-    ai: Option<AdaptInfo<'a>>,
-}
-impl SingleReadIter<'_> {
-    pub fn new<'a>(ai: AdaptInfo<'a>) -> SingleReadIter<'a> {
-        SingleReadIter { ai: Some(ai) }
-    }
-}
-impl ReadIter for SingleReadIter<'_> {
-    fn next<'a>(&'a mut self) -> Option<AdaptInfo<'a>> {
-        self.ai.take()
-    }
+    ) -> Result<ReadIterBox<'a>>;
 }
 
 pub struct AdaptInfo<'a> {
@@ -124,14 +105,14 @@ pub struct AdaptInfo<'a> {
 /// (enabledAdapters, disabledAdapters)
 type AdaptersTuple = (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>);
 
-pub fn get_all_adapters(/*custom_adapters: Option<Vec<CustomAdapterConfig>>*/) -> AdaptersTuple {
+pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
     // order in descending priority
     let mut adapters: Vec<Rc<dyn FileAdapter>> = vec![];
-    /*if let Some(custom_adapters) = custom_adapters {
+    if let Some(custom_adapters) = custom_adapters {
         for adapter_config in custom_adapters {
             adapters.push(Rc::new(adapter_config.to_adapter()));
         }
-    }*/
+    }
 
     let internal_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
@@ -163,10 +144,10 @@ pub fn get_all_adapters(/*custom_adapters: Option<Vec<CustomAdapterConfig>>*/) -
  *  - "+a,b" means use default list but also a and b (a,b will be prepended to the list so given higher priority)
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
-    /*custom_adapters: Option<Vec<CustomAdapterConfig>>,*/
+    custom_adapters: Option<Vec<CustomAdapterConfig>>,
     adapter_names: &Vec<T>,
 ) -> Result<Vec<Rc<dyn FileAdapter>>> {
-    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(/*custom_adapters*/);
+    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters
             .iter()

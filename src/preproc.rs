@@ -31,7 +31,7 @@ pub fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     } = ai;
     debug!("path (hint) to preprocess: {:?}", filepath_hint);
     let filtered_adapters =
-        get_adapters_filtered(/*config.custom_adapters.clone(),*/ &config.adapters)?;
+        get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
     let adapters = adapter_matcher(&filtered_adapters, config.accurate)?;
     let filename = filepath_hint
         .file_name()

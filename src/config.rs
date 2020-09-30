@@ -1,4 +1,4 @@
-use crate::project_dirs;
+use crate::{adapters::custom::CustomAdapterConfig, project_dirs};
 use anyhow::*;
 use derive_more::FromStr;
 use log::*;
@@ -151,12 +151,12 @@ pub struct RgaConfig {
     )]
     pub max_archive_recursion: MaxArchiveRecursion,
 
-    /*  //////////////////////////////////////////
+    //////////////////////////////////////////
     //////////////////////////// Config file only
     //////////////////////////////////////////
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(skip)]
-    pub custom_adapters: Option<Vec<CustomAdapterConfig>>,*/
+    pub custom_adapters: Option<Vec<CustomAdapterConfig>>,
     //////////////////////////////////////////
     //////////////////////////// CMD line only
     //////////////////////////////////////////

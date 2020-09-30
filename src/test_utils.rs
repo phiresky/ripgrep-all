@@ -20,6 +20,7 @@ pub fn simple_adapt_info<'a>(filepath: &Path, inp: ReadBox<'a>) -> (AdaptInfo<'a
             inp,
             line_prefix: "PREFIX:".to_string(),
             config: RgaConfig::default(),
+            postprocess: true,
         },
         FastFileMatcher::FileExtension(
             filepath.extension().unwrap().to_string_lossy().into_owned(),

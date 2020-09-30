@@ -9,6 +9,7 @@ pub mod matching;
 pub mod pipe;
 pub mod preproc;
 pub mod preproc_cache;
+pub mod read_iter;
 pub mod recurse;
 #[cfg(test)]
 pub mod test_utils;
