@@ -1,5 +1,6 @@
 pub mod decompress;
 pub mod ffmpeg;
+pub mod gron;
 pub mod pandoc;
 pub mod pdfpages;
 pub mod poppler;
@@ -91,6 +92,7 @@ pub fn get_all_adapters() -> AdaptersTuple {
         Rc::new(sqlite::SqliteAdapter::new()),
     ];
     let disabled_adapters: Vec<Rc<dyn FileAdapter>> = vec![
+        Rc::new(gron::GronAdapter::new()),
         Rc::new(pdfpages::PdfPagesAdapter::new()),
         Rc::new(tesseract::TesseractAdapter::new()),
     ];

@@ -63,7 +63,7 @@ If you get an error like `VCRUNTIME140.DLL could not be found`, you need to inst
 
 To install the dependencies that are each not strictly necessary but very useful:
 
-`brew install pandoc poppler tesseract ffmpeg`
+`brew install gron pandoc poppler tesseract ffmpeg`
 
 ### Compile from source
 
@@ -133,7 +133,15 @@ Adapters:
 
     Mime Types: application/x-sqlite3
 
-The following adapters are disabled by default, and can be enabled using '--rga-adapters=+pdfpages,tesseract':
+The following adapters are disabled by default, and can be enabled using '--rga-adapters=+gron,pdfpages,tesseract':
+
+-   **gron**
+
+    Flattens JSON to provide the full structure on each line.
+
+    Extensions: .json
+
+    Mime Types: application/json
 
 -   **pdfpages**
 
