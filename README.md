@@ -82,6 +82,8 @@ Install ripgrep-all via [Chocolatey](https://chocolatey.org/packages/ripgrep-all
 choco install ripgrep-all
 ```
 
+Note that installing via chocolatey or scoop is the only supported download method. If you download the binary from releases manually, you will not get the dependencies (for example pdftotext from poppler).
+
 If you get an error like `VCRUNTIME140.DLL could not be found`, you need to install [vc_redist.x64.exe](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads).
 
 ### Homebrew/Linuxbrew
