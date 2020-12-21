@@ -121,7 +121,7 @@ $ $EDITOR /usr/local/share/dockerfiles/rga/Dockerfile
 ```sh
 FROM nixos/nix
 RUN nix-env -iA nixpkgs.ripgrep-all
-ENTRYPOINT ["rga"]
+ENTRYPOINT ["rga", "--rga-no-cache"]
 ```
 3. create a script in your `$PATH`.
 ```sh
