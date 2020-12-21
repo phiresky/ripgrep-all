@@ -106,6 +106,61 @@ rga should compile with stable Rust (v1.36.0+, check with `rustc --version`). To
    ~$ rga --version    # this should work now
 ```
 
+### docker
+
+`rga` can be run as if it where installed natively.
+
+1. create directory to hold dockerfiles:
+```sh
+$ mkdir /usr/local/share/dockerfiles/rga
+```
+2. create dockerfile for `rga`:
+```sh
+$ $EDITOR /usr/local/share/dockerfiles/rga/Dockerfile
+```
+```sh
+FROM nixos/nix
+RUN nix-env -iA nixpkgs.ripgrep-all
+ENTRYPOINT ["rga"]
+```
+3. create a script in your `$PATH`.
+```sh
+$ $EDITOR /usr/local/bin/rga
+```
+```sh
+#!/bin/sh
+# build the container if not present
+if ! (docker inspect $USER/rga 2>/dev/null 1>&2) ; then
+	docker build -t $USER/rga /usr/local/share/dockerfiles/jq > /dev/null
+fi
+# $RM_IT will be expanded into separate words without quotes
+# we want the volume options to stay as a single word
+RM_IT="--rm"
+if [ -t 0 ]; then
+	RM_IT="$RM_IT -it"
+else
+	RM_IT="$RM_IT -i"
+fi
+UID=$(id -u $(logname))
+GID=$(id -g $(logname))
+if [ -f ./docker_env ]; then
+	DOCKER_ENV="--env-file docker_env"
+fi
+docker run \
+	$DOCKER_ENV \
+	$RM_IT \
+	-u "$UID:$GID" \
+	-w "$PWD" \
+	-v "$PWD:$PWD" \
+	"$USER/rga" \
+	"$@"
+```
+4. make the script executable:
+```sh
+$ sudo chmod +x /usr/local/bin/rga
+```
+
+
 ## Available Adapters
 
 ```
