@@ -79,9 +79,9 @@ jobs:
         # FIXME: to work around bugs in latest cross release, install master.
         # See: https://github.com/rust-embedded/cross/issues/357
         cargo install --git https://github.com/rust-embedded/cross
-        echo "cross" >> $CARGO
-        echo "--target ${{ matrix.target }}" >> $TARGET_FLAGS
-        echo "./target/${{ matrix.target }}" >> $TARGET_DIR
+        echo "CARGO=cross" >> $GITHUB_ENV
+        echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+        echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
     - name: Show command used for Cargo
       run: |
