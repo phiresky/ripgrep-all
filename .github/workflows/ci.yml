@@ -26,8 +26,8 @@ jobs:
         - nightly-musl
         - nightly-arm
         - macos
-        - win-msvc
-        #- win-gnu
+        # - win-msvc
+        - win-gnu
         include:
         #- build: stable
         #  os: ubuntu-18.04
@@ -46,12 +46,13 @@ jobs:
         - build: macos
           os: macos-latest
           rust: nightly
-        - build: win-msvc
+        # couldn't decide how to properly install poppler
+        # - build: win-msvc
+        #   os: windows-2019
+        #   rust: nightly
+        - build: win-gnu
           os: windows-2019
-          rust: nightly
-        #- build: win-gnu
-        #  os: windows-2019
-        #  rust: nightly-x86_64-gnu
+          rust: nightly-x86_64-gnu
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
