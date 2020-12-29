@@ -26,8 +26,8 @@ jobs:
         - nightly-musl
         - nightly-arm
         - macos
-        # - win-msvc
-        # - win-gnu
+        - win-msvc
+        - win-gnu
         include:
         #- build: stable
         #  os: ubuntu-18.04
@@ -47,12 +47,12 @@ jobs:
           os: macos-latest
           rust: nightly
         # couldn't decide how to properly install poppler
-        # - build: win-msvc
-        #   os: windows-2019
-        #   rust: nightly
-        # - build: win-gnu
-        #   os: windows-2019
-        #   rust: nightly-x86_64-gnu
+        - build: win-msvc
+          os: windows-2019
+          rust: nightly
+        - build: win-gnu
+          os: windows-2019
+          rust: nightly-x86_64-gnu
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -66,6 +66,11 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         ci/macos-install-packages
+
+    - name: Install packages (Windows)
+      if: matrix.os == 'windows-2019'
+      run: |
+        choco install poppler
 
     - name: Install Rust
       uses: actions-rs/toolchain@v1
