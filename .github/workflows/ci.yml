@@ -26,7 +26,6 @@ jobs:
         - nightly-musl
         - nightly-arm
         - macos
-        - win-gnu
         include:
         #- build: stable
         #  os: ubuntu-18.04
