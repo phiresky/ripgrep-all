@@ -26,8 +26,6 @@ jobs:
         - nightly-musl
         - nightly-arm
         - macos
-        - win-msvc
-        #- win-gnu
         include:
         #- build: stable
         #  os: ubuntu-18.04
@@ -46,12 +44,6 @@ jobs:
         - build: macos
           os: macos-latest
           rust: nightly
-        - build: win-msvc
-          os: windows-2019
-          rust: nightly
-        #- build: win-gnu
-        #  os: windows-2019
-        #  rust: nightly-x86_64-gnu
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -76,11 +68,9 @@ jobs:
     - name: Use Cross
       if: matrix.target != ''
       run: |
-        # FIXME: to work around bugs in latest cross release, install master.
-        # See: https://github.com/rust-embedded/cross/issues/357
-        cargo install --git https://github.com/rust-embedded/cross
+        cargo install cross
         echo "CARGO=cross" >> $GITHUB_ENV
-        echo ":TARGET_FLAGS=--target ${{ matrix.target }}">> $GITHUB_ENV
+        echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
         echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
     - name: Show command used for Cargo
