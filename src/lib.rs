@@ -69,3 +69,9 @@ pub fn print_dur(start: Instant) -> String {
 pub fn print_bytes(bytes: impl Into<f64>) -> String {
     return pretty_bytes::converter::convert(bytes.into());
 }
+
+#[cfg(test)]
+#[ctor::ctor]
+fn init() {
+    env_logger::init();
+}

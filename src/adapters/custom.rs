@@ -231,7 +231,7 @@ mod test {
         let filepath = test_data_dir().join("short.pdf");
 
         let (a, d) = simple_adapt_info(&filepath, Box::new(File::open(&filepath)?));
-        let mut r = adapter.adapt(a, &d)?;
+        let r = adapter.adapt(a, &d)?;
         let o = adapted_to_vec(r)?;
         assert_eq!(
             String::from_utf8(o)?,

@@ -11,8 +11,7 @@ pub mod spawning;
 pub mod zip;
 use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
 use anyhow::*;
-// use custom::builtin_spawning_adapters;
-//use custom::CustomAdapterConfig;
+use custom::builtin_spawning_adapters;
 use custom::CustomAdapterConfig;
 use log::*;
 
@@ -123,11 +122,11 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
         // Rc::new(pdfpages::PdfPagesAdapter::new()),
         // Rc::new(tesseract::TesseractAdapter::new()),
     ];
-    /*adapters.extend(
+    adapters.extend(
         builtin_spawning_adapters
             .iter()
-            .map(|e| -> Rc<dyn FileAdapter> { Rc::new(e.clone().to_adapter()) }),
-    );*/
+            .map(|e| -> Rc<dyn FileAdapter> { Rc::new(e.to_adapter()) }),
+    );
     adapters.extend(internal_adapters);
 
     adapters

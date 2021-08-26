@@ -2,60 +2,11 @@ use crate::adapted_iter::SingleAdaptedFileAsIter;
 
 use super::*;
 use anyhow::*;
-use encoding_rs_io::DecodeReaderBytesBuilder;
 use log::*;
 
-use std::io::BufReader;
 use std::process::Command;
 use std::process::{Child, Stdio};
 use std::{io::prelude::*, path::Path};
-
-/**
- * Copy a Read to a Write, while prefixing every line with a prefix.
- *
- * Try to detect binary files and ignore them. Does not ensure any encoding in the output.
- *
- * Binary detection is needed because the rg binary detection does not apply to preprocessed files
- */
-
-/**/
-pub fn postproc_line_prefix(
-    line_prefix: &str,
-    inp: &mut dyn Read,
-    oup: &mut dyn Write,
-) -> Result<()> {
-    // TODO: parse these options from ripgrep's configuration
-    let encoding = None; // detect bom but usually assume utf8
-    let bom_sniffing = true;
-    let mut decode_builder = DecodeReaderBytesBuilder::new();
-    // https://github.com/BurntSushi/ripgrep/blob/a7d26c8f144a4957b75f71087a66692d0b25759a/grep-searcher/src/searcher/mod.rs#L706
-    let inp = decode_builder
-        .encoding(encoding)
-        .utf8_passthru(true)
-        .strip_bom(bom_sniffing)
-        .bom_override(true)
-        .bom_sniffing(bom_sniffing)
-        .build(inp);
-    // check for null byte in first 8kB
-    let mut reader = BufReader::with_capacity(1 << 12, inp);
-    let fourk = reader.fill_buf()?;
-    if fourk.contains(&0u8) {
-        writeln!(oup, "{}[rga: binary data]\n", line_prefix)?;
-        return Ok(());
-    }
-    // intentionally do not call reader.consume
-    for line in reader.split(b'\n') {
-        let line = line?;
-        if line.contains(&0u8) {
-            writeln!(oup, "{}[rga: binary data]\n", line_prefix)?;
-            return Ok(());
-        }
-        oup.write_all(line_prefix.as_bytes())?;
-        oup.write_all(&line)?;
-        oup.write_all(b"\n")?;
-    }
-    Ok(())
-}
 
 // TODO: don't separate the trait and the struct
 pub trait SpawningFileAdapterTrait: GetMetadata {
@@ -161,7 +112,7 @@ impl FileAdapter for SpawningFileAdapter {
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, &mut inp, self.inner.get_exe(), "")?;
         Ok(Box::new(SingleAdaptedFileAsIter::new(AdaptInfo {
-            filepath_hint,
+            filepath_hint: PathBuf::from(format!("{}.txt", filepath_hint.to_string_lossy())), // TODO: customizable
             inp: output,
             line_prefix,
             is_real_file: false,
