@@ -61,10 +61,6 @@ pub fn postproc_line_prefix(
 pub trait SpawningFileAdapterTrait: GetMetadata {
     fn get_exe(&self) -> &str;
     fn command(&self, filepath_hint: &Path, command: Command) -> Result<Command>;
-
-    /*fn postproc(&self, line_prefix: &str, inp: &mut dyn Read, oup: &mut dyn Write) -> Result<()> {
-        postproc_line_prefix(line_prefix, inp, oup)
-    }*/
 }
 
 pub struct SpawningFileAdapter {

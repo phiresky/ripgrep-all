@@ -89,7 +89,7 @@ lazy_static! {
                 "--from={file_extension}",
                 "--to=plain",
                 "--wrap=none",
-                "--atx-headers"
+                "--markdown-headings=atx"
             ]),
             disabled_by_default: None,
             match_only_by_mime: None

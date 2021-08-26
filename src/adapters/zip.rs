@@ -52,7 +52,7 @@ impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
     fn next<'b>(&'b mut self) -> Option<AdaptInfo<'b>> {
         let line_prefix = &self.inp.line_prefix;
         let filepath_hint = &self.inp.filepath_hint;
-        let archive_recursion_depth = 1;
+        let archive_recursion_depth = &self.inp.archive_recursion_depth;
         let postprocess = self.inp.postprocess;
         ::zip::read::read_zipfile_from_stream(&mut self.inp.inp)
             .unwrap()

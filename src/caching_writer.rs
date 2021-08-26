@@ -9,7 +9,7 @@ use std::io::{Read, Write};
  */
 pub struct CachingReader<R: Read> {
     max_cache_size: usize,
-    zstd_writer: Option<zstd::stream::write::Encoder<Vec<u8>>>,
+    zstd_writer: Option<zstd::stream::write::Encoder<'static, Vec<u8>>>,
     inp: R,
     bytes_written: u64,
     on_finish: Box<dyn FnOnce((u64, Option<Vec<u8>>)) -> Result<()> + Send>,

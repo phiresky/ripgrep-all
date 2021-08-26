@@ -1,6 +1,7 @@
 use crate::{config::CacheConfig, print_bytes, print_dur};
 use anyhow::{format_err, Context, Result};
 use log::*;
+use rkv::backend::{BackendEnvironmentBuilder, LmdbEnvironment};
 use std::{fmt::Display, path::Path, time::Instant};
 
 pub trait PreprocCache: Send + Sync {
@@ -20,16 +21,18 @@ pub trait PreprocCache: Send + Sync {
 }
 
 /// opens a LMDB cache
-fn open_cache_db(path: &Path) -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv>>> {
+fn open_cache_db(path: &Path) -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv<LmdbEnvironment>>>> {
     std::fs::create_dir_all(path)?;
+    use rkv::backend::LmdbEnvironmentFlags;
 
-    rkv::Manager::singleton()
+    rkv::Manager::<LmdbEnvironment>::singleton()
         .write()
         .map_err(|_| format_err!("could not write cache db manager"))?
         .get_or_create(path, |p| {
-            let mut builder = rkv::Rkv::environment_builder();
+            let mut builder = rkv::Rkv::environment_builder::<rkv::backend::Lmdb>();
             builder
-                .set_flags(rkv::EnvironmentFlags::NO_SYNC | rkv::EnvironmentFlags::WRITE_MAP) // not durable cuz it's a cache
+                .set_flags(rkv::EnvironmentFlags::NO_SYNC)
+                .set_flags(rkv::EnvironmentFlags::WRITE_MAP) // not durable cuz it's a cache
                 // i'm not sure why NO_TLS is needed. otherwise LMDB transactions (open readers) will keep piling up until it fails with
                 // LmdbError(ReadersFull). Those "open readers" stay even after the corresponding processes exit.
                 // hope setting this doesn't break integrity
@@ -38,13 +41,13 @@ fn open_cache_db(path: &Path) -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rk
                 .set_map_size(2 * 1024 * 1024 * 1024)
                 .set_max_dbs(100)
                 .set_max_readers(128);
-            rkv::Rkv::from_env(p, builder)
+            rkv::Rkv::from_builder(p, builder)
         })
         .map_err(|e| format_err!("could not get/create cache db: {}", e))
 }
 
 pub struct LmdbCache {
-    db_arc: std::sync::Arc<std::sync::RwLock<rkv::Rkv>>,
+    db_arc: std::sync::Arc<std::sync::RwLock<rkv::Rkv<LmdbEnvironment>>>,
 }
 
 impl LmdbCache {

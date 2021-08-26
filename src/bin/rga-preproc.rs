@@ -33,7 +33,15 @@ fn main() -> anyhow::Result<()> {
     let start = Instant::now();
     let mut oup = rga_preproc(ai).context("during preprocessing")?;
     debug!("finding and starting adapter took {}", print_dur(start));
-    std::io::copy(&mut oup, &mut o).context("copying adapter output to stdout")?;
+    let res = std::io::copy(&mut oup, &mut o);
+    if let Err(e) = res {
+        if e.kind() == std::io::ErrorKind::BrokenPipe {
+            // happens if e.g. ripgrep detects binary data in the pipe so it cancels reading
+            debug!("output cancelled (broken pipe)");
+        } else {
+            Err(e).context("copying adapter output to stdout {}")?;
+        }
+    }
     debug!("running adapter took {} total", print_dur(start));
     Ok(())
 }
