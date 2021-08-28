@@ -1,3 +1,4 @@
+
 use crate::adapted_iter::SingleAdaptedFileAsIter;
 
 use super::*;
@@ -7,6 +8,7 @@ use log::*;
 use std::process::Command;
 use std::process::{Child, Stdio};
 use std::{io::prelude::*, path::Path};
+use crate::adapters::FileAdapter;
 
 // TODO: don't separate the trait and the struct
 pub trait SpawningFileAdapterTrait: GetMetadata {
@@ -46,6 +48,7 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
     }
 }
 
+/** waits for a process to finish, returns an io error if the process failed */
 struct ProcWaitReader {
     proce: Child,
 }
@@ -77,14 +80,10 @@ pub fn pipe_output<'a>(
     let mut stdi = cmd.stdin.take().expect("is piped");
     let stdo = cmd.stdout.take().expect("is piped");
 
-    // TODO: how to handle this copying better?
-    // do we really need threads for this?
-    crossbeam::scope(|_s| -> Result<()> {
-        std::io::copy(inp, &mut stdi)?;
-        drop(stdi); // NEEDED! otherwise deadlock
-        Ok(())
-    })
-    .unwrap()?;
+    // TODO: deadlocks since this is run in the same thread as the thing reading from stdout of the process
+    std::io::copy(inp, &mut stdi)?;
+    drop(stdi); 
+
     Ok(Box::new(stdo.chain(ProcWaitReader { proce: cmd })))
 }
 
@@ -120,5 +119,50 @@ impl FileAdapter for SpawningFileAdapter {
             postprocess,
             config,
         })))
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use std::io::Cursor;
+
+    use crate::{adapters::custom::CustomAdapterConfig, test_utils::{adapted_to_vec, simple_adapt_info}};
+    use super::*;
+    use crate::adapters::FileAdapter;
+
+    #[test]
+    fn streaming() {
+        // an adapter that converts input line by line (deadlocks if the parent process tries to write everything and only then read it)
+        let adapter = CustomAdapterConfig {
+            name: "simple text replacer".to_string(),
+            description: "oo".to_string(),
+            disabled_by_default: None,
+            version: 1,
+            extensions: vec!["txt".to_string()],
+            mimetypes: None,
+            match_only_by_mime: None,
+            binary: "sed".to_string(),
+            args: vec!["s/e/u/g".to_string()]
+        };
+
+        let adapter = adapter.to_adapter();
+        let input = r#"
+        This is the story of a
+        very strange lorry
+        with a long dead crew
+        and a witch with the flu
+        "#;
+        let input = format!("{0}{0}{0}{0}", input);
+        let input = format!("{0}{0}{0}{0}", input);
+        let input = format!("{0}{0}{0}{0}", input);
+        let input = format!("{0}{0}{0}{0}", input);
+        let input = format!("{0}{0}{0}{0}", input);
+        let input = format!("{0}{0}{0}{0}", input);
+        let (a, d) = simple_adapt_info(&Path::new("foo.txt"), Box::new(Cursor::new(input.as_bytes())));
+        let output = adapter.adapt(a, &d).unwrap();
+
+        let oup = adapted_to_vec(output).unwrap();
+        println!("output: {}", String::from_utf8_lossy(&oup));
     }
 }

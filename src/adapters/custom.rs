@@ -33,6 +33,7 @@ pub struct CustomAdapterConfig {
     /// {}: the file path (TODO)
     /// stdin of the program will be connected to the input file, and stdout is assumed to be the converted file
     pub args: Vec<String>,
+    // TODO: make adapter filename configurable (?) for inner matching (e.g. foo.tar.gz should be foo.tar after gunzipping)
 }
 
 fn strs(arr: &[&str]) -> Vec<String> {
