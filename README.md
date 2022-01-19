@@ -60,7 +60,8 @@ Linux x64, macOS and Windows binaries are available [in GitHub Releases][latestr
 ### Linux
 
 #### Arch Linux
-simply install from AUR: `yay -S ripgrep-all`.
+
+`pacman -S ripgrep-all`.
 
 #### Nix
 `nix-env -iA nixpkgs.ripgrep-all`
