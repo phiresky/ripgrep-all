@@ -102,7 +102,7 @@ rga should compile with stable Rust (v1.36.0+, check with `rustc --version`). To
 
 ```
    ~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
-   ~$ cargo install ripgrep_all
+   ~$ cargo install --locked ripgrep_all
    ~$ rga --version    # this should work now
 ```
 
