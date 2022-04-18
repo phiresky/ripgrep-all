@@ -22,14 +22,15 @@ jobs:
     strategy:
       matrix:
         build:
+        - stable
         - nightly
         - nightly-musl
         - nightly-arm
         - macos
         include:
-        #- build: stable
-        #  os: ubuntu-18.04
-        #  rust: stable
+        - build: stable
+          os: ubuntu-18.04
+          rust: stable
         - build: nightly
           os: ubuntu-18.04
           rust: nightly
