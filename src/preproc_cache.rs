@@ -21,7 +21,9 @@ pub trait PreprocCache: Send + Sync {
 }
 
 /// opens a LMDB cache
-fn open_cache_db(path: &Path) -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv<LmdbEnvironment>>>> {
+fn open_cache_db(
+    path: &Path,
+) -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv<LmdbEnvironment>>>> {
     std::fs::create_dir_all(path)?;
     use rkv::backend::LmdbEnvironmentFlags;
 

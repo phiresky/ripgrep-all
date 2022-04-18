@@ -158,7 +158,10 @@ impl Read for ReadErr {
     }
 }*/
 
-pub fn postproc_encoding<'a, R: Read+'a>(line_prefix: &str, inp: R) -> Result<Box<dyn Read + 'a>> {
+pub fn postproc_encoding<'a, R: Read + 'a>(
+    line_prefix: &str,
+    inp: R,
+) -> Result<Box<dyn Read + 'a>> {
     // TODO: parse these options from ripgrep's configuration
     let encoding = None; // detect bom but usually assume utf8
     let bom_sniffing = true;
@@ -184,9 +187,7 @@ pub fn postproc_encoding<'a, R: Read+'a>(line_prefix: &str, inp: R) -> Result<Bo
     if fourk.contains(&0u8) {
         log::debug!("detected binary");
         let v = "[rga: binary data]";
-        return Ok(Box::new(std::io::Cursor::new(
-            v
-        )));
+        return Ok(Box::new(std::io::Cursor::new(v)));
         /*let err = std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("{}[rga: binary data]", line_prefix),
@@ -280,7 +281,12 @@ mod tests {
 
         test_from_strs(false, "foo.pdf:", inp, oup)?;
 
-        test_from_strs(false, "foo:", "this is a test \n\n \0 foo", "foo:[rga: binary data]")?;
+        test_from_strs(
+            false,
+            "foo:",
+            "this is a test \n\n \0 foo",
+            "foo:[rga: binary data]",
+        )?;
         test_from_strs(false, "foo:", "\0", "foo:[rga: binary data]")?;
 
         Ok(())
