@@ -231,16 +231,13 @@ pub struct CacheConfig {
     )]
     pub compression_level: CacheCompressionLevel,
 
-    /// ZSTD compression level to apply to adapter outputs before storing in cache db
-    ///
-    ///  Ranges from 1 - 22
+    /// Path to store cache db
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
         long = "--rga-cache-path",
         hidden_short_help = true,
         require_equals = true,
-        help = ""
     )]
     pub path: CachePath,
 }
