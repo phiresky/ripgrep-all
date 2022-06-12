@@ -1,5 +1,4 @@
 #![warn(clippy::all)]
-#![feature(negative_impls)]
 
 pub mod adapted_iter;
 pub mod adapters;
