@@ -2,7 +2,7 @@
 use crate::adapted_iter::SingleAdaptedFileAsIter;
 
 use super::*;
-use anyhow::*;
+use anyhow::Result;
 use log::*;
 
 use std::process::Command;
@@ -56,7 +56,7 @@ impl Read for ProcWaitReader {
     fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
         let status = self.proce.wait()?;
         if status.success() {
-            Ok(0)
+            std::io::Result::Ok(0)
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::Other,

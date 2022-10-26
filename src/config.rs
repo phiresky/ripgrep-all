@@ -1,5 +1,5 @@
 use crate::{adapters::custom::CustomAdapterConfig, project_dirs};
-use anyhow::*;
+use anyhow::{Result, Context};
 use derive_more::FromStr;
 use log::*;
 use schemars::JsonSchema;
@@ -90,7 +90,7 @@ impl FromStr for CacheMaxBlobLen {
                 _ => usize::from_str(s).with_context(|| format!("Could not parse int")),
             }?))
         } else {
-            Err(format_err!("empty byte input"))
+            Err(anyhow::format_err!("empty byte input"))
         }
     }
 }

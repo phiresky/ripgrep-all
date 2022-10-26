@@ -1,7 +1,6 @@
 use crate::preproc::rga_preproc;
 use crate::{adapted_iter::AdaptedFilesIterBox, adapters::*};
 
-use anyhow::*;
 use std::io::Read;
 
 pub struct RecursingConcattyReader<'a> {
@@ -9,12 +8,12 @@ pub struct RecursingConcattyReader<'a> {
     cur: Option<ReadBox<'a>>,
 }
 impl<'a> RecursingConcattyReader<'a> {
-    pub fn concat(inp: AdaptedFilesIterBox<'a>) -> Result<Box<dyn Read + 'a>> {
+    pub fn concat(inp: AdaptedFilesIterBox<'a>) -> anyhow::Result<Box<dyn Read + 'a>> {
         let mut r = RecursingConcattyReader { inp, cur: None };
         r.ascend()?;
         Ok(Box::new(r))
     }
-    pub fn ascend(&mut self) -> Result<()> {
+    pub fn ascend(&mut self) -> anyhow::Result<()> {
         let inp = &mut self.inp;
         // get next inner file from inp
         // we only need to access the inp: ReadIter when the inner reader is done, so this should be safe

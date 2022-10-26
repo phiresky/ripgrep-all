@@ -18,15 +18,15 @@ exclude = [
 [dependencies]
 tree_magic = { package = "tree_magic_mini", version = "3.0.0" }
 regex = "1.3.9"
-rkv = "0.17.0"
+rkv = "0.17"
 path-clean = "0.1.0"
 bincode = "1.3.1"
 serde = { version = "1.0.115", features = ["derive"] }
-zstd = "0.9.0"
+zstd = "0.11.2"
 lazy_static = "1.4.0"
 serde_json = "1.0.57"
 crossbeam = "0.8.1"
-clap = { version = "2.33.3", features = ["wrap_help"] }
+clap = { version = "4.0.18", features = ["wrap_help"] }
 log = "0.4.11"
 env_logger = "0.9.0"
 xz2 = "0.1.6"
@@ -36,7 +36,7 @@ tar = "0.4.30"
 chrono = "0.4.15"
 encoding_rs = "0.8.24"
 encoding_rs_io = "0.1.7"
-rusqlite = { version = "0.25.3", features = ["vtab", "bundled"] }
+rusqlite = { version = "0.28.0", features = ["vtab", "bundled"] }
 size_format = "1.0.2"
 structopt = "0.3.17"
 paste = "1.0.0"
@@ -51,7 +51,7 @@ memchr = "2.3.3"
 crossbeam-channel = "0.5.1"
 dyn-clone = "1.0.2"
 dyn-clonable = "0.9.0"
-zip = "0.5.8"
+zip = "0.6.3"
 owning_ref = "0.4.1"
 
 [dev-dependencies]
