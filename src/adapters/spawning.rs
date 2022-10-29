@@ -10,7 +10,6 @@ use std::path::Path;
 use std::process::{ExitStatus, Stdio};
 use std::task::Poll;
 use tokio::io::AsyncReadExt;
-use tokio::process::Child;
 use tokio::process::Command;
 
 // TODO: don't separate the trait and the struct
@@ -57,9 +56,9 @@ struct ProcWaitReader {
 }
 impl AsyncRead for ProcWaitReader {
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
+        _buf: &mut tokio::io::ReadBuf<'_>,
     ) -> std::task::Poll<std::io::Result<()>> {
         match self.proce.as_mut().poll(cx) {
             std::task::Poll::Ready(x) => {
@@ -101,9 +100,7 @@ pub fn pipe_output<'a>(
     let mut stdi = cmd.stdin.take().expect("is piped");
     let stdo = cmd.stdout.take().expect("is piped");
 
-    // TODO: deadlocks since this is run in the same thread as the thing reading from stdout of the process
-    tokio::task::spawn_local(async {
-        tokio::pin!(inp);
+    tokio::task::spawn_local(async move {
         tokio::io::copy(&mut inp, &mut stdi).await;
     });
 
@@ -120,12 +117,12 @@ impl FileAdapter for SpawningFileAdapter {
     ) -> Result<AdaptedFilesIterBox<'a>> {
         let AdaptInfo {
             filepath_hint,
-            mut inp,
+            inp,
             line_prefix,
             archive_recursion_depth,
             postprocess,
             config,
-            is_real_file,
+            ..
         } = ai;
 
         let cmd = Command::new(self.inner.get_exe());
@@ -158,8 +155,8 @@ mod test {
         test_utils::{adapted_to_vec, simple_adapt_info},
     };
 
-    #[test]
-    fn streaming() {
+    #[tokio::test]
+    async fn streaming() -> anyhow::Result<()> {
         // an adapter that converts input line by line (deadlocks if the parent process tries to write everything and only then read it)
         let adapter = CustomAdapterConfig {
             name: "simple text replacer".to_string(),
@@ -188,11 +185,12 @@ mod test {
         let input = format!("{0}{0}{0}{0}", input);
         let (a, d) = simple_adapt_info(
             &Path::new("foo.txt"),
-            Box::new(Cursor::new(input.as_bytes())),
+            Box::pin(Cursor::new(input.as_bytes())),
         );
         let output = adapter.adapt(a, &d).unwrap();
 
-        let oup = adapted_to_vec(output).unwrap();
+        let oup = adapted_to_vec(output).await?;
         println!("output: {}", String::from_utf8_lossy(&oup));
+        Ok(())
     }
 }

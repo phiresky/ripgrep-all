@@ -25,7 +25,7 @@ fn open_cache_db(
     path: &Path,
 ) -> Result<std::sync::Arc<std::sync::RwLock<rkv::Rkv<LmdbEnvironment>>>> {
     std::fs::create_dir_all(path)?;
-    use rkv::backend::LmdbEnvironmentFlags;
+    // use rkv::backend::LmdbEnvironmentFlags;
 
     rkv::Manager::<LmdbEnvironment>::singleton()
         .write()

@@ -1,9 +1,12 @@
 use std::{pin::Pin, task::Poll};
 
 use anyhow::Result;
-use log::*;
-use tokio::{io::{AsyncRead, AsyncWriteExt, AsyncWrite}, pin};
 use async_compression::tokio::write::ZstdEncoder;
+use log::*;
+use tokio::{
+    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
+    pin,
+};
 
 /**
  * wrap a writer so that it is passthrough,
@@ -36,11 +39,14 @@ impl<R: AsyncRead> CachingReader<R> {
             on_finish,
         })
     }
-    pub fn finish(&mut self, cx: &mut std::task::Context<'_>) -> std::io::Result<(u64, Option<Vec<u8>>)> {
+    pub fn finish(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::io::Result<(u64, Option<Vec<u8>>)> {
         if let Some(writer) = self.zstd_writer.take() {
             pin!(writer);
             writer.as_mut().poll_shutdown(cx)?;
-            let res = writer.into_inner();
+            let res = writer.get_pin_mut().clone(); // TODO: without copying possible?
             if res.len() <= self.max_cache_size {
                 return Ok((self.bytes_written, Some(res)));
             }
@@ -49,7 +55,7 @@ impl<R: AsyncRead> CachingReader<R> {
     }
     async fn write_to_compressed(&mut self, buf: &[u8]) -> std::io::Result<()> {
         if let Some(writer) = self.zstd_writer.as_mut() {
-            let wrote = writer.write_all(buf).await?;
+            writer.write_all(buf).await?;
             let compressed_len = writer.get_ref().len();
             trace!("wrote {} to zstd, len now {}", buf.len(), compressed_len);
             if compressed_len > self.max_cache_size {
@@ -61,17 +67,19 @@ impl<R: AsyncRead> CachingReader<R> {
         Ok(())
     }
 }
-impl<R> AsyncRead for CachingReader<R> where R: AsyncRead {
-
+impl<R> AsyncRead for CachingReader<R>
+where
+    R: AsyncRead,
+{
     fn poll_read(
-        self: std::pin::Pin<&mut Self>,
+        mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
+        mut buf: &mut tokio::io::ReadBuf<'_>,
     ) -> std::task::Poll<std::io::Result<()>> {
-        let old_filled = buf.filled();
+        let old_filled_len = buf.filled().len();
         match self.inp.as_mut().poll_read(cx, &mut buf) {
             /*Ok(0) => {
-                
+
             }
             Ok(read_bytes) => {
                 self.write_to_compressed(&buf[0..read_bytes])?;
@@ -81,22 +89,23 @@ impl<R> AsyncRead for CachingReader<R> where R: AsyncRead {
             Poll::Ready(rdy) => {
                 if let Ok(()) = &rdy {
                     let slice = buf.filled();
-                    let read_bytes = slice.len() - old_filled.len();
+                    let read_bytes = slice.len() - old_filled_len;
                     if read_bytes == 0 {
                         // EOF
                         // move out of box, replace with noop lambda
-                        let on_finish = std::mem::replace(&mut self.on_finish, Box::new(|_| Ok(())));
+                        let on_finish =
+                            std::mem::replace(&mut self.on_finish, Box::new(|_| Ok(())));
                         // EOF, finish!
                         (on_finish)(self.finish(cx)?)
                             .map(|()| 0)
                             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
                     } else {
-                        self.write_to_compressed(&slice[old_filled.len()..]);
+                        self.write_to_compressed(&slice[old_filled_len..]);
                         self.bytes_written += read_bytes as u64;
                     }
                 }
                 Poll::Ready(rdy)
-            },
+            }
             Poll::Pending => Poll::Pending,
         }
     }

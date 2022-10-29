@@ -1,10 +1,10 @@
 use crate::adapters::*;
 use crate::config::RgaConfig;
+use crate::matching::*;
 use crate::recurse::concat_read_streams;
-use crate::{matching::*, recurse::RecursingConcattyReader};
 use crate::{
     preproc_cache::{LmdbCache, PreprocCache},
-    print_bytes, print_dur, CachingReader,
+    print_bytes, CachingReader,
 };
 use anyhow::*;
 use log::*;
@@ -12,19 +12,19 @@ use path_clean::PathClean;
 // use postproc::PostprocPrefix;
 use std::convert::TryInto;
 use std::path::Path;
+use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
-use tokio::io::{AsyncBufRead, AsyncRead};
 
-use std::{rc::Rc, time::Instant};
+use std::rc::Rc;
 
-type ActiveAdapters = Vec<(Rc<dyn FileAdapter>)>;
+type ActiveAdapters = Vec<Rc<dyn FileAdapter>>;
 
 async fn choose_adapter(
     config: &RgaConfig,
     filepath_hint: &Path,
     archive_recursion_depth: i32,
-    mut inp: &mut (impl AsyncBufRead + Unpin),
+    inp: &mut (impl AsyncBufRead + Unpin),
 ) -> Result<Option<(Rc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>> {
     let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
     let adapters = adapter_matcher(&active_adapters, config.accurate)?;

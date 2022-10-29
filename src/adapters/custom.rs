@@ -233,7 +233,7 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         let r = adapter.adapt(a, &d)?;
-        let o = adapted_to_vec(r)?;
+        let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
             "PREFIX:hello world

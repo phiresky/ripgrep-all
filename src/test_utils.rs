@@ -3,10 +3,11 @@ use crate::{
     adapters::{AdaptInfo, ReadBox},
     config::RgaConfig,
     matching::{FastFileMatcher, FileMatcher},
-    recurse::RecursingConcattyReader,
+    recurse::concat_read_streams,
 };
 use anyhow::Result;
 use std::path::{Path, PathBuf};
+use tokio::io::AsyncReadExt;
 
 pub fn test_data_dir() -> PathBuf {
     let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -32,10 +33,10 @@ pub fn simple_adapt_info<'a>(filepath: &Path, inp: ReadBox<'a>) -> (AdaptInfo<'a
     )
 }
 
-pub fn adapted_to_vec(adapted: AdaptedFilesIterBox<'_>) -> Result<Vec<u8>> {
-    let mut res = RecursingConcattyReader::concat(adapted)?;
+pub async fn adapted_to_vec(adapted: AdaptedFilesIterBox<'_>) -> Result<Vec<u8>> {
+    let mut res = concat_read_streams(adapted);
 
     let mut buf = Vec::new();
-    res.read_to_end(&mut buf)?;
+    res.read_to_end(&mut buf).await?;
     Ok(buf)
 }
