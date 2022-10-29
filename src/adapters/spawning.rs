@@ -96,7 +96,7 @@ pub fn pipe_output<'a>(
 
     tokio::spawn(async move {
         let mut z = inp;
-        tokio::io::copy(&mut z, &mut stdi).await;
+        tokio::io::copy(&mut z, &mut stdi).await.unwrap();
     });
     Ok(Box::pin(stdo.chain(proc_wait(cmd))))
 }
@@ -177,7 +177,7 @@ mod test {
         let input = format!("{0}{0}{0}{0}", input);
         let (a, d) = simple_adapt_info(
             &Path::new("foo.txt"),
-            Box::pin(Cursor::new(input.as_bytes())),
+            Box::pin(Cursor::new(Vec::from(input))),
         );
         let output = adapter.adapt(a, &d).unwrap();
 

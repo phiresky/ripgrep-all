@@ -33,7 +33,7 @@ pub fn simple_adapt_info<'a>(filepath: &Path, inp: ReadBox) -> (AdaptInfo, FileM
     )
 }
 
-pub async fn adapted_to_vec(adapted: AdaptedFilesIterBox<'_>) -> Result<Vec<u8>> {
+pub async fn adapted_to_vec(adapted: AdaptedFilesIterBox) -> Result<Vec<u8>> {
     let mut res = concat_read_streams(adapted);
 
     let mut buf = Vec::new();

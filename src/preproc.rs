@@ -1,3 +1,4 @@
+use crate::adapted_iter::AdaptedFilesIterBox;
 use crate::adapters::*;
 use crate::caching_writer::async_read_and_write_to_cache;
 use crate::config::RgaConfig;
@@ -8,10 +9,12 @@ use crate::{
     print_bytes,
 };
 use anyhow::*;
+use async_compression::tokio::bufread::ZstdDecoder;
 use log::*;
 use path_clean::PathClean;
 // use postproc::PostprocPrefix;
 use std::convert::TryInto;
+use std::io::Cursor;
 use std::path::Path;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
@@ -146,15 +149,6 @@ async fn run_adapter_recursively(
     detection_reason: FileMatcher,
     active_adapters: ActiveAdapters,
 ) -> Result<ReadBox> {
-    let AdaptInfo {
-        filepath_hint,
-        is_real_file,
-        inp,
-        line_prefix,
-        config,
-        archive_recursion_depth,
-        postprocess,
-    } = ai;
     let meta = adapter.metadata();
     debug!(
         "Chose adapter '{}' because of matcher {:?}",
@@ -162,50 +156,30 @@ async fn run_adapter_recursively(
     );
     eprintln!(
         "{} adapter: {}",
-        filepath_hint.to_string_lossy(),
+        ai.filepath_hint.to_string_lossy(),
         &meta.name
     );
     let db_name = format!("{}.v{}", meta.name, meta.version);
-    let cache_compression_level = config.cache.compression_level;
-    let cache_max_blob_len = config.cache.max_blob_len;
+    let cache_compression_level = ai.config.cache.compression_level;
+    let cache_max_blob_len = ai.config.cache.max_blob_len;
 
-    let cache = if is_real_file {
-        LmdbCache::open(&config.cache)?
+    let cache = if ai.is_real_file {
+        LmdbCache::open(&ai.config.cache)?
     } else {
         None
     };
 
     let mut cache = cache.context("No cache?")?;
-    let cache_key: Vec<u8> = compute_cache_key(&filepath_hint, adapter.as_ref(), active_adapters)?;
+    let cache_key: Vec<u8> =
+        compute_cache_key(&ai.filepath_hint, adapter.as_ref(), active_adapters)?;
     // let dbg_ctx = format!("adapter {}", &adapter.metadata().name);
     let cached = cache.get(&db_name, &cache_key)?;
     match cached {
-        Some(cached) => Ok(Box::pin(
-            async_compression::tokio::bufread::ZstdDecoder::new(std::io::Cursor::new(cached)),
-        )),
+        Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
         None => {
             debug!("cache MISS, running adapter");
             debug!("adapting with caching...");
-            let inp = adapter
-                .adapt(
-                    AdaptInfo {
-                        line_prefix,
-                        filepath_hint: filepath_hint.clone(),
-                        is_real_file,
-                        inp,
-                        archive_recursion_depth,
-                        config,
-                        postprocess,
-                    },
-                    &detection_reason,
-                )
-                .with_context(|| {
-                    format!(
-                        "adapting {} via {} failed",
-                        filepath_hint.to_string_lossy(),
-                        meta.name
-                    )
-                })?;
+            let inp = loop_adapt(adapter.as_ref(), detection_reason, ai)?;
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
                 inp,
@@ -227,4 +201,17 @@ async fn run_adapter_recursively(
             Ok(Box::pin(inp))
         }
     }
+}
+
+fn loop_adapt(
+    adapter: &dyn FileAdapter,
+    detection_reason: FileMatcher,
+    ai: AdaptInfo,
+) -> anyhow::Result<AdaptedFilesIterBox> {
+    let fph = ai.filepath_hint.clone();
+    let inp = adapter
+        .adapt(ai, &detection_reason)
+        .with_context(|| format!("adapting {} via {} failed", fph.to_string_lossy(), adapter.metadata().name))?;
+
+    Ok(inp)
 }
