@@ -1,28 +1,29 @@
 pub mod custom;
 // pub mod decompress;
 // pub mod ffmpeg;
-pub mod postproc;
+// pub mod postproc;
 // pub mod pdfpages;
 pub mod spawning;
 // pub mod sqlite;
 // pub mod tar;
 // pub mod tesseract;
 // pub mod writing;
-pub mod zip;
+// pub mod zip;
 use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
 use anyhow::*;
 use custom::builtin_spawning_adapters;
 use custom::CustomAdapterConfig;
 use log::*;
+use tokio::io::AsyncRead;
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io::prelude::*;
 use std::iter::Iterator;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::rc::Rc;
 
-pub type ReadBox<'a> = Box<dyn Read + 'a>;
+pub type ReadBox<'a> = Pin<Box<dyn AsyncRead + 'a>>;
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
     pub name: String,
@@ -115,7 +116,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
 
     let internal_adapters: Vec<Rc<dyn FileAdapter>> = vec![
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
-        Rc::new(zip::ZipAdapter::new()),
+        // Rc::new(zip::ZipAdapter::new()),
         //Rc::new(decompress::DecompressAdapter::new()),
         // Rc::new(tar::TarAdapter::new()),
         //Rc::new(sqlite::SqliteAdapter::new()),

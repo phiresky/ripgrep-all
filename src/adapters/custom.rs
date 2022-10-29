@@ -166,8 +166,8 @@ impl SpawningFileAdapterTrait for CustomSpawningFileAdapter {
     fn command(
         &self,
         filepath_hint: &std::path::Path,
-        mut command: std::process::Command,
-    ) -> Result<std::process::Command> {
+        mut command: tokio::process::Command,
+    ) -> Result<tokio::process::Command> {
         command.args(
             self.args
                 .iter()
@@ -218,10 +218,10 @@ mod test {
     use super::*;
     use crate::test_utils::*;
     use anyhow::Result;
-    use std::fs::File;
+    use tokio::fs::File;
 
-    #[test]
-    fn poppler() -> Result<()> {
+    #[tokio::test]
+    async fn poppler() -> Result<()> {
         let adapter = builtin_spawning_adapters
             .iter()
             .find(|e| e.name == "poppler")
@@ -231,7 +231,7 @@ mod test {
 
         let filepath = test_data_dir().join("short.pdf");
 
-        let (a, d) = simple_adapt_info(&filepath, Box::new(File::open(&filepath)?));
+        let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         let r = adapter.adapt(a, &d)?;
         let o = adapted_to_vec(r)?;
         assert_eq!(

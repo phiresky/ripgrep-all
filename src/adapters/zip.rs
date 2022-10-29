@@ -85,7 +85,7 @@ impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{recurse::RecursingConcattyReader, test_utils::*};
+    use crate::test_utils::*;
 
     fn create_zip(fname: &str, content: &str, add_inner: bool) -> Result<Vec<u8>> {
         use ::zip::write::FileOptions;

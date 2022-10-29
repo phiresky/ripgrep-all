@@ -1,14 +1,33 @@
+use tokio::io::AsyncRead;
+use tokio_util::io::{ReaderStream, StreamReader};
+
 use crate::preproc::rga_preproc;
 use crate::{adapted_iter::AdaptedFilesIterBox, adapters::*};
-
-use std::io::Read;
+use async_stream::stream;
+use tokio_stream::Stream;
+use bytes::Bytes;
+use tokio_stream::StreamExt;
 
 pub struct RecursingConcattyReader<'a> {
     inp: AdaptedFilesIterBox<'a>,
     cur: Option<ReadBox<'a>>,
 }
+pub fn concat_read_streams(
+    mut input: AdaptedFilesIterBox<'_>,
+) -> ReadBox<'_> {
+    let s = stream! {
+        while let Some(output) = input.next() {
+            let mut stream = ReaderStream::new(output.inp);
+            while let Some(bytes) = stream.next().await {
+                yield bytes;
+            }
+        }
+    };
+    Box::pin(StreamReader::new(s))
+}
+/*
 impl<'a> RecursingConcattyReader<'a> {
-    pub fn concat(inp: AdaptedFilesIterBox<'a>) -> anyhow::Result<Box<dyn Read + 'a>> {
+    pub fn concat(inp: AdaptedFilesIterBox<'a>) -> anyhow::Result<ReadBox<'a>> {
         let mut r = RecursingConcattyReader { inp, cur: None };
         r.ascend()?;
         Ok(Box::new(r))
@@ -28,7 +47,7 @@ impl<'a> RecursingConcattyReader<'a> {
         Ok(())
     }
 }
-impl<'a> Read for RecursingConcattyReader<'a> {
+impl<'a> AsyncRead for RecursingConcattyReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match &mut self.cur {
             None => Ok(0), // last file ended
@@ -45,3 +64,4 @@ impl<'a> Read for RecursingConcattyReader<'a> {
         }
     }
 }
+*/

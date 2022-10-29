@@ -5,10 +5,10 @@
 use anyhow::Context;
 use anyhow::Result;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use tokio::io::AsyncRead;
 
 use std::{
     cmp::min,
-    io::{BufRead, BufReader, Read},
 };
 
 use crate::adapted_iter::{AdaptedFilesIterBox, SingleAdaptedFileAsIter};
@@ -16,11 +16,11 @@ use crate::adapted_iter::{AdaptedFilesIterBox, SingleAdaptedFileAsIter};
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 
 /** pass through, except adding \n at the end */
-pub struct EnsureEndsWithNewline<R: Read> {
+pub struct EnsureEndsWithNewline<R: AsyncRead> {
     inner: R,
     added_newline: bool,
 }
-impl<R: Read> EnsureEndsWithNewline<R> {
+impl<R: AsyncRead> EnsureEndsWithNewline<R> {
     pub fn new(r: R) -> EnsureEndsWithNewline<R> {
         EnsureEndsWithNewline {
             inner: r,
@@ -28,8 +28,8 @@ impl<R: Read> EnsureEndsWithNewline<R> {
         }
     }
 }
-impl<R: Read> Read for EnsureEndsWithNewline<R> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+impl<R: AsyncRead> AsyncRead for EnsureEndsWithNewline<R> {
+    fn poll_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self.inner.read(buf) {
             Ok(0) => {
                 if self.added_newline {
@@ -47,7 +47,7 @@ impl<R: Read> Read for EnsureEndsWithNewline<R> {
 }
 struct ByteReplacer<R>
 where
-    R: Read,
+    R:AsyncRead,
 {
     inner: R,
     next_read: Vec<u8>,
@@ -57,7 +57,7 @@ where
 
 impl<R> ByteReplacer<R>
 where
-    R: Read,
+    R: AsyncRead,
 {
     fn output_next(&mut self, buf: &mut [u8], buf_valid_until: usize, replacement: &[u8]) -> usize {
         let after_part1 = Vec::from(&buf[1..buf_valid_until]);
@@ -80,11 +80,11 @@ where
     }
 }
 
-impl<R> Read for ByteReplacer<R>
+impl<R> AsyncRead for ByteReplacer<R>
 where
-    R: Read,
+    R: AsyncRead,
 {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+    fn poll_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let read = if self.next_read.len() > 0 {
             let count = std::cmp::min(self.next_read.len(), buf.len());
             buf[0..count].copy_from_slice(&self.next_read[0..count]);
@@ -158,10 +158,10 @@ impl Read for ReadErr {
     }
 }*/
 
-pub fn postproc_encoding<'a, R: Read + 'a>(
+pub fn postproc_encoding<'a, R: AsyncRead + 'a>(
     line_prefix: &str,
     inp: R,
-) -> Result<Box<dyn Read + 'a>> {
+) -> Result<Box<dyn AsyncRead + 'a>> {
     // TODO: parse these options from ripgrep's configuration
     let encoding = None; // detect bom but usually assume utf8
     let bom_sniffing = true;
@@ -202,7 +202,7 @@ pub fn postproc_encoding<'a, R: Read + 'a>(
     ))
 }
 
-pub fn postproc_prefix(line_prefix: &str, inp: impl Read) -> impl Read {
+pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead) -> impl AsyncRead {
     let line_prefix = line_prefix.to_string(); // clone since we need it later
     ByteReplacer {
         inner: inp,
@@ -212,7 +212,7 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl Read) -> impl Read {
     }
 }
 
-pub fn postproc_pagebreaks(line_prefix: &str, inp: impl Read) -> impl Read {
+pub fn postproc_pagebreaks(line_prefix: &str, inp: impl AsyncRead) -> impl AsyncRead {
     let line_prefix = line_prefix.to_string(); // clone since
     let mut page_count = 1;
 

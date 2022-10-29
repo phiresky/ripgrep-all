@@ -1,14 +1,17 @@
-
 use crate::adapted_iter::SingleAdaptedFileAsIter;
 
 use super::*;
 use anyhow::Result;
 use log::*;
 
-use std::process::Command;
-use std::process::{Child, Stdio};
-use std::{io::prelude::*, path::Path};
 use crate::adapters::FileAdapter;
+use std::future::Future;
+use std::path::Path;
+use std::process::{ExitStatus, Stdio};
+use std::task::Poll;
+use tokio::io::AsyncReadExt;
+use tokio::process::Child;
+use tokio::process::Command;
 
 // TODO: don't separate the trait and the struct
 pub trait SpawningFileAdapterTrait: GetMetadata {
@@ -50,11 +53,29 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
 
 /** waits for a process to finish, returns an io error if the process failed */
 struct ProcWaitReader {
-    proce: Child,
+    proce: Pin<Box<dyn Future<Output = std::io::Result<ExitStatus>>>>,
 }
-impl Read for ProcWaitReader {
-    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-        let status = self.proce.wait()?;
+impl AsyncRead for ProcWaitReader {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.proce.as_mut().poll(cx) {
+            std::task::Poll::Ready(x) => {
+                let x = x?;
+                if x.success() {
+                    Poll::Ready(std::io::Result::Ok(()))
+                } else {
+                    Poll::Ready(Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format_err!("subprocess failed: {:?}", x),
+                    )))
+                }
+            }
+            Poll::Pending => std::task::Poll::Pending,
+        }
+        /*let status = self.proce.wait();
         if status.success() {
             std::io::Result::Ok(0)
         } else {
@@ -62,13 +83,13 @@ impl Read for ProcWaitReader {
                 std::io::ErrorKind::Other,
                 format_err!("subprocess failed: {:?}", status),
             ))
-        }
+        }*/
     }
 }
 pub fn pipe_output<'a>(
     _line_prefix: &str,
     mut cmd: Command,
-    inp: &mut (dyn Read + 'a),
+    inp: ReadBox<'a>,
     exe_name: &str,
     help: &str,
 ) -> Result<ReadBox<'a>> {
@@ -81,10 +102,14 @@ pub fn pipe_output<'a>(
     let stdo = cmd.stdout.take().expect("is piped");
 
     // TODO: deadlocks since this is run in the same thread as the thing reading from stdout of the process
-    std::io::copy(inp, &mut stdi)?;
-    drop(stdi); 
+    tokio::task::spawn_local(async {
+        tokio::pin!(inp);
+        tokio::io::copy(&mut inp, &mut stdi).await;
+    });
 
-    Ok(Box::new(stdo.chain(ProcWaitReader { proce: cmd })))
+    Ok(Box::pin(stdo.chain(ProcWaitReader {
+        proce: Box::pin(cmd.wait()),
+    })))
 }
 
 impl FileAdapter for SpawningFileAdapter {
@@ -109,7 +134,7 @@ impl FileAdapter for SpawningFileAdapter {
             .command(&filepath_hint, cmd)
             .with_context(|| format!("Could not set cmd arguments for {}", self.inner.get_exe()))?;
         debug!("executing {:?}", cmd);
-        let output = pipe_output(&line_prefix, cmd, &mut inp, self.inner.get_exe(), "")?;
+        let output = pipe_output(&line_prefix, cmd, inp, self.inner.get_exe(), "")?;
         Ok(Box::new(SingleAdaptedFileAsIter::new(AdaptInfo {
             filepath_hint: PathBuf::from(format!("{}.txt", filepath_hint.to_string_lossy())), // TODO: customizable
             inp: output,
@@ -122,14 +147,16 @@ impl FileAdapter for SpawningFileAdapter {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use std::io::Cursor;
 
-    use crate::{adapters::custom::CustomAdapterConfig, test_utils::{adapted_to_vec, simple_adapt_info}};
     use super::*;
     use crate::adapters::FileAdapter;
+    use crate::{
+        adapters::custom::CustomAdapterConfig,
+        test_utils::{adapted_to_vec, simple_adapt_info},
+    };
 
     #[test]
     fn streaming() {
@@ -143,7 +170,7 @@ mod test {
             mimetypes: None,
             match_only_by_mime: None,
             binary: "sed".to_string(),
-            args: vec!["s/e/u/g".to_string()]
+            args: vec!["s/e/u/g".to_string()],
         };
 
         let adapter = adapter.to_adapter();
@@ -159,7 +186,10 @@ mod test {
         let input = format!("{0}{0}{0}{0}", input);
         let input = format!("{0}{0}{0}{0}", input);
         let input = format!("{0}{0}{0}{0}", input);
-        let (a, d) = simple_adapt_info(&Path::new("foo.txt"), Box::new(Cursor::new(input.as_bytes())));
+        let (a, d) = simple_adapt_info(
+            &Path::new("foo.txt"),
+            Box::new(Cursor::new(input.as_bytes())),
+        );
         let output = adapter.adapt(a, &d).unwrap();
 
         let oup = adapted_to_vec(output).unwrap();
