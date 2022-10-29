@@ -4,13 +4,13 @@ use crate::{adapted_iter::AdaptedFilesIterBox, adapters::*};
 use async_stream::stream;
 use tokio_stream::StreamExt;
 
-pub struct RecursingConcattyReader<'a> {
-    inp: AdaptedFilesIterBox<'a>,
-    cur: Option<ReadBox<'a>>,
+pub struct RecursingConcattyReader {
+    inp: AdaptedFilesIterBox,
+    cur: Option<ReadBox>,
 }
 pub fn concat_read_streams(
-    mut input: AdaptedFilesIterBox<'_>,
-) -> ReadBox<'_> {
+    mut input: AdaptedFilesIterBox,
+) -> ReadBox {
     let s = stream! {
         while let Some(output) = input.next() {
             let mut stream = ReaderStream::new(output.inp);

@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 
-pub type ReadBox<'a> = Pin<Box<dyn AsyncRead + 'a>>;
+pub type ReadBox = Pin<Box<dyn AsyncRead + Send>>;
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
     pub name: String,
@@ -82,12 +82,12 @@ pub trait FileAdapter: GetMetadata {
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
     fn adapt<'a>(
         &self,
-        a: AdaptInfo<'a>,
+        a: AdaptInfo,
         detection_reason: &FileMatcher,
-    ) -> Result<AdaptedFilesIterBox<'a>>;
+    ) -> Result<AdaptedFilesIterBox>;
 }
 
-pub struct AdaptInfo<'a> {
+pub struct AdaptInfo {
     /// file path. May not be an actual file on the file system (e.g. in an archive). Used for matching file extensions.
     pub filepath_hint: PathBuf,
     /// true if filepath_hint is an actual file on the file system
@@ -95,11 +95,11 @@ pub struct AdaptInfo<'a> {
     /// depth at which this file is in archives. 0 for real filesystem
     pub archive_recursion_depth: i32,
     /// stream to read the file from. can be from a file or from some decoder
-    pub inp: ReadBox<'a>,
+    pub inp: ReadBox,
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: String,
     pub postprocess: bool,
-    pub config: RgaConfig,
+    pub config: RgaConfig
 }
 
 /// (enabledAdapters, disabledAdapters)

@@ -5,9 +5,11 @@ use ripgrep_all as rga;
 
 use anyhow::Context;
 use log::debug;
-use std::{fs::File, time::Instant};
+use std::{time::Instant};
+use tokio::fs::File;
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let mut arg_arr: Vec<std::ffi::OsString> = std::env::args_os().collect();
     let last = arg_arr.pop().expect("No filename specified");
@@ -18,10 +20,10 @@ fn main() -> anyhow::Result<()> {
         std::env::current_dir()?.join(&filepath)
     };
 
-    let i = File::open(&path).context("Specified input file not found")?;
-    let mut o = std::io::stdout();
+    let i = File::open(&path).await.context("Specified input file not found")?;
+    let mut o = tokio::io::stdout();
     let ai = AdaptInfo {
-        inp: Box::new(i),
+        inp: Box::pin(i),
         filepath_hint: path,
         is_real_file: true,
         line_prefix: "".to_string(),
@@ -31,9 +33,9 @@ fn main() -> anyhow::Result<()> {
     };
 
     let start = Instant::now();
-    let mut oup = rga_preproc(ai).context("during preprocessing")?;
+    let mut oup = rga_preproc(ai).await.context("during preprocessing")?;
     debug!("finding and starting adapter took {}", print_dur(start));
-    let res = std::io::copy(&mut oup, &mut o);
+    let res = tokio::io::copy(&mut oup, &mut o).await;
     if let Err(e) = res {
         if e.kind() == std::io::ErrorKind::BrokenPipe {
             // happens if e.g. ripgrep detects binary data in the pipe so it cancels reading

@@ -1,10 +1,11 @@
 use crate::adapters::*;
+use crate::caching_writer::async_read_and_write_to_cache;
 use crate::config::RgaConfig;
 use crate::matching::*;
 use crate::recurse::concat_read_streams;
 use crate::{
     preproc_cache::{LmdbCache, PreprocCache},
-    print_bytes, CachingReader,
+    print_bytes,
 };
 use anyhow::*;
 use log::*;
@@ -53,7 +54,7 @@ async fn choose_adapter(
  * If a cache is passed, read/write to it.
  *
  */
-pub async fn rga_preproc(ai: AdaptInfo<'_>) -> Result<ReadBox<'_>> {
+pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     debug!("path (hint) to preprocess: {:?}", ai.filepath_hint);
     /*todo: move if archive_recursion_depth >= config.max_archive_recursion.0 {
         let s = format!("{}[rga: max archive recursion reached]", line_prefix).into_bytes();
@@ -139,12 +140,12 @@ fn compute_cache_key(
         bincode::serialize(&key).context("could not serialize path")
     }
 }
-async fn run_adapter_recursively<'a>(
-    ai: AdaptInfo<'a>,
+async fn run_adapter_recursively(
+    ai: AdaptInfo,
     adapter: Rc<dyn FileAdapter>,
     detection_reason: FileMatcher,
     active_adapters: ActiveAdapters,
-) -> Result<ReadBox<'a>> {
+) -> Result<ReadBox> {
     let AdaptInfo {
         filepath_hint,
         is_real_file,
@@ -206,7 +207,7 @@ async fn run_adapter_recursively<'a>(
                     )
                 })?;
             let inp = concat_read_streams(inp);
-            let inp = CachingReader::new(
+            let inp = async_read_and_write_to_cache(
                 inp,
                 cache_max_blob_len.0.try_into().unwrap(),
                 cache_compression_level.0.try_into().unwrap(),

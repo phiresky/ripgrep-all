@@ -15,7 +15,7 @@ pub fn test_data_dir() -> PathBuf {
     d
 }
 
-pub fn simple_adapt_info<'a>(filepath: &Path, inp: ReadBox<'a>) -> (AdaptInfo<'a>, FileMatcher) {
+pub fn simple_adapt_info<'a>(filepath: &Path, inp: ReadBox) -> (AdaptInfo, FileMatcher) {
     (
         AdaptInfo {
             filepath_hint: filepath.to_owned(),

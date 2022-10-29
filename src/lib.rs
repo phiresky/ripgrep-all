@@ -13,7 +13,6 @@ pub mod recurse;
 pub mod test_utils;
 use anyhow::Context;
 use anyhow::Result;
-pub use caching_writer::CachingReader;
 use directories_next::ProjectDirs;
 use std::time::Instant;
 

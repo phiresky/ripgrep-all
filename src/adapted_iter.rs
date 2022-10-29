@@ -1,24 +1,24 @@
 use crate::adapters::AdaptInfo;
 
 // TODO: using iterator trait possible?? should basically be Iterator<AdaptInfo>
-pub trait AdaptedFilesIter {
+pub trait AdaptedFilesIter: Send {
     // next takes a 'a-lived reference and returns an AdaptInfo that lives as long as the reference
-    fn next<'a>(&'a mut self) -> Option<AdaptInfo<'a>>;
+    fn next<'a>(&'a mut self) -> Option<AdaptInfo>;
 }
 
 /// A single AdaptInfo
-pub struct SingleAdaptedFileAsIter<'a> {
-    ai: Option<AdaptInfo<'a>>,
+pub struct SingleAdaptedFileAsIter {
+    ai: Option<AdaptInfo>,
 }
-impl SingleAdaptedFileAsIter<'_> {
-    pub fn new<'a>(ai: AdaptInfo<'a>) -> SingleAdaptedFileAsIter<'a> {
+impl SingleAdaptedFileAsIter {
+    pub fn new<'a>(ai: AdaptInfo) -> SingleAdaptedFileAsIter {
         SingleAdaptedFileAsIter { ai: Some(ai) }
     }
 }
-impl AdaptedFilesIter for SingleAdaptedFileAsIter<'_> {
-    fn next<'a>(&'a mut self) -> Option<AdaptInfo<'a>> {
+impl AdaptedFilesIter for SingleAdaptedFileAsIter {
+    fn next<'a>(&'a mut self) -> Option<AdaptInfo> {
         self.ai.take()
     }
 }
 
-pub type AdaptedFilesIterBox<'a> = Box<dyn AdaptedFilesIter + 'a>;
+pub type AdaptedFilesIterBox = Box<dyn AdaptedFilesIter>;

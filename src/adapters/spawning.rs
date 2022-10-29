@@ -2,15 +2,17 @@ use crate::adapted_iter::SingleAdaptedFileAsIter;
 
 use super::*;
 use anyhow::Result;
+use async_stream::{stream, AsyncStream};
+use bytes::{Buf, Bytes};
 use log::*;
+use tokio_util::io::StreamReader;
 
 use crate::adapters::FileAdapter;
 use std::future::Future;
 use std::path::Path;
 use std::process::{ExitStatus, Stdio};
-use std::task::Poll;
 use tokio::io::AsyncReadExt;
-use tokio::process::Command;
+use tokio::process::{Child, Command};
 
 // TODO: don't separate the trait and the struct
 pub trait SpawningFileAdapterTrait: GetMetadata {
@@ -52,46 +54,38 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
 
 /** waits for a process to finish, returns an io error if the process failed */
 struct ProcWaitReader {
-    proce: Pin<Box<dyn Future<Output = std::io::Result<ExitStatus>>>>,
+    process: Option<Child>,
+    future: Option<Pin<Box<dyn Future<Output = std::io::Result<ExitStatus>>>>>,
 }
-impl AsyncRead for ProcWaitReader {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        _buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        match self.proce.as_mut().poll(cx) {
-            std::task::Poll::Ready(x) => {
-                let x = x?;
-                if x.success() {
-                    Poll::Ready(std::io::Result::Ok(()))
-                } else {
-                    Poll::Ready(Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format_err!("subprocess failed: {:?}", x),
-                    )))
-                }
-            }
-            Poll::Pending => std::task::Poll::Pending,
+impl ProcWaitReader {
+    fn new(cmd: Child) -> ProcWaitReader {
+        ProcWaitReader {
+            process: Some(cmd),
+            future: None,
         }
-        /*let status = self.proce.wait();
-        if status.success() {
-            std::io::Result::Ok(0)
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format_err!("subprocess failed: {:?}", status),
-            ))
-        }*/
     }
+}
+fn proc_wait(mut child: Child) -> impl AsyncRead {
+    let s = stream! {
+        let res = child.wait().await?;
+        if res.success() {
+            yield std::io::Result::Ok(Bytes::new());
+        } else {
+            yield std::io::Result::Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format_err!("subprocess failed: {:?}", res),
+            ));
+        }
+    };
+    StreamReader::new(s)
 }
 pub fn pipe_output<'a>(
     _line_prefix: &str,
     mut cmd: Command,
-    inp: ReadBox<'a>,
+    inp: ReadBox,
     exe_name: &str,
     help: &str,
-) -> Result<ReadBox<'a>> {
+) -> Result<ReadBox> {
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -100,21 +94,19 @@ pub fn pipe_output<'a>(
     let mut stdi = cmd.stdin.take().expect("is piped");
     let stdo = cmd.stdout.take().expect("is piped");
 
-    tokio::task::spawn_local(async move {
-        tokio::io::copy(&mut inp, &mut stdi).await;
+    tokio::spawn(async move {
+        let mut z = inp;
+        tokio::io::copy(&mut z, &mut stdi).await;
     });
-
-    Ok(Box::pin(stdo.chain(ProcWaitReader {
-        proce: Box::pin(cmd.wait()),
-    })))
+    Ok(Box::pin(stdo.chain(proc_wait(cmd))))
 }
 
 impl FileAdapter for SpawningFileAdapter {
     fn adapt<'a>(
         &self,
-        ai: AdaptInfo<'a>,
+        ai: AdaptInfo,
         _detection_reason: &FileMatcher,
-    ) -> Result<AdaptedFilesIterBox<'a>> {
+    ) -> Result<AdaptedFilesIterBox> {
         let AdaptInfo {
             filepath_hint,
             inp,
