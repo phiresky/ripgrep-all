@@ -1,4 +1,3 @@
-use crate::adapted_iter::SingleAdaptedFileAsIter;
 
 use super::*;
 use anyhow::Result;
@@ -124,7 +123,7 @@ impl FileAdapter for SpawningFileAdapter {
             .with_context(|| format!("Could not set cmd arguments for {}", self.inner.get_exe()))?;
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, self.inner.get_exe(), "")?;
-        Ok(Box::new(SingleAdaptedFileAsIter::new(AdaptInfo {
+        Ok(Box::new(tokio_stream::once(AdaptInfo {
             filepath_hint: PathBuf::from(format!("{}.txt", filepath_hint.to_string_lossy())), // TODO: customizable
             inp: output,
             line_prefix,

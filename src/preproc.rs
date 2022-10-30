@@ -1,4 +1,4 @@
-use crate::adapted_iter::AdaptedFilesIterBox;
+use crate::adapted_iter::{AdaptedFilesIter, AdaptedFilesIterBox};
 use crate::adapters::*;
 use crate::caching_writer::async_read_and_write_to_cache;
 use crate::config::RgaConfig;
@@ -10,6 +10,7 @@ use crate::{
 };
 use anyhow::*;
 use async_compression::tokio::bufread::ZstdDecoder;
+use async_stream::stream;
 use log::*;
 use path_clean::PathClean;
 // use postproc::PostprocPrefix;
@@ -209,9 +210,21 @@ fn loop_adapt(
     ai: AdaptInfo,
 ) -> anyhow::Result<AdaptedFilesIterBox> {
     let fph = ai.filepath_hint.clone();
-    let inp = adapter
-        .adapt(ai, &detection_reason)
-        .with_context(|| format!("adapting {} via {} failed", fph.to_string_lossy(), adapter.metadata().name))?;
+    let inp = adapter.adapt(ai, &detection_reason).with_context(|| {
+        format!(
+            "adapting {} via {} failed",
+            fph.to_string_lossy(),
+            adapter.metadata().name
+        )
+    })?;
 
+    let s = stream! {
+        for await file in inp {
+            let (adapter, detection_reason) = choose_adapter(file.config, file.filepath_hint,file.archive_recursion_depth, file.inp);
+            for file in loop_adapt(adapter, detection_reason, file) {
+                yield file;
+            }
+        }
+    };
     Ok(inp)
 }
