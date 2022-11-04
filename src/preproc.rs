@@ -52,7 +52,12 @@ async fn choose_adapter(
     Ok(adapter.map(|e| (e.0, e.1, active_adapters)))
 }
 
-async fn buf_choose_adapter(ai: AdaptInfo) -> Result<(AdaptInfo, Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>)> {
+async fn buf_choose_adapter(
+    ai: AdaptInfo,
+) -> Result<(
+    AdaptInfo,
+    Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>,
+)> {
     let mut inp = BufReader::with_capacity(1 << 16, ai.inp);
     let adapter = choose_adapter(
         &ai.config,
@@ -111,14 +116,9 @@ pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
         return handle_no_adapter(ai).map(|ai| ai.inp);
     };
     let path_hint_copy = ai.filepath_hint.clone();
-    adapt_caching(
-        ai,
-        adapter,
-        detection_reason,
-        active_adapters,
-    )
-    .await
-    .with_context(|| format!("run_adapter({})", &path_hint_copy.to_string_lossy()))
+    adapt_caching(ai, adapter, detection_reason, active_adapters)
+        .await
+        .with_context(|| format!("run_adapter({})", &path_hint_copy.to_string_lossy()))
 }
 
 fn compute_cache_key(
