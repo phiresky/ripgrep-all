@@ -4,6 +4,7 @@ pub mod custom;
 // pub mod postproc;
 // pub mod pdfpages;
 pub mod spawning;
+use std::sync::Arc;
 // pub mod sqlite;
 // pub mod tar;
 // pub mod tesseract;
@@ -22,6 +23,7 @@ use std::iter::Iterator;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
+use core::fmt::Debug;
 
 pub type ReadBox = Pin<Box<dyn AsyncRead + Send>>;
 pub struct AdapterMeta {
@@ -76,7 +78,7 @@ impl AdapterMeta {
 pub trait GetMetadata {
     fn metadata(&self) -> &AdapterMeta;
 }
-pub trait FileAdapter: GetMetadata {
+pub trait FileAdapter: GetMetadata + Send + Sync{
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
@@ -99,22 +101,22 @@ pub struct AdaptInfo {
     /// prefix every output line with this string to better indicate the file's location if it is in some archive
     pub line_prefix: String,
     pub postprocess: bool,
-    pub config: RgaConfig
+    pub config: RgaConfig,
 }
 
 /// (enabledAdapters, disabledAdapters)
-type AdaptersTuple = (Vec<Rc<dyn FileAdapter>>, Vec<Rc<dyn FileAdapter>>);
+type AdaptersTuple = (Vec<Arc<dyn FileAdapter>>, Vec<Arc<dyn FileAdapter>>);
 
 pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
     // order in descending priority
-    let mut adapters: Vec<Rc<dyn FileAdapter>> = vec![];
+    let mut adapters: Vec<Arc<dyn FileAdapter>> = vec![];
     if let Some(custom_adapters) = custom_adapters {
         for adapter_config in custom_adapters {
-            adapters.push(Rc::new(adapter_config.to_adapter()));
+            adapters.push(Arc::new(adapter_config.to_adapter()));
         }
     }
 
-    let internal_adapters: Vec<Rc<dyn FileAdapter>> = vec![
+    let internal_adapters: Vec<Arc<dyn FileAdapter>> = vec![
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
         // Rc::new(zip::ZipAdapter::new()),
         //Rc::new(decompress::DecompressAdapter::new()),
@@ -126,7 +128,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
     adapters.extend(
         builtin_spawning_adapters
             .iter()
-            .map(|e| -> Rc<dyn FileAdapter> { Rc::new(e.to_adapter()) }),
+            .map(|e| -> Arc<dyn FileAdapter> { Arc::new(e.to_adapter()) }),
     );
     adapters.extend(internal_adapters);
 
@@ -146,7 +148,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
 pub fn get_adapters_filtered<T: AsRef<str>>(
     custom_adapters: Option<Vec<CustomAdapterConfig>>,
     adapter_names: &Vec<T>,
-) -> Result<Vec<Rc<dyn FileAdapter>>> {
+) -> Result<Vec<Arc<dyn FileAdapter>>> {
     let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters

@@ -9,7 +9,7 @@ use regex::{Regex, RegexSet};
 
 use std::iter::Iterator;
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 // match only based on file path
 #[derive(Clone, Debug)]
@@ -54,9 +54,9 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 }
 
 pub fn adapter_matcher(
-    adapters: &Vec<Rc<dyn FileAdapter>>,
+    adapters: &Vec<Arc<dyn FileAdapter>>,
     slow: bool,
-) -> Result<impl Fn(FileMeta) -> Option<(Rc<dyn FileAdapter>, FileMatcher)>> {
+) -> Result<impl Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)>> {
     // need order later
     let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
     let mut fname_regexes = vec![];

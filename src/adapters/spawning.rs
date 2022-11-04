@@ -14,7 +14,7 @@ use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
 
 // TODO: don't separate the trait and the struct
-pub trait SpawningFileAdapterTrait: GetMetadata {
+pub trait SpawningFileAdapterTrait: GetMetadata + Send + Sync {
     fn get_exe(&self) -> &str;
     fn command(&self, filepath_hint: &Path, command: Command) -> Result<Command>;
 }
@@ -123,7 +123,7 @@ impl FileAdapter for SpawningFileAdapter {
             .with_context(|| format!("Could not set cmd arguments for {}", self.inner.get_exe()))?;
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, self.inner.get_exe(), "")?;
-        Ok(Box::new(tokio_stream::once(AdaptInfo {
+        Ok(Box::pin(tokio_stream::once(AdaptInfo {
             filepath_hint: PathBuf::from(format!("{}.txt", filepath_hint.to_string_lossy())), // TODO: customizable
             inp: output,
             line_prefix,

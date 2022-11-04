@@ -15,7 +15,7 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
     let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters.clone());
 
     println!("Adapters:\n");
-    let print = |adapter: std::rc::Rc<dyn FileAdapter>| {
+    let print = |adapter: std::rc::Arc<dyn FileAdapter>| {
         let meta = adapter.metadata();
         let matchers = meta
             .fast_matchers

@@ -13,6 +13,7 @@ use async_compression::tokio::bufread::ZstdDecoder;
 use async_stream::stream;
 use log::*;
 use path_clean::PathClean;
+use std::sync::Arc;
 // use postproc::PostprocPrefix;
 use std::convert::TryInto;
 use std::io::Cursor;
@@ -21,16 +22,14 @@ use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 
-use std::rc::Rc;
-
-type ActiveAdapters = Vec<Rc<dyn FileAdapter>>;
+type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
 
 async fn choose_adapter(
     config: &RgaConfig,
     filepath_hint: &Path,
     archive_recursion_depth: i32,
     inp: &mut (impl AsyncBufRead + Unpin),
-) -> Result<Option<(Rc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>> {
+) -> Result<Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>> {
     let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
     let adapters = adapter_matcher(&active_adapters, config.accurate)?;
     let filename = filepath_hint
@@ -52,6 +51,46 @@ async fn choose_adapter(
     });
     Ok(adapter.map(|e| (e.0, e.1, active_adapters)))
 }
+
+async fn buf_choose_adapter(ai: AdaptInfo) -> Result<(AdaptInfo, Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>)> {
+    let mut inp = BufReader::with_capacity(1 << 16, ai.inp);
+    let adapter = choose_adapter(
+        &ai.config,
+        &ai.filepath_hint,
+        ai.archive_recursion_depth,
+        &mut inp,
+    )
+    .await?;
+    let ai = AdaptInfo {
+        inp: Box::pin(inp),
+        ..ai
+    };
+    Ok((ai, adapter))
+}
+
+fn handle_no_adapter(ai: AdaptInfo) -> Result<AdaptInfo> {
+    // allow passthrough if the file is in an archive or accurate matching is enabled
+    // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
+    let allow_cat = !ai.is_real_file || ai.config.accurate;
+    if allow_cat {
+        if ai.postprocess {
+            panic!("not implemented");
+            /*  (
+                Rc::new(PostprocPrefix {}) as Arc<dyn FileAdapter>,
+                FileMatcher::Fast(FastFileMatcher::FileExtension("default".to_string())), // todo: separate enum value for this
+            )*/
+        } else {
+            return Ok(ai);
+        }
+    } else {
+        return Err(format_err!(
+            "No adapter found for file {:?}, passthrough disabled.",
+            ai.filepath_hint
+                .file_name()
+                .ok_or_else(|| format_err!("Empty filename"))?
+        ));
+    }
+}
 /**
  * preprocess a file as defined in `ai`.
  *
@@ -67,46 +106,13 @@ pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
 
     // todo: figure out when using a bufreader is a good idea and when it is not
     // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
-    let mut inp = BufReader::with_capacity(1 << 16, ai.inp);
-    let adapter = choose_adapter(
-        &ai.config,
-        &ai.filepath_hint,
-        ai.archive_recursion_depth,
-        &mut inp,
-    )
-    .await?;
-    let (adapter, detection_reason, active_adapters) = match adapter {
-        Some((a, d, e)) => (a, d, e),
-        None => {
-            // allow passthrough if the file is in an archive or accurate matching is enabled
-            // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
-            let allow_cat = !ai.is_real_file || ai.config.accurate;
-            if allow_cat {
-                if ai.postprocess {
-                    panic!("not implemented");
-                    /*  (
-                        Rc::new(PostprocPrefix {}) as Rc<dyn FileAdapter>,
-                        FileMatcher::Fast(FastFileMatcher::FileExtension("default".to_string())), // todo: separate enum value for this
-                    )*/
-                } else {
-                    return Ok(Box::pin(inp));
-                }
-            } else {
-                return Err(format_err!(
-                    "No adapter found for file {:?}, passthrough disabled.",
-                    ai.filepath_hint
-                        .file_name()
-                        .ok_or_else(|| format_err!("Empty filename"))?
-                ));
-            }
-        }
+    let (ai, adapter) = buf_choose_adapter(ai).await?;
+    let Some((adapter, detection_reason, active_adapters)) = adapter else {
+        return handle_no_adapter(ai).map(|ai| ai.inp);
     };
     let path_hint_copy = ai.filepath_hint.clone();
-    run_adapter_recursively(
-        AdaptInfo {
-            inp: Box::pin(inp),
-            ..ai
-        },
+    adapt_caching(
+        ai,
         adapter,
         detection_reason,
         active_adapters,
@@ -144,9 +150,10 @@ fn compute_cache_key(
         bincode::serialize(&key).context("could not serialize path")
     }
 }
-async fn run_adapter_recursively(
+
+async fn adapt_caching(
     ai: AdaptInfo,
-    adapter: Rc<dyn FileAdapter>,
+    adapter: Arc<dyn FileAdapter>,
     detection_reason: FileMatcher,
     active_adapters: ActiveAdapters,
 ) -> Result<ReadBox> {
@@ -220,11 +227,15 @@ fn loop_adapt(
 
     let s = stream! {
         for await file in inp {
-            let (adapter, detection_reason) = choose_adapter(file.config, file.filepath_hint,file.archive_recursion_depth, file.inp);
-            for file in loop_adapt(adapter, detection_reason, file) {
-                yield file;
+            let (file, chosen_adapter) = buf_choose_adapter(file).await.expect("todo: handle");
+            if let Some((adapter, detection_reason, active_adapters)) = chosen_adapter {
+                for await file in loop_adapt(adapter.as_ref(), detection_reason, file).expect("todo: handle") {
+                    yield file;
+                }
+            } else {
+                yield handle_no_adapter(file).expect("todo: handle");
             }
         }
     };
-    Ok(inp)
+    Ok(Box::pin(s))
 }
