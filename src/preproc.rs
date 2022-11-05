@@ -14,7 +14,7 @@ use async_stream::stream;
 use log::*;
 use path_clean::PathClean;
 use std::sync::Arc;
-// use postproc::PostprocPrefix;
+use postproc::PostprocPrefix;
 use std::convert::TryInto;
 use std::io::Cursor;
 use std::path::Path;
@@ -52,12 +52,11 @@ async fn choose_adapter(
     Ok(adapter.map(|e| (e.0, e.1, active_adapters)))
 }
 
-async fn buf_choose_adapter(
-    ai: AdaptInfo,
-) -> Result<(
-    AdaptInfo,
-    Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>,
-)> {
+enum Ret {
+    Recurse(AdaptInfo, Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters),
+    Passthrough(AdaptInfo),
+}
+async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
     let mut inp = BufReader::with_capacity(1 << 16, ai.inp);
     let adapter = choose_adapter(
         &ai.config,
@@ -66,36 +65,39 @@ async fn buf_choose_adapter(
         &mut inp,
     )
     .await?;
+    let (a, b, c) = match adapter {
+        Some(x) => x,
+        None => {
+            // allow passthrough if the file is in an archive or accurate matching is enabled
+            // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
+            let allow_cat = !ai.is_real_file || ai.config.accurate;
+            if allow_cat {
+                if ai.postprocess {
+                    (
+                        Arc::new(PostprocPrefix {}) as Arc<dyn FileAdapter>,
+                        FileMatcher::Fast(FastFileMatcher::FileExtension("default".to_string())),
+                        Vec::new(),
+                    )
+                } else {
+                    return Ok(Ret::Passthrough(ai));
+                }
+            } else {
+                return Err(format_err!(
+                    "No adapter found for file {:?}, passthrough disabled.",
+                    ai.filepath_hint
+                        .file_name()
+                        .ok_or_else(|| format_err!("Empty filename"))?
+                ));
+            }
+        }
+    };
     let ai = AdaptInfo {
         inp: Box::pin(inp),
         ..ai
     };
-    Ok((ai, adapter))
+    Ok(Ret::Recurse(ai, a, b, c))
 }
 
-fn handle_no_adapter(ai: AdaptInfo) -> Result<AdaptInfo> {
-    // allow passthrough if the file is in an archive or accurate matching is enabled
-    // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
-    let allow_cat = !ai.is_real_file || ai.config.accurate;
-    if allow_cat {
-        if ai.postprocess {
-            panic!("not implemented");
-            /*  (
-                Rc::new(PostprocPrefix {}) as Arc<dyn FileAdapter>,
-                FileMatcher::Fast(FastFileMatcher::FileExtension("default".to_string())), // todo: separate enum value for this
-            )*/
-        } else {
-            return Ok(ai);
-        }
-    } else {
-        return Err(format_err!(
-            "No adapter found for file {:?}, passthrough disabled.",
-            ai.filepath_hint
-                .file_name()
-                .ok_or_else(|| format_err!("Empty filename"))?
-        ));
-    }
-}
 /**
  * preprocess a file as defined in `ai`.
  *
@@ -111,9 +113,11 @@ pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
 
     // todo: figure out when using a bufreader is a good idea and when it is not
     // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
-    let (ai, adapter) = buf_choose_adapter(ai).await?;
-    let Some((adapter, detection_reason, active_adapters)) = adapter else {
-        return handle_no_adapter(ai).map(|ai| ai.inp);
+    let (ai, adapter, detection_reason, active_adapters) = match buf_choose_adapter(ai).await? {
+        Ret::Recurse(ai, a, b, c) => (ai, a, b, c),
+        Ret::Passthrough(ai) => {
+            return Ok(ai.inp);
+        }
     };
     let path_hint_copy = ai.filepath_hint.clone();
     adapt_caching(ai, adapter, detection_reason, active_adapters)
@@ -227,13 +231,15 @@ fn loop_adapt(
 
     let s = stream! {
         for await file in inp {
-            let (file, chosen_adapter) = buf_choose_adapter(file).await.expect("todo: handle");
-            if let Some((adapter, detection_reason, active_adapters)) = chosen_adapter {
-                for await file in loop_adapt(adapter.as_ref(), detection_reason, file).expect("todo: handle") {
-                    yield file;
+            match buf_choose_adapter(file).await.expect("todo: handle") {
+                Ret::Recurse(ai, adapter, detection_reason, active_adapters) => {
+                    for await file in loop_adapt(adapter.as_ref(), detection_reason, file).expect("todo: handle") {
+                        yield file;
+                    }
                 }
-            } else {
-                yield handle_no_adapter(file).expect("todo: handle");
+                Ret::Passthrough(ai) => {
+                    yield ai;
+                }
             }
         }
     };
