@@ -1,7 +1,7 @@
 pub mod custom;
 // pub mod decompress;
 // pub mod ffmpeg;
-// pub mod postproc;
+pub mod postproc;
 // pub mod pdfpages;
 pub mod spawning;
 use std::sync::Arc;

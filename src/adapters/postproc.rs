@@ -4,111 +4,24 @@
 
 use anyhow::Context;
 use anyhow::Result;
+use bytes::Bytes;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use tokio::io::AsyncRead;
-
+use tokio::io::{AsyncRead, AsyncReadExt};
+use async_stream::stream;
+use tokio_util::io::ReaderStream;
+use tokio_util::io::StreamReader;
+use std::io::Cursor;
+use std::pin::Pin;
 use std::{
     cmp::min,
 };
 
-use crate::adapted_iter::{AdaptedFilesIterBox, SingleAdaptedFileAsIter};
+use crate::adapted_iter::{AdaptedFilesIterBox};
 
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 
-/** pass through, except adding \n at the end */
-pub struct EnsureEndsWithNewline<R: AsyncRead> {
-    inner: R,
-    added_newline: bool,
-}
-impl<R: AsyncRead> EnsureEndsWithNewline<R> {
-    pub fn new(r: R) -> EnsureEndsWithNewline<R> {
-        EnsureEndsWithNewline {
-            inner: r,
-            added_newline: false,
-        }
-    }
-}
-impl<R: AsyncRead> AsyncRead for EnsureEndsWithNewline<R> {
-    fn poll_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self.inner.read(buf) {
-            Ok(0) => {
-                if self.added_newline {
-                    Ok(0)
-                } else {
-                    buf[0] = b'\n';
-                    self.added_newline = true;
-                    Ok(1)
-                }
-            }
-            Ok(n) => Ok(n),
-            Err(e) => Err(e),
-        }
-    }
-}
-struct ByteReplacer<R>
-where
-    R:AsyncRead,
-{
-    inner: R,
-    next_read: Vec<u8>,
-    replacer: Box<dyn FnMut(u8) -> Vec<u8>>,
-    haystacker: Box<dyn Fn(&[u8]) -> Option<usize>>,
-}
-
-impl<R> ByteReplacer<R>
-where
-    R: AsyncRead,
-{
-    fn output_next(&mut self, buf: &mut [u8], buf_valid_until: usize, replacement: &[u8]) -> usize {
-        let after_part1 = Vec::from(&buf[1..buf_valid_until]);
-
-        /*let mut after_part = Vec::with_capacity(replacement.len() + replaced_len);
-        after_part.extend_from_slice(replacement);
-        after_part.extend_from_slice(&buf[..replaced_len]);*/
-
-        let writeable_count = min(buf.len(), replacement.len());
-        buf[..writeable_count].copy_from_slice(&replacement[0..writeable_count]);
-
-        let after_rep = &replacement[writeable_count..];
-        let mut ov = Vec::new();
-        ov.extend_from_slice(&after_rep);
-        ov.extend_from_slice(&after_part1);
-        ov.extend_from_slice(&self.next_read);
-        self.next_read = ov;
-
-        return writeable_count;
-    }
-}
-
-impl<R> AsyncRead for ByteReplacer<R>
-where
-    R: AsyncRead,
-{
-    fn poll_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let read = if self.next_read.len() > 0 {
-            let count = std::cmp::min(self.next_read.len(), buf.len());
-            buf[0..count].copy_from_slice(&self.next_read[0..count]);
-            self.next_read.drain(0..count).count();
-            Ok(count)
-        } else {
-            self.inner.read(buf)
-        };
-
-        match read {
-            Ok(u) => {
-                match (self.haystacker)(&buf[0..u]) {
-                    Some(i) => {
-                        let data = (self.replacer)(buf[i]);
-
-                        Ok(i + self.output_next(&mut buf[i..], u - i, &data))
-                    }
-                    None => Ok(u),
-                }
-                // todo: use memchr2?
-            }
-            Err(e) => Err(e),
-        }
-    }
+fn add_newline(ar: impl AsyncRead + Send) -> impl AsyncRead + Send {
+    ar.chain(Cursor::new(&[b'\n']))
 }
 
 pub struct PostprocPrefix {}
@@ -132,20 +45,20 @@ impl GetMetadata for PostprocPrefix {
 impl FileAdapter for PostprocPrefix {
     fn adapt<'a>(
         &self,
-        a: super::AdaptInfo<'a>,
+        a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
-    ) -> Result<AdaptedFilesIterBox<'a>> {
-        let read = EnsureEndsWithNewline::new(postproc_prefix(
+    ) -> Result<AdaptedFilesIterBox> {
+        let read = add_newline(postproc_prefix(
             &a.line_prefix,
             postproc_encoding(&a.line_prefix, a.inp)?,
         ));
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
-            inp: Box::new(read),
+            inp: Box::pin(read),
             postprocess: false,
             ..a
         };
-        Ok(Box::new(SingleAdaptedFileAsIter::new(ai)))
+        Ok(Box::pin(tokio_stream::once(ai)))
     }
 }
 
@@ -158,11 +71,13 @@ impl Read for ReadErr {
     }
 }*/
 
-pub fn postproc_encoding<'a, R: AsyncRead + 'a>(
+pub fn postproc_encoding(
     line_prefix: &str,
-    inp: R,
-) -> Result<Box<dyn AsyncRead + 'a>> {
-    // TODO: parse these options from ripgrep's configuration
+    inp: impl AsyncRead + Send + 'static,
+) -> Result<Pin<Box<dyn AsyncRead + Send>>> {
+    Ok(Box::pin(inp))
+    // panic!("todo: implement");
+    /*// TODO: parse these options from ripgrep's configuration
     let encoding = None; // detect bom but usually assume utf8
     let bom_sniffing = true;
     let mut decode_builder = DecodeReaderBytesBuilder::new();
@@ -199,24 +114,39 @@ pub fn postproc_encoding<'a, R: AsyncRead + 'a>(
     }
     Ok(Box::new(
         std::io::Cursor::new(fourk).chain(beginning.into_inner()),
-    ))
+    ))*/
 }
 
-pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead) -> impl AsyncRead {
-    let line_prefix = line_prefix.to_string(); // clone since we need it later
-    ByteReplacer {
-        inner: inp,
-        next_read: format!("{}", line_prefix).into_bytes(),
-        haystacker: Box::new(|buf| memchr::memchr(b'\n', buf)),
-        replacer: Box::new(move |_| format!("\n{}", line_prefix).into_bytes()),
-    }
+pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl AsyncRead + Send {
+    let line_prefix_n = format!("\n{}", line_prefix); // clone since we need it later
+    let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
+    let regex = regex::bytes::Regex::new("\n").unwrap();
+    let mut inp_stream = ReaderStream::new(inp);
+    let oup_stream = stream! {
+        yield Ok(line_prefix_o);
+        for await chunk in inp_stream {
+            match chunk {
+                Err(e) => yield Err(e),
+                Ok(chunk) => {
+                    if chunk.contains(&b'\n') {
+                        yield Ok(Bytes::copy_from_slice(&regex.replace_all(&chunk, line_prefix_n.as_bytes())));
+                    } else {
+                        yield Ok(chunk);
+                    }
+                }
+            }
+        }
+    };
+    StreamReader::new(oup_stream)
 }
 
 pub fn postproc_pagebreaks(line_prefix: &str, inp: impl AsyncRead) -> impl AsyncRead {
     let line_prefix = line_prefix.to_string(); // clone since
     let mut page_count = 1;
 
-    ByteReplacer {
+    panic!("todo!");
+    tokio::io::empty()
+    /*ByteReplacer {
         inner: inp,
         next_read: format!("{}Page {}:", line_prefix, page_count).into_bytes(),
         haystacker: Box::new(|buf| memchr::memchr2(b'\n', b'\x0c', buf)),
@@ -228,26 +158,29 @@ pub fn postproc_pagebreaks(line_prefix: &str, inp: impl AsyncRead) -> impl Async
             }
             _ => b"[[imposs]]".to_vec(),
         }),
-    }
+    }*/
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use anyhow::Result;
+    use tokio::pin;
     use std::io::Read;
 
-    fn test_from_strs(pagebreaks: bool, line_prefix: &str, a: &str, b: &str) -> Result<()> {
-        test_from_bytes(pagebreaks, line_prefix, a.as_bytes(), b)
+    async fn test_from_strs(pagebreaks: bool, line_prefix: &str, a: &'static str, b: &str) -> Result<()> {
+        test_from_bytes(pagebreaks, line_prefix, a.as_bytes(), b).await
     }
 
-    fn test_from_bytes(pagebreaks: bool, line_prefix: &str, a: &[u8], b: &str) -> Result<()> {
+    async fn test_from_bytes(pagebreaks: bool, line_prefix: &str, a: &'static [u8], b: &str) -> Result<()> {
         let mut oup = Vec::new();
         let inp = postproc_encoding("", a)?;
         if pagebreaks {
-            postproc_pagebreaks(line_prefix, inp).read_to_end(&mut oup)?;
+            postproc_pagebreaks(line_prefix, inp).read_to_end(&mut oup).await?;
         } else {
-            postproc_prefix(line_prefix, inp).read_to_end(&mut oup)?;
+            let x = postproc_prefix(line_prefix, inp);
+            pin!(x);
+            x.read_to_end(&mut oup).await?;
         }
         let c = String::from_utf8_lossy(&oup);
         if b != c {
@@ -262,32 +195,32 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn post1() -> Result<()> {
+    #[tokio::test]
+    async fn post1() -> Result<()> {
         let inp = "What is this\nThis is a test\nFoo";
         let oup = "Page 1:What is this\nPage 1:This is a test\nPage 1:Foo";
 
-        test_from_strs(true, "", inp, oup)?;
+        test_from_strs(true, "", inp, oup).await?;
 
         println!("\n\n\n\n");
 
         let inp = "What is this\nThis is a test\nFoo\x0c\nHelloooo\nHow are you?\x0c\nGreat!";
         let oup = "Page 1:What is this\nPage 1:This is a test\nPage 1:Foo\nPage 2:\nPage 2:Helloooo\nPage 2:How are you?\nPage 3:\nPage 3:Great!";
 
-        test_from_strs(true, "", inp, oup)?;
+        test_from_strs(true, "", inp, oup).await?;
 
         let inp = "What is this\nThis is a test\nFoo\x0c\nHelloooo\nHow are you?\x0c\nGreat!";
         let oup = "foo.pdf:What is this\nfoo.pdf:This is a test\nfoo.pdf:Foo\x0c\nfoo.pdf:Helloooo\nfoo.pdf:How are you?\x0c\nfoo.pdf:Great!";
 
-        test_from_strs(false, "foo.pdf:", inp, oup)?;
+        test_from_strs(false, "foo.pdf:", inp, oup).await?;
 
         test_from_strs(
             false,
             "foo:",
             "this is a test \n\n \0 foo",
             "foo:[rga: binary data]",
-        )?;
-        test_from_strs(false, "foo:", "\0", "foo:[rga: binary data]")?;
+        ).await?;
+        test_from_strs(false, "foo:", "\0", "foo:[rga: binary data]").await?;
 
         Ok(())
     }

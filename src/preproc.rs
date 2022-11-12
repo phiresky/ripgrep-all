@@ -65,6 +65,10 @@ async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
         &mut inp,
     )
     .await?;
+    let ai = AdaptInfo {
+        inp: Box::pin(inp),
+        ..ai
+    };
     let (a, b, c) = match adapter {
         Some(x) => x,
         None => {
@@ -90,10 +94,6 @@ async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
                 ));
             }
         }
-    };
-    let ai = AdaptInfo {
-        inp: Box::pin(inp),
-        ..ai
     };
     Ok(Ret::Recurse(ai, a, b, c))
 }
@@ -215,7 +215,7 @@ async fn adapt_caching(
     }
 }
 
-fn loop_adapt(
+pub fn loop_adapt(
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
@@ -233,8 +233,8 @@ fn loop_adapt(
         for await file in inp {
             match buf_choose_adapter(file).await.expect("todo: handle") {
                 Ret::Recurse(ai, adapter, detection_reason, active_adapters) => {
-                    for await file in loop_adapt(adapter.as_ref(), detection_reason, file).expect("todo: handle") {
-                        yield file;
+                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).expect("todo: handle") {
+                        yield ifile;
                     }
                 }
                 Ret::Passthrough(ai) => {
