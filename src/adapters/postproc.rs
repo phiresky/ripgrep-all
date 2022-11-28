@@ -71,6 +71,10 @@ impl Read for ReadErr {
     }
 }*/
 
+/**
+ * Detects and converts encodings other than utf-8 to utf-8.
+ * If the input stream does not contain valid text, returns the string `[rga: binary data]` instead
+ */
 pub fn postproc_encoding(
     line_prefix: &str,
     inp: impl AsyncRead + Send + 'static,
@@ -117,6 +121,9 @@ pub fn postproc_encoding(
     ))*/
 }
 
+/**
+ * adds the given prefix to each line in a AsyncRead
+ */
 pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl AsyncRead + Send {
     let line_prefix_n = format!("\n{}", line_prefix); // clone since we need it later
     let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
@@ -140,6 +147,11 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
     StreamReader::new(oup_stream)
 }
 
+/**
+ * adds the prefix `Page N:` to each line,
+ * where N starts at one and is incremented for each ASCII Form Feed character in the input stream.
+ * (That's the format output by pdftotext)
+ */
 pub fn postproc_pagebreaks(line_prefix: &str, inp: impl AsyncRead) -> impl AsyncRead {
     let line_prefix = line_prefix.to_string(); // clone since
     let mut page_count = 1;
