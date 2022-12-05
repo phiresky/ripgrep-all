@@ -5,7 +5,7 @@ use ripgrep_all as rga;
 
 use anyhow::Context;
 use log::debug;
-use std::{time::Instant};
+use std::time::Instant;
 use tokio::fs::File;
 
 #[tokio::main]
@@ -20,7 +20,9 @@ async fn main() -> anyhow::Result<()> {
         std::env::current_dir()?.join(&filepath)
     };
 
-    let i = File::open(&path).await.context("Specified input file not found")?;
+    let i = File::open(&path)
+        .await
+        .context("Specified input file not found")?;
     let mut o = tokio::io::stdout();
     let ai = AdaptInfo {
         inp: Box::pin(i),
