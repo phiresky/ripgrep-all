@@ -140,47 +140,49 @@ rga --rga-list-adapters
 Adapters:
 
 -   **ffmpeg**
-    Uses ffmpeg to extract video metadata/chapters and subtitles  
-     Extensions: .mkv, .mp4, .avi
+    Uses ffmpeg to extract video metadata/chapters and subtitles.  
+     Extensions: `.mkv`, `.mp4`, `.avi`
 
 *   **pandoc**
-    Uses pandoc to convert binary/unreadable text documents to plain markdown-like text  
-     Extensions: .epub, .odt, .docx, .fb2, .ipynb
+    Uses pandoc to convert binary/unreadable text documents to plain markdown-like text.  
+     Extensions: `.epub`, `.odt`, `.docx`, `.fb2`, `.ipynb`
 
 -   **poppler**
-    Uses pdftotext (from poppler-utils) to extract plain text from PDF files  
-     Extensions: .pdf  
-     Mime Types: application/pdf
+    Uses pdftotext (from poppler-utils) to extract plain text from PDF files.  
+     Extensions: `.pdf`  
+     Mime Types: `application/pdf`
 
 -   **zip**
-    Reads a zip file as a stream and recurses down into its contents  
-     Extensions: .zip  
-     Mime Types: application/zip
+    Reads a zip file as a stream and recurses down into its contents.  
+     Extensions: `.zip`  
+     Mime Types: `application/zip`
 
 -   **decompress**
     Reads compressed file as a stream and runs a different extractor on the contents.  
-     Extensions: .tgz, .tbz, .tbz2, .gz, .bz2, .xz, .zst  
-     Mime Types: application/gzip, application/x-bzip, application/x-xz, application/zstd
+     Extensions: `.tgz`, `.tbz`, `.tbz2`, `.gz`, `.bz2`, `.xz`, `.zst`  
+     Mime Types: `application/gzip`, `application/x-bzip`, `application/x-xz`, `application/zstd`
 
 -   **tar**
-    Reads a tar file as a stream and recurses down into its contents  
-     Extensions: .tar
+    Reads a tar file as a stream and recurses down into its contents.  
+     Extensions: `.tar`
 
 *   **sqlite**
-    Uses sqlite bindings to convert sqlite databases into a simple plain text format  
-     Extensions: .db, .db3, .sqlite, .sqlite3  
-     Mime Types: application/x-sqlite3
+    Uses sqlite bindings to convert sqlite databases into a simple plain text format.  
+     Extensions: `.db`, `.db3`, `.sqlite`, `.sqlite3`  
+     Mime Types: `application/x-sqlite3`
 
-The following adapters are disabled by default, and can be enabled using '--rga-adapters=+pdfpages,tesseract':
+The following adapters are disabled by default, and can be enabled using `--rga-adapters=+pdfpages,tesseract`:
 
 -   **pdfpages**
-    Converts a pdf to its individual pages as png files. Only useful in combination with tesseract  
-     Extensions: .pdf  
-     Mime Types: application/pdf
+    Converts a pdf to its individual pages as png files. Only useful in combination with tesseract.  
+     Extensions: `.pdf`  
+     Mime Types: `application/pdf`
 
 -   **tesseract**
-    Uses tesseract to run OCR on images to make them searchable. May need -j1 to prevent overloading the system. Make sure you have tesseract installed.  
-     Extensions: .jpg, .png
+    Uses tesseract to run OCR on images to make them searchable.
+    May need `-j1` to prevent overloading the system.
+    Make sure you have tesseract installed.  
+     Extensions: `.jpg`, `.png`
 
 ## USAGE:
 
