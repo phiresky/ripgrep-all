@@ -1,5 +1,5 @@
 use crate::{adapters::custom::CustomAdapterConfig, project_dirs};
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use derive_more::FromStr;
 use log::*;
 use schemars::JsonSchema;
@@ -237,7 +237,7 @@ pub struct CacheConfig {
         default_value,
         long = "--rga-cache-path",
         hidden_short_help = true,
-        require_equals = true,
+        require_equals = true
     )]
     pub path: CachePath,
 }

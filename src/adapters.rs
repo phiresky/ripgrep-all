@@ -17,13 +17,13 @@ use custom::CustomAdapterConfig;
 use log::*;
 use tokio::io::AsyncRead;
 
+use core::fmt::Debug;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::Iterator;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
-use core::fmt::Debug;
 
 pub type ReadBox = Pin<Box<dyn AsyncRead + Send>>;
 pub struct AdapterMeta {
@@ -78,7 +78,7 @@ impl AdapterMeta {
 pub trait GetMetadata {
     fn metadata(&self) -> &AdapterMeta;
 }
-pub trait FileAdapter: GetMetadata + Send + Sync{
+pub trait FileAdapter: GetMetadata + Send + Sync {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher

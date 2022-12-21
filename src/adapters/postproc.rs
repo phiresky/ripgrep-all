@@ -4,19 +4,17 @@
 
 use anyhow::Context;
 use anyhow::Result;
+use async_stream::stream;
 use bytes::Bytes;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use tokio::io::{AsyncRead, AsyncReadExt};
-use async_stream::stream;
-use tokio_util::io::ReaderStream;
-use tokio_util::io::StreamReader;
+use std::cmp::min;
 use std::io::Cursor;
 use std::pin::Pin;
-use std::{
-    cmp::min,
-};
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio_util::io::ReaderStream;
+use tokio_util::io::StreamReader;
 
-use crate::adapted_iter::{AdaptedFilesIterBox};
+use crate::adapted_iter::AdaptedFilesIterBox;
 
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 
@@ -177,18 +175,30 @@ pub fn postproc_pagebreaks(line_prefix: &str, inp: impl AsyncRead) -> impl Async
 mod tests {
     use super::*;
     use anyhow::Result;
-    use tokio::pin;
     use std::io::Read;
+    use tokio::pin;
 
-    async fn test_from_strs(pagebreaks: bool, line_prefix: &str, a: &'static str, b: &str) -> Result<()> {
+    async fn test_from_strs(
+        pagebreaks: bool,
+        line_prefix: &str,
+        a: &'static str,
+        b: &str,
+    ) -> Result<()> {
         test_from_bytes(pagebreaks, line_prefix, a.as_bytes(), b).await
     }
 
-    async fn test_from_bytes(pagebreaks: bool, line_prefix: &str, a: &'static [u8], b: &str) -> Result<()> {
+    async fn test_from_bytes(
+        pagebreaks: bool,
+        line_prefix: &str,
+        a: &'static [u8],
+        b: &str,
+    ) -> Result<()> {
         let mut oup = Vec::new();
         let inp = postproc_encoding("", a)?;
         if pagebreaks {
-            postproc_pagebreaks(line_prefix, inp).read_to_end(&mut oup).await?;
+            postproc_pagebreaks(line_prefix, inp)
+                .read_to_end(&mut oup)
+                .await?;
         } else {
             let x = postproc_prefix(line_prefix, inp);
             pin!(x);
@@ -231,7 +241,8 @@ mod tests {
             "foo:",
             "this is a test \n\n \0 foo",
             "foo:[rga: binary data]",
-        ).await?;
+        )
+        .await?;
         test_from_strs(false, "foo:", "\0", "foo:[rga: binary data]").await?;
 
         Ok(())

@@ -1,5 +1,7 @@
+/result
 /target
 /exampledir.2
 /.idea
+/.pre-commit-config.yaml
 /.vscode/settings.json
 **/*.rs.bk

@@ -17,11 +17,11 @@ use crate::adapters::ReadBox;
  * unless more than max_cache_size bytes is written, then the cache is dropped and it is pure passthrough.
  */
 pub fn async_read_and_write_to_cache<'a>(
-    inp: impl AsyncRead + Send +'a,
+    inp: impl AsyncRead + Send + 'a,
     max_cache_size: usize,
     compression_level: i32,
     on_finish: Box<dyn FnOnce((u64, Option<Vec<u8>>)) -> Result<()> + Send>,
-) -> Result<Pin<Box<dyn AsyncRead + Send +'a>>> {
+) -> Result<Pin<Box<dyn AsyncRead + Send + 'a>>> {
     let inp = Box::pin(inp);
     let mut zstd_writer = Some(ZstdEncoder::with_quality(
         Vec::new(),

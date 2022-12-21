@@ -282,3 +282,15 @@ Also remember to disable caching with `--rga-no-cache` or clear the cache
 (`~/Library/Caches/rga` on macOS, `~/.cache/rga` on other Unixes,
 or `C:\Users\username\AppData\Local\rga` on Windows)
 to debug the adapters.
+
+### Nix and Direnv
+
+You can use the provided [`flake.nix`](./flake.nix) to setup all build- and
+run-time dependencies:
+1. Enable [Flakes](https://nixos.wiki/wiki/Flakes) in your Nix configuration.
+1. Add [`direnv`](https://direnv.net/) to your profile:
+   `nix profile install nixpkgs#direnv`
+1. `cd` into the directory where you have cloned this directory.
+1. Allow use of [`.envrc`](./.envrc): `direnv allow`
+1. After the dependencies have been installed, your shell will now have all of
+   the necessary development dependencies.
