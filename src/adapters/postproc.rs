@@ -149,22 +149,22 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
 pub fn postproc_pagebreaks(line_prefix: &str, inp: impl AsyncRead) -> impl AsyncRead {
     let form_feed = b'\x0c';
     let regex = regex::bytes::Regex::new("\n").unwrap();
-    let mut page_count = 0;
-    let mut line_prefix = format!("\n{}Page {}:", line_prefix, page_count + 1);
+    let mut page_count = 1;
+    let mut line_prefix = format!("\n{}Page {}:", line_prefix, page_count);
 
     let inp_stream = ReaderStream::new(inp);
     let oup_stream = stream! {
-        yield Ok(Bytes::copy_from_slice(line_prefix.as_bytes()));
         for await chunk in inp_stream {
             match chunk {
                 Err(e) => yield Err(e),
                 Ok(chunk) => {
-                    let chunk_iter = chunk.split(|byte| byte == &form_feed);
+                    let chunk_iter = chunk.split_inclusive(|byte| byte == &form_feed);
                     for sub_chunk in chunk_iter {
-                        if sub_chunk.contains(&b'\n') {
-                            yield Ok(Bytes::copy_from_slice(&regex.replace_all(&sub_chunk, line_prefix.as_bytes())));
+                        if sub_chunk == [form_feed] {
                             page_count += 1;
                             line_prefix = format!("\n{}Page {}:", line_prefix, page_count);
+                        } else {
+                            yield Ok(Bytes::copy_from_slice(&regex.replace_all(&sub_chunk, line_prefix.as_bytes())));
                         }
                     }
                 }
