@@ -150,7 +150,7 @@ pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Sen
     let regex_linefeed = regex::bytes::Regex::new(r"\x0c").unwrap();
     let regex_newline = regex::bytes::Regex::new("\n").unwrap();
     let mut page_count: i32 = 1;
-    let mut page_prefix: String = format!("\nPage {}:", page_count);
+    let mut page_prefix: String = format!("Page {}:", page_count);
 
     let input_stream = ReaderStream::new(input);
     let output_stream = stream! {
@@ -162,6 +162,7 @@ pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Sen
                     for sub_chunk in sub_chunks {
                         // println!("{}", String::from_utf8_lossy(page_prefix.as_bytes()));
                         yield Ok(Bytes::copy_from_slice(page_prefix.as_bytes()));
+                        page_prefix = format!("\nPage {}:", page_count);
                         yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(&sub_chunk, page_prefix.as_bytes())));
                         page_count += 1;
                         page_prefix = format!("\nPage {}:", page_count);
@@ -191,7 +192,7 @@ mod tests {
         assert!(matches!(res, Ok(_)));
         assert_eq!(
             output,
-            b"\nPage 1:Hello\nPage 1:World\nPage 2:Foo Bar\nPage 2:\nPage 3:Test"
+            b"Page 1:Hello\nPage 1:World\nPage 2:Foo Bar\nPage 2:\nPage 3:Test"
         );
     }
 
