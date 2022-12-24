@@ -140,7 +140,7 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
             }
         }
     };
-    StreamReader::new(oup_stream)
+    Box::pin(StreamReader::new(oup_stream))
 }
 
 /// Adds the prefix "Page N:" to each line,
@@ -194,6 +194,18 @@ mod tests {
             output,
             b"Page 1:Hello\nPage 1:World\nPage 2:Foo Bar\nPage 2:\nPage 3:Test"
         );
+    }
+
+    #[tokio::test]
+    async fn test_postproc_prefix() {
+        let mut output: Vec<u8> = Vec::new();
+        let mock: Mock = Builder::new().read(b"Hello\nWorld").build();
+        let res = postproc_prefix("prefix: ", mock)
+            .read_to_end(&mut output)
+            .await;
+        println!("{}", String::from_utf8_lossy(&output));
+        assert!(matches!(res, Ok(_)));
+        assert_eq!(output, b"prefix: Hello\nprefix: World");
     }
 
     async fn test_from_strs(
