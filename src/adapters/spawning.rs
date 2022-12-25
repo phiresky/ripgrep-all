@@ -35,11 +35,6 @@ impl GetMetadata for SpawningFileAdapter {
     }
 }
 
-/*impl<T: SpawningFileAdapterTrait> From<T> for SpawningFileAdapter {
-    fn from(e: dyn T) -> Self {
-        SpawningFileAdapter { inner: Box::new(e) }
-    }
-}*/
 
 /// replace a Command.spawn() error "File not found" with a more readable error
 /// to indicate some program is not installed

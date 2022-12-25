@@ -2,7 +2,7 @@ use super::{
     spawning::{SpawningFileAdapter, SpawningFileAdapterTrait},
     AdapterMeta, GetMetadata,
 };
-use crate::matching::{FastFileMatcher, FileMatcher};
+use crate::{matching::{FastFileMatcher, FileMatcher}, expand::expand_str_ez};
 use anyhow::Result;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
@@ -88,7 +88,7 @@ lazy_static! {
             // simpler markown (with more information loss but plainer text)
             //.arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
             args: strs(&[
-                "--from={file_extension}",
+                "--from=$file_extension",
                 "--to=plain",
                 "--wrap=none",
                 "--markdown-headings=atx"
@@ -126,40 +126,12 @@ impl GetMetadata for CustomSpawningFileAdapter {
     }
 }
 fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
-    lazy_static::lazy_static! {
-        static ref ARG_REP: Regex = Regex::new(r"\{([a-z_]+)\}").unwrap();
-    }
-    let mut err = None;
-    let r = ARG_REP.replace_all(arg, |m: &Captures| -> String {
-        let idx = m.get(0).unwrap().range();
-        if arg.chars().nth(idx.start - 1) == Some('{') {
-            // skip
-            return m.get(0).unwrap().as_str().to_string();
-        }
-        if arg.chars().nth(idx.end + 1) == Some('}') {
-            // skip
-            return m.get(0).unwrap().as_str().to_string();
-        }
-        let key = m.get(1).unwrap().as_str();
-        if key == "file_extension" {
-            return filepath_hint
-                .extension()
-                .map(|e| e.to_string_lossy().to_string())
-                .unwrap_or("".to_string());
-        }
-        err = Some(anyhow::anyhow!(
-            "Unknown arg replacement key '{}' in '{}'",
-            key,
-            arg
-        ));
-        "".to_string()
-        //let
-    });
-    if let Some(err) = err {
-        Err(err)
-    } else {
-        Ok(r.to_string())
-    }
+    Ok(expand_str_ez(arg, |s| match s {
+        "file_extension" => &filepath_hint
+            .extension()
+            .map(|e| e.to_string_lossy())
+            .unwrap_or("".into()),
+    }))
 }
 impl SpawningFileAdapterTrait for CustomSpawningFileAdapter {
     fn get_exe(&self) -> &str {
