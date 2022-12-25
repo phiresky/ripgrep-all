@@ -119,14 +119,12 @@ pub fn postproc_encoding(
     ))*/
 }
 
-/**
- * adds the given prefix to each line in a AsyncRead
- */
+/// Adds the given prefix to each line in an `AsyncRead`.
 pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl AsyncRead + Send {
     let line_prefix_n = format!("\n{}", line_prefix); // clone since we need it later
     let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
     let regex = regex::bytes::Regex::new("\n").unwrap();
-    let mut inp_stream = ReaderStream::new(inp);
+    let inp_stream = ReaderStream::new(inp);
     let oup_stream = stream! {
         yield Ok(line_prefix_o);
         for await chunk in inp_stream {
@@ -142,41 +140,77 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
             }
         }
     };
-    StreamReader::new(oup_stream)
+    Box::pin(StreamReader::new(oup_stream))
 }
 
-/**
- * adds the prefix `Page N:` to each line,
- * where N starts at one and is incremented for each ASCII Form Feed character in the input stream.
- * (That's the format output by pdftotext)
- */
-pub fn postproc_pagebreaks(line_prefix: &str, inp: impl AsyncRead) -> impl AsyncRead {
-    let line_prefix = line_prefix.to_string(); // clone since
-    let mut page_count = 1;
+/// Adds the prefix "Page N:" to each line,
+/// where N starts at one and is incremented for each ASCII Form Feed character in the input stream.
+/// ASCII form feeds are the page delimiters output by `pdftotext`.
+pub fn postproc_pagebreaks(
+    line_prefix: &str,
+    input: impl AsyncRead + Send,
+) -> impl AsyncRead + Send {
+    let line_prefix_o: String = line_prefix.into();
+    let regex_linefeed = regex::bytes::Regex::new(r"\x0c").unwrap();
+    let regex_newline = regex::bytes::Regex::new("\n").unwrap();
+    let mut page_count: i32 = 1;
+    let mut page_prefix: String = format!("Page {}:{}", page_count, line_prefix_o);
 
-    panic!("todo!");
-    tokio::io::empty()
-    /*ByteReplacer {
-        inner: inp,
-        next_read: format!("{}Page {}:", line_prefix, page_count).into_bytes(),
-        haystacker: Box::new(|buf| memchr::memchr2(b'\n', b'\x0c', buf)),
-        replacer: Box::new(move |b| match b {
-            b'\n' => format!("\n{}Page {}:", line_prefix, page_count).into_bytes(),
-            b'\x0c' => {
-                page_count += 1;
-                format!("\n{}Page {}:", line_prefix, page_count).into_bytes()
+    let input_stream = ReaderStream::new(input);
+    let output_stream = stream! {
+        for await chunk in input_stream {
+            match chunk {
+                Err(e) => yield Err(e),
+                Ok(chunk) => {
+                    let sub_chunks = regex_linefeed.split(&chunk);
+                    for sub_chunk in sub_chunks {
+                        // println!("{}", String::from_utf8_lossy(page_prefix.as_bytes()));
+                        yield Ok(Bytes::copy_from_slice(page_prefix.as_bytes()));
+                        page_prefix = format!("\nPage {}:{}", page_count, line_prefix_o);
+                        yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(&sub_chunk, page_prefix.as_bytes())));
+                        page_count += 1;
+                        page_prefix = format!("\nPage {}:{}", page_count, line_prefix_o);
+                    }
+                }
             }
-            _ => b"[[imposs]]".to_vec(),
-        }),
-    }*/
+        }
+    };
+    Box::pin(StreamReader::new(output_stream))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use anyhow::Result;
-    use std::io::Read;
-    use tokio::pin;
+    use tokio_test::io::Builder;
+    use tokio_test::io::Mock;
+
+    #[tokio::test]
+    async fn test_with_pagebreaks() {
+        let mut output: Vec<u8> = Vec::new();
+        let mock: Mock = Builder::new()
+            .read(b"Hello\nWorld\x0cFoo Bar\n\x0cTest")
+            .build();
+        let res = postproc_pagebreaks("", mock).read_to_end(&mut output).await;
+        println!("{}", String::from_utf8_lossy(&output));
+        assert!(matches!(res, Ok(_)));
+        assert_eq!(
+            output,
+            b"Page 1:Hello\nPage 1:World\nPage 2:Foo Bar\nPage 2:\nPage 3:Test"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_postproc_prefix() {
+        let mut output: Vec<u8> = Vec::new();
+        let mock: Mock = Builder::new().read(b"Hello\nWorld").build();
+        let res = postproc_prefix("prefix: ", mock)
+            .read_to_end(&mut output)
+            .await;
+        println!("{}", String::from_utf8_lossy(&output));
+        assert!(matches!(res, Ok(_)));
+        assert_eq!(output, b"prefix: Hello\nprefix: World");
+    }
 
     async fn test_from_strs(
         pagebreaks: bool,
