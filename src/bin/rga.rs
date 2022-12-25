@@ -146,7 +146,7 @@ fn add_exe_to_path() -> Result<()> {
     // let preproc_exe = exe.with_file_name("rga-preproc");
     exe.pop(); // dirname
 
-    let path = env::var_os("PATH").unwrap_or("".into());
+    let path = env::var_os("PATH").unwrap_or_default();
     let paths = env::split_paths(&path).collect::<Vec<_>>();
     // prepend: prefer bundled versions to system-installed versions of binaries
     // solves https://github.com/phiresky/ripgrep-all/issues/32

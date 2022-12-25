@@ -192,7 +192,7 @@ fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
         "file_extension" => filepath_hint
             .extension()
             .map(|e| e.to_string_lossy())
-            .unwrap_or("".into()),
+            .unwrap_or_default(),
         _ => panic!("unknown replacer"),
     }))
 }

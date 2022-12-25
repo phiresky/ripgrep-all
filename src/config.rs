@@ -264,7 +264,7 @@ fn read_config_file(path_override: Option<String>) -> Result<(String, Value)> {
     let config_filename = path_override
         .as_ref()
         .map(PathBuf::from)
-        .unwrap_or(config_dir.join("config.jsonc"));
+        .unwrap_or_else(|| config_dir.join("config.jsonc"));
     let config_filename_str = config_filename.to_string_lossy().into_owned();
     if config_filename.exists() {
         let config_file_contents = std::fs::read_to_string(config_filename)

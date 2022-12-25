@@ -87,7 +87,7 @@ impl PreprocCache for LmdbCache {
 
         let reader = db_env.read().expect("could not get reader");
         let cached = db
-            .get(&reader, &key)
+            .get(&reader, key)
             .map_err(RkvErrWrap)
             .context("could not read from db")?;
 
@@ -122,7 +122,7 @@ impl PreprocCache for LmdbCache {
             .map_err(RkvErrWrap)
             .with_context(|| format_err!("could not open write handle to cache"))?;
 
-        db.put(&mut writer, &key, &rkv::Value::Blob(got))
+        db.put(&mut writer, key, &rkv::Value::Blob(got))
             .map_err(RkvErrWrap)
             .with_context(|| format_err!("could not write to cache"))?;
         writer

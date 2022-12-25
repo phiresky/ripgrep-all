@@ -6,7 +6,6 @@ use anyhow::Result;
 use async_stream::stream;
 use bytes::Bytes;
 
-use std::ffi::OsStr;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -180,8 +179,8 @@ impl FileAdapter for PostprocPageBreaks {
                 .filepath_hint
                 .parent()
                 .map(PathBuf::from)
-                .unwrap_or(PathBuf::new())
-                .join(a.filepath_hint.file_stem().unwrap_or(OsStr::new(""))),
+                .unwrap_or_default()
+                .join(a.filepath_hint.file_stem().unwrap_or_default()),
             ..a
         };
         Ok(Box::pin(tokio_stream::once(ai)))
