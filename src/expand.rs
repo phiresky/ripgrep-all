@@ -114,10 +114,7 @@ fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef> {
     // therefore be valid UTF-8. If we really cared, we could avoid this UTF-8
     // check with either unsafe or by parsing the number straight from &[u8].
     let cap = std::str::from_utf8(&rep[i..cap_end]).expect("valid UTF-8 capture name");
-    Some(CaptureRef {
-        cap,
-        end: cap_end,
-    })
+    Some(CaptureRef { cap, end: cap_end })
 }
 
 fn find_cap_ref_braced(rep: &[u8], mut i: usize) -> Option<CaptureRef> {
@@ -136,10 +133,7 @@ fn find_cap_ref_braced(rep: &[u8], mut i: usize) -> Option<CaptureRef> {
         Err(_) => return None,
         Ok(cap) => cap,
     };
-    Some(CaptureRef {
-        cap,
-        end: i + 1,
-    })
+    Some(CaptureRef { cap, end: i + 1 })
 }
 
 /// Returns true if and only if the given byte is allowed in a capture name.

@@ -4,12 +4,12 @@ pub mod adapted_iter;
 pub mod adapters;
 mod caching_writer;
 pub mod config;
+pub mod expand;
 pub mod matching;
 pub mod pipe;
 pub mod preproc;
 pub mod preproc_cache;
 pub mod recurse;
-pub mod expand;
 #[cfg(test)]
 pub mod test_utils;
 use anyhow::Context;
@@ -29,7 +29,7 @@ fn meh(float: f32, precision: usize) -> usize {
     let a = float.abs();
 
     // if abs value is greater than 1, then precision becomes less than "standard"
-    
+
     if a >= 1. {
         // reduce by number of digits, minimum 0
         let n = (1. + a.log10().floor()) as usize;
@@ -57,9 +57,7 @@ pub fn print_dur(start: Instant) -> String {
         dur *= 1000.0;
     }
     let precision = meh(dur, 3);
-    format!(
-        "{dur:.precision$}{suffix}s"
-    )
+    format!("{dur:.precision$}{suffix}s")
 }
 
 pub fn print_bytes(bytes: impl Into<f64>) -> String {

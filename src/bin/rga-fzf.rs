@@ -26,9 +26,7 @@ fn main() -> anyhow::Result<()> {
         .to_str()
         .context("rga-fzf-open executable is in non-unicode path")?;
 
-    let rg_prefix = format!(
-        "{preproc_exe} --files-with-matches --rga-cache-max-blob-len=10M"
-    );
+    let rg_prefix = format!("{preproc_exe} --files-with-matches --rga-cache-max-blob-len=10M");
 
     let child = Command::new("fzf")
         .arg(format!(
