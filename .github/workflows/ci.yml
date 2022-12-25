@@ -1,118 +1,75 @@
-# adapted from https://github.com/BurntSushi/ripgrep/blob/master/.github/workflows/ci.yml
+# Based on https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
+#
+# While our "example" application has the platform-specific code,
+# for simplicity we are compiling and testing everything on the Ubuntu environment only.
+# For multi-OS testing see the `cross.yml` workflow.
+
+on: [push, pull_request]
+
 name: ci
-on:
-  pull_request:
-  push:
-  # schedule:
-  # - cron: '00 01 * * *'
+
 jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
   test:
-    name: test
-    env:
-      # For some builds, we use cross to test on 32-bit and big-endian
-      # systems.
-      CARGO: cargo
-      # When CARGO is set to CROSS, this is set to `--target matrix.target`.
-      TARGET_FLAGS:
-      # When CARGO is set to CROSS, TARGET_DIR includes matrix.target.
-      TARGET_DIR: ./target
-      # Emit backtraces on panics.
-      RUST_BACKTRACE: 1
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        build:
-        - stable
-        - nightly
-        - nightly-musl
-        - nightly-arm
-        - macos
-        include:
-        - build: stable
-          os: ubuntu-18.04
-          rust: stable
-        - build: nightly
-          os: ubuntu-18.04
-          rust: nightly
-        - build: nightly-musl
-          os: ubuntu-18.04
-          rust: nightly
-          target: x86_64-unknown-linux-musl
-        - build: nightly-arm
-          os: ubuntu-18.04
-          rust: nightly
-          target: arm-unknown-linux-gnueabihf
-        - build: macos
-          os: macos-latest
-          rust: nightly
+    name: Test Suite
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout sources
+        uses: actions/checkout@v2
 
-    - name: Install packages (Ubuntu)
-      if: matrix.os == 'ubuntu-18.04'
-      run: |
-        ci/ubuntu-install-packages
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
 
-    - name: Install packages (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        ci/macos-install-packages
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
 
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: ${{ matrix.rust }}
-        profile: minimal
-        override: true
-
-    - name: Use Cross
-      if: matrix.target != ''
-      run: |
-        cargo install cross
-        echo "CARGO=cross" >> $GITHUB_ENV
-        echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
-        echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
-
-    - name: Show command used for Cargo
-      run: |
-        echo "cargo command is: ${{ env.CARGO }}"
-        echo "target flag is: ${{ env.TARGET_FLAGS }}"
-
-    - name: Build ripgrep-all and all crates
-      run: ${{ env.CARGO }} build --verbose --all ${{ env.TARGET_FLAGS }}
-
-    # This is useful for debugging problems when the expected build artifacts
-    # (like shell completions and man pages) aren't generated.
-    - name: Show build.rs stderr
-      shell: bash
-      run: |
-        set +x
-        stderr="$(find "${{ env.TARGET_DIR }}/debug" -name stderr -print0 | xargs -0 ls -t | head -n1)"
-        if [ -s "$stderr" ]; then
-          echo "===== $stderr ===== "
-          cat "$stderr"
-          echo "====="
-        fi
-        set -x
-
-    - name: Run tests (sans cross)
-      if: matrix.target == ''
-      run: ${{ env.CARGO }} test --verbose --all ${{ env.TARGET_FLAGS }}
-
-  rustfmt:
-    name: rustfmt
-    runs-on: ubuntu-18.04
+  lints:
+    name: Lints
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-        profile: minimal
-        components: rustfmt
-    - name: Check formatting
-      run: |
-        cargo fmt --all -- --check
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
