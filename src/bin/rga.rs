@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rga::adapters::spawning::map_exe_error;
+use rga::adapters::custom::map_exe_error;
 use rga::adapters::*;
 use rga::config::{split_args, RgaConfig};
 use rga::matching::*;

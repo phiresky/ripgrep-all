@@ -343,14 +343,11 @@ PREFIX:\u{c}
         Ok(())
     }
 
-    use std::io::Cursor;
-
-    use super::*;
-    use crate::adapters::FileAdapter;
     use crate::{
         adapters::custom::CustomAdapterConfig,
         test_utils::{adapted_to_vec, simple_adapt_info},
     };
+    use std::io::Cursor;
 
     #[tokio::test]
     async fn streaming() -> anyhow::Result<()> {
@@ -365,6 +362,7 @@ PREFIX:\u{c}
             match_only_by_mime: None,
             binary: "sed".to_string(),
             args: vec!["s/e/u/g".to_string()],
+            output_path_hint: None,
         };
 
         let adapter = adapter.to_adapter();

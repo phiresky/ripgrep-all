@@ -1,5 +1,5 @@
 use anyhow::Context;
-use rga::adapters::spawning::map_exe_error;
+use rga::adapters::custom::map_exe_error;
 use ripgrep_all as rga;
 
 use std::process::{Command, Stdio};
