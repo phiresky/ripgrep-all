@@ -6,22 +6,19 @@ use crate::{
     matching::{FastFileMatcher, FileMatcher},
 };
 use anyhow::Result;
-use async_stream::{stream, AsyncStream};
-use bytes::{Buf, Bytes};
+use async_stream::stream;
+use bytes::Bytes;
 use lazy_static::lazy_static;
 use log::debug;
-use log::*;
-use regex::{Captures, Regex};
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use tokio::process::Command;
-use tokio_util::io::StreamReader;
-
-use std::future::Future;
-use std::process::{ExitStatus, Stdio};
+use std::process::Stdio;
 use tokio::io::AsyncReadExt;
 use tokio::process::Child;
+use tokio::process::Command;
+use tokio_util::io::StreamReader;
 
 // mostly the same as AdapterMeta + SpawningFileAdapter
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
@@ -59,7 +56,7 @@ fn strs(arr: &[&str]) -> Vec<String> {
 }
 
 lazy_static! {
-    pub static ref builtin_spawning_adapters: Vec<CustomAdapterConfig> = vec![
+    pub static ref BUILTIN_SPAWNING_ADAPTERS: Vec<CustomAdapterConfig> = vec![
         // from https://github.com/jgm/pandoc/blob/master/src/Text/Pandoc/App/FormatHeuristics.hs
         // excluding formats that could cause problems (.db ?= sqlite) or that are already text formats (e.g. xml-based)
         //"db"       -> Just "docbook"
@@ -143,19 +140,6 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
     }
 }
 
-/** waits for a process to finish, returns an io error if the process failed */
-struct ProcWaitReader {
-    process: Option<Child>,
-    future: Option<Pin<Box<dyn Future<Output = std::io::Result<ExitStatus>>>>>,
-}
-impl ProcWaitReader {
-    fn new(cmd: Child) -> ProcWaitReader {
-        ProcWaitReader {
-            process: Some(cmd),
-            future: None,
-        }
-    }
-}
 fn proc_wait(mut child: Child) -> impl AsyncRead {
     let s = stream! {
         let res = child.wait().await?;
@@ -310,12 +294,12 @@ mod test {
     use crate::preproc::loop_adapt;
     use crate::test_utils::*;
     use anyhow::Result;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
     use tokio::fs::File;
 
     #[tokio::test]
     async fn poppler() -> Result<()> {
-        let adapter = builtin_spawning_adapters
+        let adapter = BUILTIN_SPAWNING_ADAPTERS
             .iter()
             .find(|e| e.name == "poppler")
             .expect("no poppler adapter");

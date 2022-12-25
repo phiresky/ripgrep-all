@@ -2,12 +2,12 @@
 
 //impl<T> FileAdapter for T where T: RunFnAdapter {}
 
-use anyhow::Context;
+
 use anyhow::Result;
 use async_stream::stream;
 use bytes::Bytes;
-use encoding_rs_io::DecodeReaderBytesBuilder;
-use std::cmp::min;
+
+
 use std::ffi::OsStr;
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -77,7 +77,7 @@ impl Read for ReadErr {
  * If the input stream does not contain valid text, returns the string `[rga: binary data]` instead
  */
 pub fn postproc_encoding(
-    line_prefix: &str,
+    _line_prefix: &str,
     inp: impl AsyncRead + Send + 'static,
 ) -> Result<Pin<Box<dyn AsyncRead + Send>>> {
     Ok(Box::pin(inp))

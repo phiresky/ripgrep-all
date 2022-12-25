@@ -1,4 +1,4 @@
-use crate::adapted_iter::{AdaptedFilesIter, AdaptedFilesIterBox};
+use crate::adapted_iter::{AdaptedFilesIterBox};
 use crate::adapters::*;
 use crate::caching_writer::async_read_and_write_to_cache;
 use crate::config::RgaConfig;

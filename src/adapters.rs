@@ -12,8 +12,8 @@ use std::sync::Arc;
 // pub mod zip;
 use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
 use anyhow::*;
-use custom::builtin_spawning_adapters;
 use custom::CustomAdapterConfig;
+use custom::BUILTIN_SPAWNING_ADAPTERS;
 use log::*;
 use tokio::io::AsyncRead;
 
@@ -23,7 +23,6 @@ use std::collections::HashMap;
 use std::iter::Iterator;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::rc::Rc;
 
 use self::postproc::PostprocPageBreaks;
 
@@ -129,7 +128,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
         // Rc::new(tesseract::TesseractAdapter::new()),
     ];
     adapters.extend(
-        builtin_spawning_adapters
+        BUILTIN_SPAWNING_ADAPTERS
             .iter()
             .map(|e| -> Arc<dyn FileAdapter> { Arc::new(e.to_adapter()) }),
     );
