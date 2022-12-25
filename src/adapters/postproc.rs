@@ -8,7 +8,9 @@ use async_stream::stream;
 use bytes::Bytes;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use std::cmp::min;
+use std::ffi::OsStr;
 use std::io::Cursor;
+use std::path::PathBuf;
 use std::pin::Pin;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio_util::io::ReaderStream;
@@ -145,6 +147,11 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
 }
 
 pub struct PostprocPageBreaks {}
+impl PostprocPageBreaks {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 impl GetMetadata for PostprocPageBreaks {
     fn metadata(&self) -> &super::AdapterMeta {
         lazy_static::lazy_static! {
@@ -176,6 +183,13 @@ impl FileAdapter for PostprocPageBreaks {
         let ai = AdaptInfo {
             inp: Box::pin(read),
             postprocess: false,
+            archive_recursion_depth: a.archive_recursion_depth + 1,
+            filepath_hint: a
+                .filepath_hint
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or(PathBuf::new())
+                .join(a.filepath_hint.file_stem().unwrap_or(OsStr::new(""))),
             ..a
         };
         Ok(Box::pin(tokio_stream::once(ai)))

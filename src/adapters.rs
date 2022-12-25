@@ -25,6 +25,8 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 
+use self::postproc::PostprocPageBreaks;
+
 pub type ReadBox = Pin<Box<dyn AsyncRead + Send>>;
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
@@ -117,6 +119,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
     }
 
     let internal_adapters: Vec<Arc<dyn FileAdapter>> = vec![
+        Arc::new(PostprocPageBreaks::new()),
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
         // Rc::new(zip::ZipAdapter::new()),
         //Rc::new(decompress::DecompressAdapter::new()),

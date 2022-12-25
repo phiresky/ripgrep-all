@@ -189,8 +189,7 @@ async fn adapt_caching(
     match cached {
         Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
         None => {
-            debug!("cache MISS, running adapter");
-            debug!("adapting with caching...");
+            debug!("cache MISS, running adapter with caching...");
             let inp = loop_adapt(adapter.as_ref(), detection_reason, ai)?;
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
@@ -228,16 +227,27 @@ pub fn loop_adapt(
             adapter.metadata().name
         )
     })?;
+    debug!("got fph starting loop: {}", fph.to_string_lossy());
 
     let s = stream! {
         for await file in inp {
             match buf_choose_adapter(file).await.expect("todo: handle") {
-                Ret::Recurse(ai, adapter, detection_reason, active_adapters) => {
+                Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
+                    debug!(
+                        "Chose adapter '{}' because of matcher {:?}",
+                        &adapter.metadata().name, &detection_reason
+                    );
+                    eprintln!(
+                        "{} adapter: {}",
+                        ai.filepath_hint.to_string_lossy(),
+                        &adapter.metadata().name
+                    );
                     for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).expect("todo: handle") {
                         yield ifile;
                     }
                 }
                 Ret::Passthrough(ai) => {
+                    debug!("no adapter for {}, ending recursion", ai.filepath_hint.to_string_lossy());
                     yield ai;
                 }
             }

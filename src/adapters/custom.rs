@@ -213,9 +213,6 @@ fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
     }))
 }
 impl CustomSpawningFileAdapter {
-    fn get_exe(&self) -> &str {
-        &self.binary
-    }
     fn command(
         &self,
         filepath_hint: &std::path::Path,
@@ -266,7 +263,7 @@ impl FileAdapter for CustomSpawningFileAdapter {
             inp: output,
             line_prefix,
             is_real_file: false,
-            archive_recursion_depth,
+            archive_recursion_depth: archive_recursion_depth + 1,
             postprocess,
             config,
         })))
