@@ -146,11 +146,15 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
 /// Adds the prefix "Page N:" to each line,
 /// where N starts at one and is incremented for each ASCII Form Feed character in the input stream.
 /// ASCII form feeds are the page delimiters output by `pdftotext`.
-pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Send {
+pub fn postproc_pagebreaks(
+    line_prefix: &str,
+    input: impl AsyncRead + Send,
+) -> impl AsyncRead + Send {
+    let line_prefix_o: String = line_prefix.into();
     let regex_linefeed = regex::bytes::Regex::new(r"\x0c").unwrap();
     let regex_newline = regex::bytes::Regex::new("\n").unwrap();
     let mut page_count: i32 = 1;
-    let mut page_prefix: String = format!("Page {}:", page_count);
+    let mut page_prefix: String = format!("Page {}:{}", page_count, line_prefix_o);
 
     let input_stream = ReaderStream::new(input);
     let output_stream = stream! {
@@ -162,10 +166,10 @@ pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Sen
                     for sub_chunk in sub_chunks {
                         // println!("{}", String::from_utf8_lossy(page_prefix.as_bytes()));
                         yield Ok(Bytes::copy_from_slice(page_prefix.as_bytes()));
-                        page_prefix = format!("\nPage {}:", page_count);
+                        page_prefix = format!("\nPage {}:{}", page_count, line_prefix_o);
                         yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(&sub_chunk, page_prefix.as_bytes())));
                         page_count += 1;
-                        page_prefix = format!("\nPage {}:", page_count);
+                        page_prefix = format!("\nPage {}:{}", page_count, line_prefix_o);
                     }
                 }
             }
@@ -187,7 +191,7 @@ mod tests {
         let mock: Mock = Builder::new()
             .read(b"Hello\nWorld\x0cFoo Bar\n\x0cTest")
             .build();
-        let res = postproc_pagebreaks(mock).read_to_end(&mut output).await;
+        let res = postproc_pagebreaks("", mock).read_to_end(&mut output).await;
         println!("{}", String::from_utf8_lossy(&output));
         assert!(matches!(res, Ok(_)));
         assert_eq!(
