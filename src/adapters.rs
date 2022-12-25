@@ -1,5 +1,5 @@
 pub mod custom;
-// pub mod decompress;
+pub mod decompress;
 // pub mod ffmpeg;
 pub mod postproc;
 // pub mod pdfpages;
@@ -117,7 +117,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
         Arc::new(PostprocPageBreaks::default()),
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
         // Rc::new(zip::ZipAdapter::new()),
-        //Rc::new(decompress::DecompressAdapter::new()),
+        Arc::new(decompress::DecompressAdapter::new()),
         // Rc::new(tar::TarAdapter::new()),
         //Rc::new(sqlite::SqliteAdapter::new()),
         // Rc::new(pdfpages::PdfPagesAdapter::new()),
