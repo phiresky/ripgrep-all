@@ -9,6 +9,7 @@ pub mod pipe;
 pub mod preproc;
 pub mod preproc_cache;
 pub mod recurse;
+pub mod expand;
 #[cfg(test)]
 pub mod test_utils;
 use anyhow::Context;

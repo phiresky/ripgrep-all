@@ -33,7 +33,8 @@ pub struct CustomAdapterConfig {
     /// {}: the file path (TODO)
     /// stdin of the program will be connected to the input file, and stdout is assumed to be the converted file
     pub args: Vec<String>,
-    // TODO: make adapter filename configurable (?) for inner matching (e.g. foo.tar.gz should be foo.tar after gunzipping)
+    // TODO: make more flexible for inner matching (e.g. foo.tar.gz should be foo.tar after gunzipping)
+    pub output_path_hint: Option<String>,
 }
 
 fn strs(arr: &[&str]) -> Vec<String> {
@@ -117,6 +118,7 @@ pub struct CustomSpawningFileAdapter {
     binary: String,
     args: Vec<String>,
     meta: AdapterMeta,
+    output_path_hint: Option<String>,
 }
 impl GetMetadata for CustomSpawningFileAdapter {
     fn metadata(&self) -> &AdapterMeta {
@@ -183,6 +185,7 @@ impl CustomAdapterConfig {
         let ad = CustomSpawningFileAdapter {
             binary: self.binary.clone(),
             args: self.args.clone(),
+            output_path_hint: self.output_path_hint,
             meta: AdapterMeta {
                 name: self.name.clone(),
                 version: self.version,
@@ -192,7 +195,7 @@ impl CustomAdapterConfig {
                     self.binary,
                     self.args.join(" ")
                 ),
-                recurses: false,
+                recurses: true,
                 fast_matchers: self
                     .extensions
                     .iter()

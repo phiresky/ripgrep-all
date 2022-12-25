@@ -15,6 +15,7 @@ use tokio_util::io::ReaderStream;
 use tokio_util::io::StreamReader;
 
 use crate::adapted_iter::AdaptedFilesIterBox;
+use crate::matching::FastFileMatcher;
 
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 
@@ -30,7 +31,7 @@ impl GetMetadata for PostprocPrefix {
                 name: "postprocprefix".to_owned(),
                 version: 1,
                 description: "Adds the line prefix to each line (e.g. the filename within a zip)".to_owned(),
-                recurses: true,
+                recurses: false,
                 fast_matchers: vec![],
                 slow_matchers: None,
                 keep_fast_matchers_if_accurate: false,
@@ -143,6 +144,44 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
     Box::pin(StreamReader::new(oup_stream))
 }
 
+
+pub struct PostprocPageBreaks {}
+impl GetMetadata for PostprocPageBreaks {
+    fn metadata(&self) -> &super::AdapterMeta {
+        lazy_static::lazy_static! {
+            static ref METADATA: AdapterMeta = AdapterMeta {
+                name: "postprocpagebreaks".to_owned(),
+                version: 1,
+                description: "Adds the page number to each line for an input file that specifies page breaks as ascii page break character".to_owned(),
+                recurses: false,
+                fast_matchers: vec![FastFileMatcher::FileExtension("txtwithpagebreaks".to_string())],
+                slow_matchers: None,
+                keep_fast_matchers_if_accurate: false,
+                disabled_by_default: false
+            };
+        }
+        &METADATA
+    }
+}
+impl FileAdapter for PostprocPageBreaks {
+    fn adapt<'a>(
+        &self,
+        a: super::AdaptInfo,
+        _detection_reason: &crate::matching::FileMatcher,
+    ) -> Result<AdaptedFilesIterBox> {
+        let read = add_newline(postproc_pagebreaks(
+            &a.line_prefix,
+            postproc_encoding(&a.line_prefix, a.inp)?,
+        ));
+        // keep adapt info (filename etc) except replace inp
+        let ai = AdaptInfo {
+            inp: Box::pin(read),
+            postprocess: false,
+            ..a
+        };
+        Ok(Box::pin(tokio_stream::once(ai)))
+    }
+}
 /// Adds the prefix "Page N:" to each line,
 /// where N starts at one and is incremented for each ASCII Form Feed character in the input stream.
 /// ASCII form feeds are the page delimiters output by `pdftotext`.
@@ -184,6 +223,7 @@ mod tests {
     use anyhow::Result;
     use tokio_test::io::Builder;
     use tokio_test::io::Mock;
+    use tokio::pin;
 
     #[tokio::test]
     async fn test_with_pagebreaks() {

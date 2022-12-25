@@ -6,6 +6,7 @@ use log::*;
 use tokio_util::io::StreamReader;
 
 use crate::adapters::FileAdapter;
+use crate::expand::expand_str_ez;
 use std::future::Future;
 use std::path::Path;
 use std::process::{ExitStatus, Stdio};
@@ -123,7 +124,11 @@ impl FileAdapter for SpawningFileAdapter {
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, self.inner.get_exe(), "")?;
         Ok(Box::pin(tokio_stream::once(AdaptInfo {
-            filepath_hint: PathBuf::from(format!("{}.txt", filepath_hint.to_string_lossy())), // TODO: customizable
+            filepath_hint: PathBuf::from(
+                expand_str_ez(self.inner.output_path_hint, |r| match r {
+                    "fullname" => &filepath_hint.to_string_lossy()
+                }
+            )),
             inp: output,
             line_prefix,
             is_real_file: false,
