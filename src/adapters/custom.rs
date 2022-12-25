@@ -310,6 +310,7 @@ mod test {
     use crate::preproc::loop_adapt;
     use crate::test_utils::*;
     use anyhow::Result;
+    use pretty_assertions::{assert_eq, assert_ne};
     use tokio::fs::File;
 
     #[tokio::test]
@@ -329,12 +330,13 @@ mod test {
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
-            "PREFIX:hello world
-PREFIX:this is just a test.
-PREFIX:
-PREFIX:1
-PREFIX:
-PREFIX:\u{c}
+            "PREFIX:Page 1:hello world
+PREFIX:Page 1:this is just a test.
+PREFIX:Page 1:
+PREFIX:Page 1:1
+PREFIX:Page 1:
+PREFIX:Page 1:
+PREFIX:Page 2:
 "
         );
         Ok(())

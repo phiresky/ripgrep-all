@@ -9,6 +9,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 
+pub use pretty_assertions::{assert_eq, assert_ne};
 pub fn test_data_dir() -> PathBuf {
     let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     d.push("exampledir/test/");

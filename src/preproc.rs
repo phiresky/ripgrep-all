@@ -227,8 +227,6 @@ pub fn loop_adapt(
             adapter.metadata().name
         )
     })?;
-    debug!("got fph starting loop: {}", fph.to_string_lossy());
-
     let s = stream! {
         for await file in inp {
             match buf_choose_adapter(file).await.expect("todo: handle") {

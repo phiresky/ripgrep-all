@@ -175,14 +175,11 @@ impl FileAdapter for PostprocPageBreaks {
         a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
-        let read = add_newline(postproc_pagebreaks(
-            &a.line_prefix,
-            postproc_encoding(&a.line_prefix, a.inp)?,
-        ));
+        let read = postproc_pagebreaks("", postproc_encoding(&a.line_prefix, a.inp)?);
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
             inp: Box::pin(read),
-            postprocess: false,
+            postprocess: true,
             archive_recursion_depth: a.archive_recursion_depth + 1,
             filepath_hint: a
                 .filepath_hint
