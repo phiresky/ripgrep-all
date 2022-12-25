@@ -1,4 +1,4 @@
-use crate::adapted_iter::{AdaptedFilesIterBox};
+use crate::adapted_iter::AdaptedFilesIterBox;
 use crate::adapters::*;
 use crate::caching_writer::async_read_and_write_to_cache;
 use crate::config::RgaConfig;
@@ -14,7 +14,6 @@ use async_stream::stream;
 use log::*;
 use path_clean::PathClean;
 use postproc::PostprocPrefix;
-use std::convert::TryInto;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
@@ -131,7 +130,7 @@ fn compute_cache_key(
     active_adapters: ActiveAdapters,
 ) -> Result<Vec<u8>> {
     let clean_path = filepath_hint.to_owned().clean();
-    let meta = std::fs::metadata(&filepath_hint)
+    let meta = std::fs::metadata(filepath_hint)
         .with_context(|| format!("reading metadata for {}", filepath_hint.to_string_lossy()))?;
     let modified = meta.modified().expect("weird OS that can't into mtime");
 
@@ -194,8 +193,8 @@ async fn adapt_caching(
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
                 inp,
-                cache_max_blob_len.0.try_into().unwrap(),
-                cache_compression_level.0.try_into().unwrap(),
+                cache_max_blob_len.0,
+                cache_compression_level.0,
                 Box::new(move |(uncompressed_size, compressed)| {
                     debug!(
                         "uncompressed output: {}",

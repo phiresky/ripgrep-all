@@ -78,16 +78,16 @@ impl FromStr for CacheMaxBlobLen {
         if let Some(suffix) = suffix {
             Ok(CacheMaxBlobLen(match suffix {
                 'k' | 'M' | 'G' => usize::from_str(s.trim_end_matches(suffix))
-                    .with_context(|| format!("Could not parse int"))
+                    .with_context(|| "Could not parse int".to_string())
                     .map(|e| {
                         e * match suffix {
                             'k' => 1000,
-                            'M' => 1000_000,
-                            'G' => 1000_000_000,
+                            'M' => 1_000_000,
+                            'G' => 1_000_000_000,
                             _ => panic!("impossible"),
                         }
                     }),
-                _ => usize::from_str(s).with_context(|| format!("Could not parse int")),
+                _ => usize::from_str(s).with_context(|| "Could not parse int".to_string()),
             }?))
         } else {
             Err(anyhow::format_err!("empty byte input"))
@@ -247,7 +247,7 @@ static RGA_CONFIG: &str = "RGA_CONFIG";
 use serde_json::Value;
 fn json_merge(a: &mut Value, b: &Value) {
     match (a, b) {
-        (&mut Value::Object(ref mut a), &Value::Object(ref b)) => {
+        (&mut Value::Object(ref mut a), Value::Object(b)) => {
             for (k, v) in b {
                 json_merge(a.entry(k.clone()).or_insert(Value::Null), v);
             }
@@ -263,19 +263,16 @@ fn read_config_file(path_override: Option<String>) -> Result<(String, Value)> {
     let config_dir = proj.config_dir();
     let config_filename = path_override
         .as_ref()
-        .map(|e| PathBuf::from(e))
+        .map(PathBuf::from)
         .unwrap_or(config_dir.join("config.jsonc"));
     let config_filename_str = config_filename.to_string_lossy().into_owned();
     if config_filename.exists() {
         let config_file_contents = std::fs::read_to_string(config_filename)
-            .with_context(|| format!("Could not read config file json {}", config_filename_str))?;
+            .with_context(|| format!("Could not read config file json {config_filename_str}"))?;
         {
             // just for error messages
             serde_json::from_str::<RgaConfig>(&config_file_contents).with_context(|| {
-                format!(
-                    "Error in config file {}: {}",
-                    config_filename_str, config_file_contents
-                )
+                format!("Error in config file {config_filename_str}: {config_file_contents}")
             })?;
         }
         let config_json: serde_json::Value =
@@ -288,10 +285,11 @@ fn read_config_file(path_override: Option<String>) -> Result<(String, Value)> {
         std::fs::create_dir_all(config_dir)?;
         let mut schemafile = File::create(config_dir.join("config.schema.json"))?;
 
-        schemafile
-            .write(serde_json::to_string_pretty(&schemars::schema_for!(RgaConfig))?.as_bytes())?;
+        schemafile.write_all(
+            serde_json::to_string_pretty(&schemars::schema_for!(RgaConfig))?.as_bytes(),
+        )?;
 
-        let mut config_json = serde_json::to_value(&RgaConfig::default())?;
+        let mut config_json = serde_json::to_value(RgaConfig::default())?;
         match &mut config_json {
             serde_json::Value::Object(o) => {
                 o.insert(
@@ -302,7 +300,7 @@ fn read_config_file(path_override: Option<String>) -> Result<(String, Value)> {
             _ => panic!("impos"),
         }
         let mut configfile = File::create(config_filename)?;
-        configfile.write(serde_json::to_string_pretty(&config_json)?.as_bytes())?;
+        configfile.write_all(serde_json::to_string_pretty(&config_json)?.as_bytes())?;
         Ok((config_filename_str, config_json))
     }
 }
@@ -311,7 +309,7 @@ fn read_config_env() -> Result<Value> {
     if let Some(val) = val {
         serde_json::from_str(&val).context("could not parse config from env RGA_CONFIG")
     } else {
-        serde_json::to_value(&RgaConfig::default()).context("could not create default config")
+        serde_json::to_value(RgaConfig::default()).context("could not create default config")
     }
 }
 pub fn parse_args<I>(args: I, is_rga_preproc: bool) -> Result<RgaConfig>
@@ -349,14 +347,14 @@ where
                 serde_json::to_string_pretty(&merged_config)?
             );
             // pass to child processes
-            std::env::set_var(RGA_CONFIG, &merged_config.to_string());
+            std::env::set_var(RGA_CONFIG, merged_config.to_string());
             merged_config
         }
     };
 
     let mut res: RgaConfig = serde_json::from_value(merged_config.clone())
         .map_err(|e| {
-            println!("{:?}", e);
+            println!("{e:?}");
             e
         })
         .with_context(|| {

@@ -29,7 +29,8 @@ fn meh(float: f32, precision: usize) -> usize {
     let a = float.abs();
 
     // if abs value is greater than 1, then precision becomes less than "standard"
-    let precision = if a >= 1. {
+    
+    if a >= 1. {
         // reduce by number of digits, minimum 0
         let n = (1. + a.log10().floor()) as usize;
         if n <= precision {
@@ -45,8 +46,7 @@ fn meh(float: f32, precision: usize) -> usize {
     // special case for 0
     } else {
         0
-    };
-    precision
+    }
 }
 
 pub fn print_dur(start: Instant) -> String {
@@ -58,15 +58,12 @@ pub fn print_dur(start: Instant) -> String {
     }
     let precision = meh(dur, 3);
     format!(
-        "{dur:.prec$}{suffix}s",
-        dur = dur,
-        prec = precision,
-        suffix = suffix
+        "{dur:.precision$}{suffix}s"
     )
 }
 
 pub fn print_bytes(bytes: impl Into<f64>) -> String {
-    return pretty_bytes::converter::convert(bytes.into());
+    pretty_bytes::converter::convert(bytes.into())
 }
 
 #[cfg(test)]

@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 fn main() -> anyhow::Result<()> {
     env_logger::init();
     let mut passthrough_args: Vec<String> = std::env::args().skip(1).collect();
-    let inx = passthrough_args.iter().position(|e| !e.starts_with("-"));
+    let inx = passthrough_args.iter().position(|e| !e.starts_with('-'));
     let initial_query = if let Some(inx) = inx {
         passthrough_args.remove(inx)
     } else {
@@ -27,22 +27,20 @@ fn main() -> anyhow::Result<()> {
         .context("rga-fzf-open executable is in non-unicode path")?;
 
     let rg_prefix = format!(
-        "{} --files-with-matches --rga-cache-max-blob-len=10M",
-        preproc_exe
+        "{preproc_exe} --files-with-matches --rga-cache-max-blob-len=10M"
     );
 
     let child = Command::new("fzf")
         .arg(format!(
-            "--preview={} --pretty --context 5 {{q}} --rga-fzf-path=_{{}}",
-            preproc_exe
+            "--preview={preproc_exe} --pretty --context 5 {{q}} --rga-fzf-path=_{{}}"
         ))
         .arg("--preview-window=70%:wrap")
         .arg("--phony")
         .arg("--query")
         .arg(&initial_query)
         .arg("--print-query")
-        .arg(format!("--bind=change:reload: {} {{q}}", rg_prefix))
-        .arg(format!("--bind=ctrl-m:execute:{} {{q}} {{}}", open_exe))
+        .arg(format!("--bind=change:reload: {rg_prefix} {{q}}"))
+        .arg(format!("--bind=ctrl-m:execute:{open_exe} {{q}} {{}}"))
         .env(
             "FZF_DEFAULT_COMMAND",
             format!("{} '{}'", rg_prefix, &initial_query),
@@ -58,7 +56,7 @@ fn main() -> anyhow::Result<()> {
         std::str::from_utf8(x.next().context("fzf output empty")?).context("fzf query not utf8")?;
     let selected_file = std::str::from_utf8(x.next().context("fzf output not two line")?)
         .context("fzf ofilename not utf8")?;
-    println!("query='{}', file='{}'", final_query, selected_file);
+    println!("query='{final_query}', file='{selected_file}'");
 
     Ok(())
 }

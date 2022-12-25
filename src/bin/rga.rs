@@ -12,7 +12,7 @@ use std::process::Command;
 use std::time::Instant;
 
 fn list_adapters(args: RgaConfig) -> Result<()> {
-    let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters.clone());
+    let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters);
 
     println!("Adapters:\n");
     let print = |adapter: std::sync::Arc<dyn FileAdapter>| {
@@ -21,7 +21,7 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
             .fast_matchers
             .iter()
             .map(|m| match m {
-                FastFileMatcher::FileExtension(ext) => format!(".{}", ext),
+                FastFileMatcher::FileExtension(ext) => format!(".{ext}"),
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -31,7 +31,7 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
             .unwrap_or(&vec![])
             .iter()
             .filter_map(|m| match m {
-                FileMatcher::MimeType(x) => Some(format!("{}", x)),
+                FileMatcher::MimeType(x) => Some(x.to_string()),
                 FileMatcher::Fast(_) => None,
             })
             .collect::<Vec<_>>()
@@ -39,16 +39,16 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
         let mime_text = if slow_matchers.is_empty() {
             "".to_owned()
         } else {
-            format!("Mime Types: {}", slow_matchers)
+            format!("Mime Types: {slow_matchers}")
         };
         print!(
             " - **{name}**\n     {desc}  \n     Extensions: {matchers}  \n     {mime}  \n",
             name = meta.name,
-            desc = meta.description.replace("\n", "\n     "),
+            desc = meta.description.replace('\n', "\n     "),
             matchers = matchers,
             mime = mime_text
         );
-        println!("");
+        println!();
     };
     for adapter in enabled_adapters {
         print(adapter)
@@ -57,11 +57,11 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
     for adapter in disabled_adapters {
         print(adapter)
     }
-    return Ok(());
+    Ok(())
 }
 fn main() -> anyhow::Result<()> {
     // set debugging as early as possible
-    if std::env::args().position(|e| e == "--debug").is_some() {
+    if std::env::args().any(|e| e == "--debug") {
         std::env::set_var("RUST_LOG", "debug");
     }
 
@@ -85,10 +85,10 @@ fn main() -> anyhow::Result<()> {
         passthrough_args.push(std::ffi::OsString::from(&path[1..]));
     }
 
-    if passthrough_args.len() == 0 {
+    if passthrough_args.is_empty() {
         // rg would show help. Show own help instead.
         RgaConfig::clap().print_help()?;
-        println!("");
+        println!();
         return Ok(());
     }
 
@@ -103,7 +103,7 @@ fn main() -> anyhow::Result<()> {
             })
             .collect::<Vec<_>>()
             .join(",");
-        format!("*.{{{}}}", extensions)
+        format!("*.{{{extensions}}}")
     } else {
         "*".to_owned()
     };
@@ -153,6 +153,6 @@ fn add_exe_to_path() -> Result<()> {
     // may be somewhat of a security issue if rga binary is in installed in unprivileged locations
     let paths = [&[exe.to_owned(), exe.join("lib")], &paths[..]].concat();
     let new_path = env::join_paths(paths)?;
-    env::set_var("PATH", &new_path);
+    env::set_var("PATH", new_path);
     Ok(())
 }

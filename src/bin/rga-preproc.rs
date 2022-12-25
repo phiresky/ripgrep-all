@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     //clap::App::new("rga-preproc").arg(Arg::from_usage())
     let path = {
         let filepath = last;
-        std::env::current_dir()?.join(&filepath)
+        std::env::current_dir()?.join(filepath)
     };
 
     let i = File::open(&path)

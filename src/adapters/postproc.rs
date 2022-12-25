@@ -2,11 +2,9 @@
 
 //impl<T> FileAdapter for T where T: RunFnAdapter {}
 
-
 use anyhow::Result;
 use async_stream::stream;
 use bytes::Bytes;
-
 
 use std::ffi::OsStr;
 use std::io::Cursor;
@@ -124,7 +122,7 @@ pub fn postproc_encoding(
 
 /// Adds the given prefix to each line in an `AsyncRead`.
 pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl AsyncRead + Send {
-    let line_prefix_n = format!("\n{}", line_prefix); // clone since we need it later
+    let line_prefix_n = format!("\n{line_prefix}"); // clone since we need it later
     let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
     let regex = regex::bytes::Regex::new("\n").unwrap();
     let inp_stream = ReaderStream::new(inp);
@@ -146,12 +144,9 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
     Box::pin(StreamReader::new(oup_stream))
 }
 
+#[derive(Default)]
 pub struct PostprocPageBreaks {}
-impl PostprocPageBreaks {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
+
 impl GetMetadata for PostprocPageBreaks {
     fn metadata(&self) -> &super::AdapterMeta {
         lazy_static::lazy_static! {
@@ -203,7 +198,7 @@ pub fn postproc_pagebreaks(
     let regex_linefeed = regex::bytes::Regex::new(r"\x0c").unwrap();
     let regex_newline = regex::bytes::Regex::new("\n").unwrap();
     let mut page_count: i32 = 1;
-    let mut page_prefix: String = format!("Page {}:{}", page_count, line_prefix_o);
+    let mut page_prefix: String = format!("Page {page_count}:{line_prefix_o}");
 
     let input_stream = ReaderStream::new(input);
     let output_stream = stream! {
@@ -216,7 +211,7 @@ pub fn postproc_pagebreaks(
                         // println!("{}", String::from_utf8_lossy(page_prefix.as_bytes()));
                         yield Ok(Bytes::copy_from_slice(page_prefix.as_bytes()));
                         page_prefix = format!("\nPage {}:{}", page_count, line_prefix_o);
-                        yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(&sub_chunk, page_prefix.as_bytes())));
+                        yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(sub_chunk, page_prefix.as_bytes())));
                         page_count += 1;
                         page_prefix = format!("\nPage {}:{}", page_count, line_prefix_o);
                     }
@@ -292,7 +287,7 @@ mod tests {
         if b != c {
             anyhow::bail!(
                 "`{}`\nshould be\n`{}`\nbut is\n`{}`",
-                String::from_utf8_lossy(&a),
+                String::from_utf8_lossy(a),
                 b,
                 c
             );

@@ -58,9 +58,9 @@ impl AdapterMeta {
             self.keep_fast_matchers_if_accurate,
             &self.slow_matchers,
         ) {
-            (true, false, Some(ref sm)) => Box::new(sm.iter().map(|e| Cow::Borrowed(e))),
+            (true, false, Some(ref sm)) => Box::new(sm.iter().map(Cow::Borrowed)),
             (true, true, Some(ref sm)) => Box::new(
-                sm.iter().map(|e| Cow::Borrowed(e)).chain(
+                sm.iter().map(Cow::Borrowed).chain(
                     self.fast_matchers
                         .iter()
                         .map(|e| Cow::Owned(FileMatcher::Fast(e.clone()))),
@@ -83,11 +83,7 @@ pub trait FileAdapter: GetMetadata + Send + Sync {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
-    fn adapt<'a>(
-        &self,
-        a: AdaptInfo,
-        detection_reason: &FileMatcher,
-    ) -> Result<AdaptedFilesIterBox>;
+    fn adapt(&self, a: AdaptInfo, detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox>;
 }
 
 pub struct AdaptInfo {
@@ -118,7 +114,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
     }
 
     let internal_adapters: Vec<Arc<dyn FileAdapter>> = vec![
-        Arc::new(PostprocPageBreaks::new()),
+        Arc::new(PostprocPageBreaks::default()),
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
         // Rc::new(zip::ZipAdapter::new()),
         //Rc::new(decompress::DecompressAdapter::new()),

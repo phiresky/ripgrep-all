@@ -54,14 +54,14 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 }
 
 pub fn adapter_matcher(
-    adapters: &Vec<Arc<dyn FileAdapter>>,
+    adapters: &[Arc<dyn FileAdapter>],
     slow: bool,
 ) -> Result<impl Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)>> {
     // need order later
     let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
     let mut fname_regexes = vec![];
     let mut mime_regexes = vec![];
-    for adapter in adapters.into_iter() {
+    for adapter in adapters.iter() {
         let metadata = adapter.metadata();
         use FileMatcher::*;
         for matcher in metadata.get_matchers(slow) {
@@ -86,7 +86,7 @@ pub fn adapter_matcher(
             .collect();
         let mime_matches: Vec<_> = if slow {
             mime_regex_set
-                .matches(&meta.mimetype.expect("No mimetype?"))
+                .matches(meta.mimetype.expect("No mimetype?"))
                 .into_iter()
                 .collect()
         } else {

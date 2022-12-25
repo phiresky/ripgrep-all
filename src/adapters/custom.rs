@@ -154,7 +154,7 @@ fn proc_wait(mut child: Child) -> impl AsyncRead {
     };
     StreamReader::new(s)
 }
-pub fn pipe_output<'a>(
+pub fn pipe_output(
     _line_prefix: &str,
     mut cmd: Command,
     inp: ReadBox,
@@ -205,7 +205,7 @@ impl CustomSpawningFileAdapter {
         command.args(
             self.args
                 .iter()
-                .map(|arg| arg_replacer(arg, &filepath_hint))
+                .map(|arg| arg_replacer(arg, filepath_hint))
                 .collect::<Result<Vec<_>>>()?,
         );
         log::debug!("running command {:?}", command);
@@ -355,14 +355,14 @@ PREFIX:Page 2:
         with a long dead crew
         and a witch with the flu
         "#;
-        let input = format!("{0}{0}{0}{0}", input);
-        let input = format!("{0}{0}{0}{0}", input);
-        let input = format!("{0}{0}{0}{0}", input);
-        let input = format!("{0}{0}{0}{0}", input);
-        let input = format!("{0}{0}{0}{0}", input);
-        let input = format!("{0}{0}{0}{0}", input);
+        let input = format!("{input}{input}{input}{input}");
+        let input = format!("{input}{input}{input}{input}");
+        let input = format!("{input}{input}{input}{input}");
+        let input = format!("{input}{input}{input}{input}");
+        let input = format!("{input}{input}{input}{input}");
+        let input = format!("{input}{input}{input}{input}");
         let (a, d) = simple_adapt_info(
-            &Path::new("foo.txt"),
+            Path::new("foo.txt"),
             Box::pin(Cursor::new(Vec::from(input))),
         );
         let output = adapter.adapt(a, &d).unwrap();

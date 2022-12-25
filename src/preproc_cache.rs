@@ -59,7 +59,7 @@ impl LmdbCache {
         }
         let path = Path::new(&config.path.0);
         Ok(Some(LmdbCache {
-            db_arc: open_cache_db(&path)?,
+            db_arc: open_cache_db(path)?,
         }))
     }
 }
@@ -122,13 +122,13 @@ impl PreprocCache for LmdbCache {
             .map_err(RkvErrWrap)
             .with_context(|| format_err!("could not open write handle to cache"))?;
 
-        db.put(&mut writer, &key, &rkv::Value::Blob(&got))
+        db.put(&mut writer, &key, &rkv::Value::Blob(got))
             .map_err(RkvErrWrap)
             .with_context(|| format_err!("could not write to cache"))?;
         writer
             .commit()
             .map_err(RkvErrWrap)
-            .with_context(|| format!("could not write cache"))?;
+            .with_context(|| "could not write cache".to_string())?;
         debug!("writing to cache took {}", print_dur(start));
         Ok(())
     }
