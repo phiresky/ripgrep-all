@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use regex::Captures;
 
 // from https://github.com/phiresky/timetrackrs/blob/1c3df09ba2c1fda6065f2927045bd28dea0738d3/src/expand.rs
@@ -27,7 +29,7 @@ pub fn get_capture<'a>(caps: &'a [Captures], reference: &str) -> Option<&'a str>
 pub fn expand_str_captures(caps: &[Captures], replacement: &str) -> String {
     let mut dst = String::new();
     expand_str_lambda(
-        |reference: &str| get_capture(caps, reference).unwrap_or(""),
+        |reference: &str| Cow::Borrowed(get_capture(caps, reference).unwrap_or("")),
         replacement,
         &mut dst,
     );
@@ -36,7 +38,7 @@ pub fn expand_str_captures(caps: &[Captures], replacement: &str) -> String {
 
 pub fn expand_str_ez<'a, F>(replacement: &'a str, lambda: F) -> String
 where
-    F: Fn(&str) -> &'a str,
+    F: Fn(&str) -> Cow<'a, str>,
 {
     let mut dst = String::new();
     expand_str_lambda(lambda, replacement, &mut dst);
@@ -45,7 +47,7 @@ where
 
 pub fn expand_str_lambda<'a, F>(cap: F, replacement: &'a str, dst: &mut String)
 where
-    F: Fn(&str) -> &'a str,
+    F: Fn(&str) -> Cow<'a, str>,
 {
     let mut replacement = replacement;
     while !replacement.is_empty() {
@@ -71,7 +73,7 @@ where
             }
         };
         replacement = &replacement[cap_ref.end..];
-        dst.push_str(cap(cap_ref.cap));
+        dst.push_str(cap(cap_ref.cap).as_ref());
     }
     dst.push_str(replacement);
 }

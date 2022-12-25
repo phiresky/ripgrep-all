@@ -144,7 +144,6 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
     Box::pin(StreamReader::new(oup_stream))
 }
 
-
 pub struct PostprocPageBreaks {}
 impl GetMetadata for PostprocPageBreaks {
     fn metadata(&self) -> &super::AdapterMeta {
@@ -154,7 +153,7 @@ impl GetMetadata for PostprocPageBreaks {
                 version: 1,
                 description: "Adds the page number to each line for an input file that specifies page breaks as ascii page break character".to_owned(),
                 recurses: false,
-                fast_matchers: vec![FastFileMatcher::FileExtension("txtwithpagebreaks".to_string())],
+                fast_matchers: vec![FastFileMatcher::FileExtension("asciipagebreaks".to_string())],
                 slow_matchers: None,
                 keep_fast_matchers_if_accurate: false,
                 disabled_by_default: false
@@ -221,9 +220,9 @@ pub fn postproc_pagebreaks(
 mod tests {
     use super::*;
     use anyhow::Result;
+    use tokio::pin;
     use tokio_test::io::Builder;
     use tokio_test::io::Mock;
-    use tokio::pin;
 
     #[tokio::test]
     async fn test_with_pagebreaks() {
