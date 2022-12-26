@@ -154,13 +154,13 @@ mod tests {
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
-            "PREFIX:Page 1:hello world
-PREFIX:Page 1:this is just a test.
-PREFIX:Page 1:
-PREFIX:Page 1:1
-PREFIX:Page 1:
-PREFIX:Page 1:
-PREFIX:Page 2:
+            "PREFIX:Page 1: hello world
+PREFIX:Page 1: this is just a test.
+PREFIX:Page 1: 
+PREFIX:Page 1: 1
+PREFIX:Page 1: 
+PREFIX:Page 1: 
+PREFIX:Page 2: 
 "
         );
         Ok(())

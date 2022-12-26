@@ -109,20 +109,20 @@ mod tests {
         let o = adapted_to_vec(r).await.context("adapted_to_vec")?;
         assert_eq!(
             String::from_utf8(o).context("parsing utf8")?,
-            "PREFIX:dir/file-b.pdf: Page 1:hello world
-PREFIX:dir/file-b.pdf: Page 1:this is just a test.
-PREFIX:dir/file-b.pdf: Page 1:
-PREFIX:dir/file-b.pdf: Page 1:1
-PREFIX:dir/file-b.pdf: Page 1:
-PREFIX:dir/file-b.pdf: Page 1:
-PREFIX:dir/file-b.pdf: Page 2:
-PREFIX:dir/file-a.pdf: Page 1:hello world
-PREFIX:dir/file-a.pdf: Page 1:this is just a test.
-PREFIX:dir/file-a.pdf: Page 1:
-PREFIX:dir/file-a.pdf: Page 1:1
-PREFIX:dir/file-a.pdf: Page 1:
-PREFIX:dir/file-a.pdf: Page 1:
-PREFIX:dir/file-a.pdf: Page 2:
+            "PREFIX:dir/file-b.pdf: Page 1: hello world
+PREFIX:dir/file-b.pdf: Page 1: this is just a test.
+PREFIX:dir/file-b.pdf: Page 1: 
+PREFIX:dir/file-b.pdf: Page 1: 1
+PREFIX:dir/file-b.pdf: Page 1: 
+PREFIX:dir/file-b.pdf: Page 1: 
+PREFIX:dir/file-b.pdf: Page 2: 
+PREFIX:dir/file-a.pdf: Page 1: hello world
+PREFIX:dir/file-a.pdf: Page 1: this is just a test.
+PREFIX:dir/file-a.pdf: Page 1: 
+PREFIX:dir/file-a.pdf: Page 1: 1
+PREFIX:dir/file-a.pdf: Page 1: 
+PREFIX:dir/file-a.pdf: Page 1: 
+PREFIX:dir/file-a.pdf: Page 2: 
 "
         );
         Ok(())
