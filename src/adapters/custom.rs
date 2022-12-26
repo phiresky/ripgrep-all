@@ -2,6 +2,7 @@ use super::*;
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 use crate::adapted_iter::one_file;
 
+use crate::join_handle_to_stream;
 use crate::{
     adapted_iter::AdaptedFilesIterBox,
     expand::expand_str_ez,
@@ -19,7 +20,7 @@ use std::process::Stdio;
 use tokio::io::AsyncReadExt;
 use tokio::process::Child;
 use tokio::process::Command;
-use tokio::task::JoinHandle;
+
 
 use tokio_util::io::StreamReader;
 // mostly the same as AdapterMeta + SpawningFileAdapter
@@ -134,11 +135,11 @@ lazy_static! {
 
 /// replace a Command.spawn() error "File not found" with a more readable error
 /// to indicate some program is not installed
-pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> Error {
+pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> anyhow::Error {
     use std::io::ErrorKind::*;
     match err.kind() {
         NotFound => format_err!("Could not find executable \"{}\". {}", exe_name, help),
-        _ => Error::from(err),
+        _ => anyhow::Error::from(err),
     }
 }
 
@@ -156,15 +157,7 @@ fn proc_wait(mut child: Child) -> impl AsyncRead {
     };
     StreamReader::new(s)
 }
-/** returns an AsyncRead that is empty but returns an io error if the given task had an io error or join error */
-fn join_handle_to_stream(join: JoinHandle<std::io::Result<()>>) -> impl AsyncRead {
-    let st = stream! {
-        join.await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))??;
-        yield std::io::Result::Ok(Bytes::copy_from_slice(b""))
-    };
 
-    StreamReader::new(st)
-}
 pub fn pipe_output(
     _line_prefix: &str,
     mut cmd: Command,

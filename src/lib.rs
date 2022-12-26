@@ -13,8 +13,12 @@ pub mod recurse;
 pub mod test_utils;
 use anyhow::Context;
 use anyhow::Result;
+use async_stream::stream;
 use directories_next::ProjectDirs;
 use std::time::Instant;
+use tokio::io::AsyncRead;
+use tokio::task::JoinHandle;
+use tokio_util::io::StreamReader;
 
 pub fn project_dirs() -> Result<ProjectDirs> {
     directories_next::ProjectDirs::from("", "", "ripgrep-all")
@@ -71,4 +75,14 @@ pub fn to_io_err(e: anyhow::Error) -> std::io::Error {
 #[ctor::ctor]
 fn init() {
     env_logger::init();
+}
+
+/** returns an AsyncRead that is empty but returns an io error if the given task had an io error or join error */
+pub fn join_handle_to_stream(join: JoinHandle<std::io::Result<()>>) -> impl AsyncRead {
+    let st = stream! {
+        join.await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))??;
+        yield std::io::Result::Ok((&b""[..]))
+    };
+
+    StreamReader::new(st)
 }
