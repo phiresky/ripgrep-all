@@ -1,11 +1,20 @@
-use super::*;
-use crate::{preproc::rga_preproc, print_bytes};
-use ::tar::EntryType::Regular;
+use crate::{
+    adapted_iter::AdaptedFilesIterBox,
+    adapters::AdapterMeta,
+    matching::{FastFileMatcher, FileMatcher},
+    preproc::rga_preproc,
+    print_bytes,
+};
 use anyhow::*;
+use async_stream::stream;
 use lazy_static::lazy_static;
 use log::*;
 use std::path::PathBuf;
-use writing::{WritingFileAdapter, WritingFileAdapterTrait};
+use tokio::io::AsyncWrite;
+use tokio_stream::StreamExt;
+use tokio_util::io::StreamReader;
+
+use super::{AdaptInfo, FileAdapter, GetMetadata};
 
 static EXTENSIONS: &[&str] = &["tar"];
 
@@ -28,8 +37,8 @@ lazy_static! {
 pub struct TarAdapter;
 
 impl TarAdapter {
-    pub fn new() -> WritingFileAdapter {
-        WritingFileAdapter::new(Box::new(TarAdapter))
+    pub fn new() -> TarAdapter {
+        TarAdapter
     }
 }
 impl GetMetadata for TarAdapter {
@@ -38,45 +47,67 @@ impl GetMetadata for TarAdapter {
     }
 }
 
-impl WritingFileAdapterTrait for TarAdapter {
-    fn adapt_write(
-        &self,
-        ai: AdaptInfo,
-        _detection_reason: &FileMatcher,
-        oup: &mut dyn Write,
-    ) -> Result<()> {
+impl FileAdapter for TarAdapter {
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
         let AdaptInfo {
             filepath_hint,
-            mut inp,
+            inp,
             line_prefix,
             archive_recursion_depth,
             config,
+            postprocess,
             ..
         } = ai;
-        let mut archive = ::tar::Archive::new(&mut inp);
-        for entry in archive.entries()? {
-            let mut file = entry?;
-            if Regular == file.header().entry_type() {
-                let path = PathBuf::from(file.path()?.to_owned());
-                debug!(
-                    "{}|{}: {}",
-                    filepath_hint.display(),
-                    path.display(),
-                    print_bytes(file.header().size()? as f64),
-                );
-                let line_prefix = &format!("{}{}: ", line_prefix, path.display());
-                let ai2: AdaptInfo = AdaptInfo {
-                    filepath_hint: path,
-                    is_real_file: false,
-                    archive_recursion_depth: archive_recursion_depth + 1,
-                    inp: Box::new(file),
-                    oup,
-                    line_prefix,
-                    config: config.clone(),
-                };
-                rga_preproc(ai2)?;
+        let mut archive = ::tokio_tar::Archive::new(inp);
+
+        let mut entries = archive.entries()?;
+        let s = stream! {
+            while let Some(entry) = entries.next().await {
+                let mut file = entry?;
+                if tokio_tar::EntryType::Regular == file.header().entry_type() {
+                    let path = PathBuf::from(file.path()?.to_owned());
+                    debug!(
+                        "{}|{}: {}",
+                        filepath_hint.display(),
+                        path.display(),
+                        print_bytes(file.header().size().unwrap_or(0) as f64),
+                    );
+                    let line_prefix = &format!("{}{}: ", line_prefix, path.display());
+                    let ai2: AdaptInfo = AdaptInfo {
+                        filepath_hint: path,
+                        is_real_file: false,
+                        archive_recursion_depth: archive_recursion_depth + 1,
+                        inp: Box::pin(file),
+                        line_prefix: line_prefix.to_string(),
+                        config: config.clone(),
+                        postprocess,
+                    };
+                    yield Ok(ai2);
+                }
             }
-        }
+        };
+
+        Ok(Box::pin(s))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::*;
+    use pretty_assertions::assert_eq;
+    use tokio::fs::File;
+
+    #[tokio::test]
+    async fn test_simple_tar() -> Result<()> {
+        let filepath = test_data_dir().join("test.tar");
+
+        let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
+
+        let adapter = TarAdapter::new();
+        let r = adapter.adapt(a, &d)?;
+        let o = adapted_to_vec(r).await?;
+        assert_eq!(String::from_utf8(o)?, "hello\n");
         Ok(())
     }
 }

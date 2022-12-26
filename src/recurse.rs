@@ -6,7 +6,8 @@ use async_stream::stream;
 pub fn concat_read_streams(input: AdaptedFilesIterBox) -> ReadBox {
     let s = stream! {
         for await output in input {
-            let stream = ReaderStream::new(output.inp);
+            let o = output.map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?.inp;
+            let stream = ReaderStream::new(o);
             for await bytes in stream {
                 yield bytes;
             }

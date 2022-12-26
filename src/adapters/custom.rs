@@ -1,5 +1,6 @@
 use super::*;
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
+use crate::adapted_iter::one_file;
 use crate::{
     adapted_iter::AdaptedFilesIterBox,
     expand::expand_str_ez,
@@ -234,7 +235,7 @@ impl FileAdapter for CustomSpawningFileAdapter {
             .with_context(|| format!("Could not set cmd arguments for {}", self.binary))?;
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, &self.binary, "")?;
-        Ok(Box::pin(tokio_stream::once(AdaptInfo {
+        Ok(one_file(AdaptInfo {
             filepath_hint: PathBuf::from(expand_str_ez(
                 self.output_path_hint
                     .as_deref()
@@ -250,7 +251,7 @@ impl FileAdapter for CustomSpawningFileAdapter {
             archive_recursion_depth: archive_recursion_depth + 1,
             postprocess,
             config,
-        })))
+        }))
     }
 }
 impl CustomAdapterConfig {

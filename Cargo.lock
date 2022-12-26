@@ -1326,10 +1326,10 @@ dependencies = [
  "serde_json",
  "size_format",
  "structopt",
- "tar",
  "tempfile",
  "tokio 1.23.0",
  "tokio-stream",
+ "tokio-tar",
  "tokio-test",
  "tokio-util",
  "tree_magic_mini",
@@ -1601,17 +1601,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tar"
-version = "0.4.38"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b55807c0344e1e6c04d7c965f5289c39a8d94ae23ed5c0b57aabac549f871c6"
-dependencies = [
- "filetime",
- "libc",
- "xattr",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1776,6 +1765,20 @@ dependencies = [
  "pin-project-lite 0.2.9",
  "tokio 1.23.0",
  "tokio-util",
+]
+
+[[package]]
+name = "tokio-tar"
+version = "0.3.0"
+source = "git+https://github.com/vorot93/tokio-tar#1bd30fbd1a219e8982571da48eb68f34317d1e15"
+dependencies = [
+ "filetime",
+ "futures-core",
+ "libc",
+ "redox_syscall",
+ "tokio 1.23.0",
+ "tokio-stream",
+ "xattr",
 ]
 
 [[package]]

@@ -1,37 +1,19 @@
 use super::{FileAdapter, GetMetadata, ReadBox};
 use anyhow::Result;
-use std::io::Read;
-use std::io::Write;
-use std::thread::Thread;
+use tokio::io::AsyncWrite;
+// use async_trait::async_trait;
 
-// this trait / struct split is ugly but necessary because of "conflicting trait implementation" otherwise with SpawningFileAdapter
-#[dyn_clonable::clonable]
-pub trait WritingFileAdapterTrait: GetMetadata + Send + Clone {
-    fn adapt_write<'a>(
+pub trait WritingFileAdapter: GetMetadata + Send + Clone {
+    fn adapt_write(
         &self,
-        a: super::AdaptInfo<'a>,
+        a: super::AdaptInfo,
         detection_reason: &crate::matching::FileMatcher,
-        oup: &mut (dyn Write + 'a),
+        oup: &mut (dyn AsyncWrite),
     ) -> Result<()>;
 }
 
-pub struct WritingFileAdapter {
-    inner: Box<dyn WritingFileAdapterTrait>,
-}
-impl WritingFileAdapter {
-    pub fn new(inner: Box<dyn WritingFileAdapterTrait>) -> WritingFileAdapter {
-        WritingFileAdapter { inner }
-    }
-}
-
-impl GetMetadata for WritingFileAdapter {
-    fn metadata(&self) -> &super::AdapterMeta {
-        self.inner.metadata()
-    }
-}
-
-struct PipedReadWriter<'a> {
-    inner: ReadBox<'a>,
+/* struct PipedReadWriter {
+    inner: ReadBox,
     pipe_thread: Thread,
 }
 
@@ -39,18 +21,20 @@ impl<'a> Read for PipedReadWriter<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         todo!()
     }
-}
+}*/
 
 impl FileAdapter for WritingFileAdapter {
-    fn adapt<'a>(
+    fn adapt(
         &self,
-        ai_outer: super::AdaptInfo<'a>,
+        ai_outer: super::AdaptInfo,
         detection_reason: &crate::matching::FileMatcher,
-    ) -> anyhow::Result<ReadBox<'a>> {
+    ) -> anyhow::Result<ReadBox> {
         let (r, w) = crate::pipe::pipe();
         let cc = self.inner.clone();
         let detc = detection_reason.clone();
-        std::thread::spawn(move || {
+        panic!("ooo");
+        // cc.adapt_write(ai_outer, detc, )
+        /*tokio::spawn(move || {
             let mut oup = w;
             let ai = ai_outer;
             let res = cc.adapt_write(ai, &detc, &mut oup);
@@ -58,8 +42,8 @@ impl FileAdapter for WritingFileAdapter {
                 oup.write_err(std::io::Error::new(std::io::ErrorKind::Other, e))
                     .expect("could not write err");
             }
-        });
+        }); */
 
-        Ok(Box::new(r))
+        //Ok(Box::new(r))
     }
 }

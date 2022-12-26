@@ -1,3 +1,5 @@
+use crate::adapted_iter::one_file;
+
 use super::*;
 
 use anyhow::Result;
@@ -93,7 +95,7 @@ fn get_inner_filename(filename: &Path) -> PathBuf {
 
 impl FileAdapter for DecompressAdapter {
     fn adapt(&self, ai: AdaptInfo, detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
-        Ok(Box::pin(tokio_stream::once(AdaptInfo {
+        Ok(one_file(AdaptInfo {
             filepath_hint: get_inner_filename(&ai.filepath_hint),
             is_real_file: false,
             archive_recursion_depth: ai.archive_recursion_depth + 1,
@@ -101,7 +103,7 @@ impl FileAdapter for DecompressAdapter {
             line_prefix: ai.line_prefix,
             config: ai.config.clone(),
             postprocess: ai.postprocess,
-        })))
+        }))
     }
 }
 

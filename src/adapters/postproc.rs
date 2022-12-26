@@ -13,6 +13,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio_util::io::ReaderStream;
 use tokio_util::io::StreamReader;
 
+use crate::adapted_iter::one_file;
 use crate::adapted_iter::AdaptedFilesIterBox;
 use crate::matching::FastFileMatcher;
 
@@ -56,7 +57,7 @@ impl FileAdapter for PostprocPrefix {
             postprocess: false,
             ..a
         };
-        Ok(Box::pin(tokio_stream::once(ai)))
+        Ok(one_file(ai))
     }
 }
 
@@ -183,7 +184,7 @@ impl FileAdapter for PostprocPageBreaks {
                 .join(a.filepath_hint.file_stem().unwrap_or_default()),
             ..a
         };
-        Ok(Box::pin(tokio_stream::once(ai)))
+        Ok(one_file(ai))
     }
 }
 /// Adds the prefix "Page N:" to each line,

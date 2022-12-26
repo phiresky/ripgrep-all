@@ -3,10 +3,9 @@ pub mod decompress;
 // pub mod ffmpeg;
 pub mod postproc;
 // pub mod pdfpages;
-pub mod spawning;
 use std::sync::Arc;
 // pub mod sqlite;
-// pub mod tar;
+pub mod tar;
 // pub mod tesseract;
 // pub mod writing;
 // pub mod zip;
@@ -118,7 +117,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
         // Rc::new(zip::ZipAdapter::new()),
         Arc::new(decompress::DecompressAdapter::new()),
-        // Rc::new(tar::TarAdapter::new()),
+        Arc::new(tar::TarAdapter::new()),
         //Rc::new(sqlite::SqliteAdapter::new()),
         // Rc::new(pdfpages::PdfPagesAdapter::new()),
         // Rc::new(tesseract::TesseractAdapter::new()),

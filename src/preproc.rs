@@ -228,7 +228,7 @@ pub fn loop_adapt(
     })?;
     let s = stream! {
         for await file in inp {
-            match buf_choose_adapter(file).await.expect("todo: handle") {
+            match buf_choose_adapter(file?).await.expect("todo: handle") {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
                     debug!(
                         "Chose adapter '{}' because of matcher {:?}",
@@ -245,7 +245,7 @@ pub fn loop_adapt(
                 }
                 Ret::Passthrough(ai) => {
                     debug!("no adapter for {}, ending recursion", ai.filepath_hint.to_string_lossy());
-                    yield ai;
+                    yield Ok(ai);
                 }
             }
         }
