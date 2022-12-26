@@ -221,9 +221,13 @@ pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Sen
 
 #[cfg(test)]
 mod tests {
+    use crate::preproc::loop_adapt;
+    use crate::test_utils::*;
+
     use super::*;
     use anyhow::Result;
     use pretty_assertions::assert_eq;
+    use tokio::fs::File;
     use tokio::pin;
     use tokio_test::io::Builder;
     use tokio_test::io::Mock;
@@ -241,6 +245,30 @@ mod tests {
             String::from_utf8_lossy(&output),
             "Page 1: Hello\nPage 1: World\nPage 2: Foo Bar\nPage 2: \nPage 3: Test"
         );
+    }
+
+    #[tokio::test]
+    async fn test_pdf_twoblank() -> Result<()> {
+        let adapter = poppler_adapter();
+        let fname = test_data_dir().join("twoblankpages.pdf");
+        let rd = File::open(&fname).await?;
+        let (a, d) = simple_adapt_info(&fname, Box::pin(rd));
+        let res = loop_adapt(&adapter, d, a)?;
+
+        let buf = adapted_to_vec(res).await?;
+
+        assert_eq!(
+            String::from_utf8(buf)?,
+            "PREFIX:Page 1: 
+PREFIX:Page 2: 
+PREFIX:Page 3: HelloWorld
+PREFIX:Page 3: 
+PREFIX:Page 3: 
+PREFIX:Page 4: 
+",
+        );
+
+        Ok(())
     }
 
     #[tokio::test]

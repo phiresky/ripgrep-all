@@ -21,7 +21,6 @@ use tokio::io::AsyncReadExt;
 use tokio::process::Child;
 use tokio::process::Command;
 
-
 use tokio_util::io::StreamReader;
 // mostly the same as AdapterMeta + SpawningFileAdapter
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
@@ -307,12 +306,7 @@ mod test {
 
     #[tokio::test]
     async fn poppler() -> Result<()> {
-        let adapter = BUILTIN_SPAWNING_ADAPTERS
-            .iter()
-            .find(|e| e.name == "poppler")
-            .expect("no poppler adapter");
-
-        let adapter = adapter.to_adapter();
+        let adapter = poppler_adapter();
 
         let filepath = test_data_dir().join("short.pdf");
 

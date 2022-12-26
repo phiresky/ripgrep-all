@@ -1,6 +1,9 @@
 use crate::{
     adapted_iter::AdaptedFilesIterBox,
-    adapters::{AdaptInfo, ReadBox},
+    adapters::{
+        custom::{CustomSpawningFileAdapter, BUILTIN_SPAWNING_ADAPTERS},
+        AdaptInfo, ReadBox,
+    },
     config::RgaConfig,
     matching::{FastFileMatcher, FileMatcher},
     recurse::concat_read_streams,
@@ -40,4 +43,14 @@ pub async fn adapted_to_vec(adapted: AdaptedFilesIterBox) -> Result<Vec<u8>> {
     let mut buf = Vec::new();
     res.read_to_end(&mut buf).await?;
     Ok(buf)
+}
+
+pub fn poppler_adapter() -> CustomSpawningFileAdapter {
+    let adapter = BUILTIN_SPAWNING_ADAPTERS
+        .iter()
+        .find(|e| e.name == "poppler")
+        .expect("no poppler adapter");
+
+    let adapter = adapter.to_adapter();
+    adapter
 }
