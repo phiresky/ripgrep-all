@@ -94,20 +94,37 @@ impl FileAdapter for TarAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::*;
+    use crate::{preproc::loop_adapt, test_utils::*};
     use pretty_assertions::assert_eq;
     use tokio::fs::File;
 
     #[tokio::test]
     async fn test_simple_tar() -> Result<()> {
-        let filepath = test_data_dir().join("test.tar");
+        let filepath = test_data_dir().join("hello.tar");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
 
         let adapter = TarAdapter::new();
-        let r = adapter.adapt(a, &d)?;
-        let o = adapted_to_vec(r).await?;
-        assert_eq!(String::from_utf8(o)?, "hello\n");
+        let r = loop_adapt(&adapter, d, a).context("adapt")?;
+        let o = adapted_to_vec(r).await.context("adapted_to_vec")?;
+        assert_eq!(
+            String::from_utf8(o).context("parsing utf8")?,
+            "PREFIX:dir/file-b.pdf: Page 1:hello world
+PREFIX:dir/file-b.pdf: Page 1:this is just a test.
+PREFIX:dir/file-b.pdf: Page 1:
+PREFIX:dir/file-b.pdf: Page 1:1
+PREFIX:dir/file-b.pdf: Page 1:
+PREFIX:dir/file-b.pdf: Page 1:
+PREFIX:dir/file-b.pdf: Page 2:
+PREFIX:dir/file-a.pdf: Page 1:hello world
+PREFIX:dir/file-a.pdf: Page 1:this is just a test.
+PREFIX:dir/file-a.pdf: Page 1:
+PREFIX:dir/file-a.pdf: Page 1:1
+PREFIX:dir/file-a.pdf: Page 1:
+PREFIX:dir/file-a.pdf: Page 1:
+PREFIX:dir/file-a.pdf: Page 2:
+"
+        );
         Ok(())
     }
 }
