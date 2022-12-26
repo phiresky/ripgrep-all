@@ -1,6 +1,8 @@
 use super::*;
 use crate::{adapted_iter::AdaptedFilesIter, print_bytes};
 use anyhow::*;
+use async_stream::stream;
+use async_zip::read::stream::ZipFileReader;
 use lazy_static::lazy_static;
 use log::*;
 
@@ -36,17 +38,52 @@ impl GetMetadata for ZipAdapter {
 }
 
 impl FileAdapter for ZipAdapter {
-    fn adapt<'a>(
-        &self,
-        inp: AdaptInfo<'a>,
-        _detection_reason: &FileMatcher,
-    ) -> Result<Box<dyn AdaptedFilesIter + 'a>> {
-        Ok(Box::new(ZipAdaptIter { inp }))
+    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
+        let AdaptInfo {
+            inp,
+            filepath_hint,
+            archive_recursion_depth,
+            postprocess,
+            line_prefix,
+            config,
+            ..
+        } = ai;
+        let mut zip = ZipFileReader::new(inp);
+
+        let s = stream! {
+            while !zip.finished() {
+                if let Some(mut reader) = zip.entry_reader().await? {
+                    let file = reader.entry();
+                    /* if file.is_dir() {
+                    continue;
+                    }*/
+                    debug!(
+                        "{}{}|{}: {} ({} packed)",
+                        line_prefix,
+                        filepath_hint.display(),
+                        file.filename(),
+                        print_bytes(file.uncompressed_size() as f64),
+                        print_bytes(file.compressed_size() as f64)
+                    );
+                    let new_line_prefix = format!("{}{}: ", line_prefix, file.filename());
+                    yield Ok(AdaptInfo {
+                        filepath_hint: PathBuf::from(file.filename()),
+                        is_real_file: false,
+                        inp: Box::pin(reader),
+                        line_prefix: new_line_prefix,
+                        archive_recursion_depth: archive_recursion_depth + 1,
+                        postprocess,
+                        config: config.clone(),
+                    });
+                }
+            }
+        };
+        Ok(Box::pin(s))
     }
 }
 
-struct ZipAdaptIter<'a> {
-    inp: AdaptInfo<'a>,
+/*struct ZipAdaptIter {
+    inp: AdaptInfo,
 }
 impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
     fn next<'b>(&'b mut self) -> Option<AdaptInfo<'b>> {
@@ -80,7 +117,7 @@ impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
                 })
             })
     }
-}
+}*/
 
 #[cfg(test)]
 mod test {

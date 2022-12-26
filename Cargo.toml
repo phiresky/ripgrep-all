@@ -19,6 +19,7 @@ version = "0.9.7-alpha.0"
 anyhow = "1.0.32"
 async-compression = {version = "0.3.15", features = ["all", "all-algorithms", "tokio"]}
 async-stream = "0.3.3"
+async_zip = "0.0.9"
 bincode = "1.3.1"
 bytes = "1.2.1"
 clap = {version = "4.0.18", features = ["wrap_help"]}
@@ -53,7 +54,6 @@ tokio-stream = {version = "0.1.11", features = ["io-util", "tokio-util"]}
 tokio-tar = { git = "https://github.com/vorot93/tokio-tar", version = "0.3.0" }
 tokio-util = {version = "0.7.4", features = ["io", "full"]}
 tree_magic = {package = "tree_magic_mini", version = "3.0.0"}
-zip = "0.6.3"
 
 [dev-dependencies]
 ctor = "0.1.20"
