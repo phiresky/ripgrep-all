@@ -2,7 +2,6 @@ use crate::{
     adapted_iter::AdaptedFilesIterBox,
     adapters::AdapterMeta,
     matching::{FastFileMatcher, FileMatcher},
-    preproc::rga_preproc,
     print_bytes,
 };
 use anyhow::*;
@@ -10,9 +9,8 @@ use async_stream::stream;
 use lazy_static::lazy_static;
 use log::*;
 use std::path::PathBuf;
-use tokio::io::AsyncWrite;
+
 use tokio_stream::StreamExt;
-use tokio_util::io::StreamReader;
 
 use super::{AdaptInfo, FileAdapter, GetMetadata};
 
@@ -63,7 +61,7 @@ impl FileAdapter for TarAdapter {
         let mut entries = archive.entries()?;
         let s = stream! {
             while let Some(entry) = entries.next().await {
-                let mut file = entry?;
+                let file = entry?;
                 if tokio_tar::EntryType::Regular == file.header().entry_type() {
                     let path = PathBuf::from(file.path()?.to_owned());
                     debug!(
