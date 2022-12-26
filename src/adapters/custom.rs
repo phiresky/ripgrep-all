@@ -1,6 +1,7 @@
 use super::*;
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 use crate::adapted_iter::one_file;
+
 use crate::{
     adapted_iter::AdaptedFilesIterBox,
     expand::expand_str_ez,
@@ -11,7 +12,6 @@ use async_stream::stream;
 use bytes::Bytes;
 use lazy_static::lazy_static;
 use log::debug;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -19,8 +19,9 @@ use std::process::Stdio;
 use tokio::io::AsyncReadExt;
 use tokio::process::Child;
 use tokio::process::Command;
-use tokio_util::io::StreamReader;
+use tokio::task::JoinHandle;
 
+use tokio_util::io::StreamReader;
 // mostly the same as AdapterMeta + SpawningFileAdapter
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
 pub struct CustomAdapterConfig {
@@ -155,6 +156,15 @@ fn proc_wait(mut child: Child) -> impl AsyncRead {
     };
     StreamReader::new(s)
 }
+/** returns an AsyncRead that is empty but returns an io error if the given task had an io error or join error */
+fn join_handle_to_stream(join: JoinHandle<std::io::Result<()>>) -> impl AsyncRead {
+    let st = stream! {
+        join.await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))??;
+        yield std::io::Result::Ok(Bytes::copy_from_slice(b""))
+    };
+
+    StreamReader::new(st)
+}
 pub fn pipe_output(
     _line_prefix: &str,
     mut cmd: Command,
@@ -170,11 +180,15 @@ pub fn pipe_output(
     let mut stdi = cmd.stdin.take().expect("is piped");
     let stdo = cmd.stdout.take().expect("is piped");
 
-    tokio::spawn(async move {
+    let join = tokio::spawn(async move {
         let mut z = inp;
-        tokio::io::copy(&mut z, &mut stdi).await.unwrap();
+        tokio::io::copy(&mut z, &mut stdi).await?;
+        std::io::Result::Ok(())
     });
-    Ok(Box::pin(stdo.chain(proc_wait(cmd))))
+
+    Ok(Box::pin(
+        stdo.chain(proc_wait(cmd).chain(join_handle_to_stream(join))),
+    ))
 }
 
 pub struct CustomSpawningFileAdapter {

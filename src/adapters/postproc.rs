@@ -153,7 +153,7 @@ impl GetMetadata for PostprocPageBreaks {
             static ref METADATA: AdapterMeta = AdapterMeta {
                 name: "postprocpagebreaks".to_owned(),
                 version: 1,
-                description: "Adds the page number to each line for an input file that specifies page breaks as ascii page break character".to_owned(),
+                description: "Adds the page number to each line for an input file that specifies page breaks as ascii page break character.\nMainly to be used internally by the poppler adapter.".to_owned(),
                 recurses: false,
                 fast_matchers: vec![FastFileMatcher::FileExtension("asciipagebreaks".to_string())],
                 slow_matchers: None,

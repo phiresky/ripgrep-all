@@ -6,7 +6,6 @@ mod caching_writer;
 pub mod config;
 pub mod expand;
 pub mod matching;
-pub mod pipe;
 pub mod preproc;
 pub mod preproc_cache;
 pub mod recurse;
@@ -62,6 +61,10 @@ pub fn print_dur(start: Instant) -> String {
 
 pub fn print_bytes(bytes: impl Into<f64>) -> String {
     pretty_bytes::converter::convert(bytes.into())
+}
+
+pub fn to_io_err(e: anyhow::Error) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::Other, e)
 }
 
 #[cfg(test)]

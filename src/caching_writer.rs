@@ -9,6 +9,8 @@ use tokio::io::{AsyncRead, AsyncWriteExt};
 use tokio_stream::StreamExt;
 use tokio_util::io::{ReaderStream, StreamReader};
 
+use crate::to_io_err;
+
 type FinishHandler = dyn FnOnce((u64, Option<Vec<u8>>)) -> Result<()> + Send;
 /**
  * wrap a AsyncRead so that it is passthrough,
@@ -63,7 +65,7 @@ pub fn async_read_and_write_to_cache<'a>(
 
         // EOF, finish!
         on_finish(finish)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(to_io_err)?;
 
     };
 

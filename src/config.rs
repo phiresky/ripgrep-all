@@ -5,6 +5,7 @@ use log::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
+use std::io::Read;
 use std::{fs::File, io::Write, iter::IntoIterator, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 
@@ -267,10 +268,18 @@ fn read_config_file(path_override: Option<String>) -> Result<(String, Value)> {
         .unwrap_or_else(|| config_dir.join("config.jsonc"));
     let config_filename_str = config_filename.to_string_lossy().into_owned();
     if config_filename.exists() {
-        let config_file_contents = std::fs::read_to_string(config_filename)
-            .with_context(|| format!("Could not read config file json {config_filename_str}"))?;
+        let config_file_contents = {
+            let raw = std::fs::read_to_string(config_filename).with_context(|| {
+                format!("Could not read config file json {config_filename_str}")
+            })?;
+            let mut s = String::new();
+            json_comments::StripComments::new(raw.as_bytes())
+                .read_to_string(&mut s)
+                .context("strip comments")?;
+            s
+        };
         {
-            // just for error messages
+            // just for error messages, actual deserialization happens after merging with cmd args
             serde_json::from_str::<RgaConfig>(&config_file_contents).with_context(|| {
                 format!("Error in config file {config_filename_str}: {config_file_contents}")
             })?;
@@ -283,25 +292,18 @@ fn read_config_file(path_override: Option<String>) -> Result<(String, Value)> {
     } else {
         // write default config
         std::fs::create_dir_all(config_dir)?;
-        let mut schemafile = File::create(config_dir.join("config.schema.json"))?;
+        let mut schemafile = File::create(config_dir.join("config.v1.schema.json"))?;
 
         schemafile.write_all(
             serde_json::to_string_pretty(&schemars::schema_for!(RgaConfig))?.as_bytes(),
         )?;
 
-        let mut config_json = serde_json::to_value(RgaConfig::default())?;
-        match &mut config_json {
-            serde_json::Value::Object(o) => {
-                o.insert(
-                    "$schema".to_string(),
-                    serde_json::Value::String("./config.schema.json".to_string()),
-                );
-            }
-            _ => panic!("impos"),
-        }
         let mut configfile = File::create(config_filename)?;
-        configfile.write_all(serde_json::to_string_pretty(&config_json)?.as_bytes())?;
-        Ok((config_filename_str, config_json))
+        configfile.write_all(include_str!("../doc/config.default.jsonc").as_bytes())?;
+        Ok((
+            config_filename_str,
+            serde_json::Value::Object(Default::default()),
+        ))
     }
 }
 fn read_config_env() -> Result<Value> {

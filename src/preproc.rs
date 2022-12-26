@@ -105,10 +105,6 @@ async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
  */
 pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     debug!("path (hint) to preprocess: {:?}", ai.filepath_hint);
-    /*todo: move if archive_recursion_depth >= config.max_archive_recursion.0 {
-        let s = format!("{}[rga: max archive recursion reached]", line_prefix).into_bytes();
-        return Ok(Box::new(std::io::Cursor::new(s)));
-    }*/
 
     // todo: figure out when using a bufreader is a good idea and when it is not
     // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
@@ -228,8 +224,16 @@ pub fn loop_adapt(
     })?;
     let s = stream! {
         for await file in inp {
-            match buf_choose_adapter(file?).await.expect("todo: handle") {
+            match buf_choose_adapter(file?).await? {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
+                    if ai.archive_recursion_depth >= ai.config.max_archive_recursion.0 {
+                        let s = format!("{}[rga: max archive recursion reached ({})]", ai.line_prefix, ai.archive_recursion_depth).into_bytes();
+                        yield Ok(AdaptInfo {
+                            inp: Box::pin(Cursor::new(s)),
+                            ..ai
+                        });
+                        continue;
+                    }
                     debug!(
                         "Chose adapter '{}' because of matcher {:?}",
                         &adapter.metadata().name, &detection_reason

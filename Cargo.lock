@@ -833,6 +833,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "json_comments"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41ee439ee368ba4a77ac70d04f14015415af8600d6c894dc1f11bd79758c57d5"
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1311,6 +1317,7 @@ dependencies = [
  "encoding_rs_io",
  "env_logger",
  "glob",
+ "json_comments",
  "lazy_static",
  "log",
  "memchr",
