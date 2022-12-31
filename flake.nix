@@ -61,6 +61,7 @@
 
         pre-commit = pre-commit-hooks.lib."${system}".run;
       in {
+        # `nix flake check`
         checks = {
           # Build the crate as part of `nix flake check` for convenience
           inherit rga;
@@ -91,8 +92,7 @@
             partitionType = "count";
           };
 
-          inherit pre-commit;
-          pre-commit-check = pre-commit {
+          pre-commit = pre-commit {
             src = ./.;
             hooks = {
               nixfmt.enable = true;
@@ -115,9 +115,10 @@
 
         # `nix develop`
         devShells.default = pkgs.mkShell {
-          inherit (self.checks.${system}.pre-commit-check) shellHook;
+          inherit (self.checks.${system}.pre-commit) shellHook;
           inputsFrom = builtins.attrValues self.checks;
-          buildInputs = buildInputs;
+          buildInputs = buildInputs
+            ++ (with pkgs; [ cargo nixfmt rustc rustfmt ]);
         };
       });
 }
