@@ -153,8 +153,7 @@ mod test {
     async fn simple() -> Result<()> {
         let adapter: Box<dyn FileAdapter> = Box::new(SqliteAdapter::default());
         let fname = test_data_dir().join("hello.sqlite3");
-        let rd = File::open(&fname).await?;
-        let (a, d) = simple_adapt_info(&fname, Box::pin(rd));
+        let (a, d) = simple_fs_adapt_info(&fname).await?;
         let res = adapter.adapt(a, &d)?;
 
         let buf = adapted_to_vec(res).await?;

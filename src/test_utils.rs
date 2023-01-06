@@ -9,8 +9,11 @@ use crate::{
     recurse::concat_read_streams,
 };
 use anyhow::Result;
-use std::path::{Path, PathBuf};
-use tokio::io::AsyncReadExt;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
+use tokio::{fs::File, io::AsyncReadExt};
 
 pub use pretty_assertions::{assert_eq, assert_ne};
 pub fn test_data_dir() -> PathBuf {
@@ -19,11 +22,26 @@ pub fn test_data_dir() -> PathBuf {
     d
 }
 
+pub async fn simple_fs_adapt_info(filepath: &Path) -> Result<(AdaptInfo, FileMatcher)> {
+    Ok(simple_adapt_info_full(
+        filepath,
+        Box::pin(File::open(filepath).await?),
+        true,
+    ))
+}
 pub fn simple_adapt_info(filepath: &Path, inp: ReadBox) -> (AdaptInfo, FileMatcher) {
+    simple_adapt_info_full(filepath, inp, false)
+}
+
+pub fn simple_adapt_info_full(
+    filepath: &Path,
+    inp: ReadBox,
+    is_real_file: bool,
+) -> (AdaptInfo, FileMatcher) {
     (
         AdaptInfo {
             filepath_hint: filepath.to_owned(),
-            is_real_file: true,
+            is_real_file,
             archive_recursion_depth: 0,
             inp,
             line_prefix: "PREFIX:".to_string(),
