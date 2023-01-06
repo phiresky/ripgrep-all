@@ -9,10 +9,7 @@ use crate::{
     recurse::concat_read_streams,
 };
 use anyhow::Result;
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use tokio::{fs::File, io::AsyncReadExt};
 
 pub use pretty_assertions::{assert_eq, assert_ne};
@@ -69,6 +66,5 @@ pub fn poppler_adapter() -> CustomSpawningFileAdapter {
         .find(|e| e.name == "poppler")
         .expect("no poppler adapter");
 
-    let adapter = adapter.to_adapter();
-    adapter
+    adapter.to_adapter()
 }

@@ -182,7 +182,7 @@ impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
 #[cfg(test)]
 mod test {
     use async_zip::{write::ZipFileWriter, Compression, ZipEntryBuilder};
-    use tokio::fs::File;
+    
 
     use super::*;
     use crate::{preproc::loop_adapt, test_utils::*};
@@ -213,7 +213,7 @@ mod test {
     async fn only_seek_zip_fs() -> Result<()> {
         let zip = test_data_dir().join("only-seek-zip.zip");
         let (a, d) = simple_fs_adapt_info(&zip).await?;
-        let v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a)?).await?;
+        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a)?).await?;
         // assert_eq!(String::from_utf8(v)?, "");
 
         Ok(())
