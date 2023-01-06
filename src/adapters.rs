@@ -6,7 +6,7 @@ use std::sync::Arc;
 pub mod sqlite;
 pub mod tar;
 // pub mod writing;
-// pub mod zip;
+pub mod zip;
 use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
 use anyhow::{format_err, Context, Result};
 use custom::CustomAdapterConfig;
@@ -113,7 +113,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
     let internal_adapters: Vec<Arc<dyn FileAdapter>> = vec![
         Arc::new(PostprocPageBreaks::default()),
         //Rc::new(ffmpeg::FFmpegAdapter::new()),
-        // Rc::new(zip::ZipAdapter::new()),
+        Arc::new(zip::ZipAdapter::new()),
         Arc::new(decompress::DecompressAdapter::new()),
         Arc::new(tar::TarAdapter::new()),
         //Rc::new(sqlite::SqliteAdapter::new()),

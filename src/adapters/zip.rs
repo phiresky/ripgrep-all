@@ -1,3 +1,5 @@
+use std::{any::Any, io::Cursor};
+
 use super::*;
 use crate::{adapted_iter::AdaptedFilesIter, print_bytes};
 use anyhow::*;
@@ -5,6 +7,11 @@ use async_stream::stream;
 use async_zip::read::stream::ZipFileReader;
 use lazy_static::lazy_static;
 use log::*;
+use tokio::{
+    io::AsyncReadExt,
+    sync::mpsc::{self, Sender},
+};
+use tokio_stream::wrappers::ReceiverStream;
 
 static EXTENSIONS: &[&str] = &["zip"];
 
@@ -37,48 +44,65 @@ impl GetMetadata for ZipAdapter {
     }
 }
 
+async fn yielder(ai: AdaptInfo, s: Sender<Result<AdaptInfo>>) -> Result<()> {
+    let AdaptInfo {
+        inp,
+        filepath_hint,
+        archive_recursion_depth,
+        postprocess,
+        line_prefix,
+        config,
+        ..
+    } = ai;
+    let mut zip = ZipFileReader::new(inp);
+
+    while !zip.finished() {
+        if let Some(mut reader) = zip.entry_reader().await? {
+            let file = reader.entry();
+            if file.filename().ends_with("/") {
+                continue;
+            }
+            debug!(
+                "{}{}|{}: {} ({} packed)",
+                line_prefix,
+                filepath_hint.display(),
+                file.filename(),
+                print_bytes(file.uncompressed_size() as f64),
+                print_bytes(file.compressed_size() as f64)
+            );
+            let new_line_prefix = format!("{}{}: ", line_prefix, file.filename());
+            let fname = PathBuf::from(file.filename());
+            drop(file);
+            tokio::pin!(reader);
+            // SAFETY: this should be solvable without unsafe but idk how :(
+            let reader2 = unsafe {
+                std::intrinsics::transmute::<
+                    Pin<&mut (dyn AsyncRead + Send)>,
+                    Pin<&'static mut (dyn AsyncRead + Send)>,
+                >(reader)
+            };
+            s.send(Ok(AdaptInfo {
+                filepath_hint: fname,
+                is_real_file: false,
+                inp: Box::pin(reader2),
+                line_prefix: new_line_prefix,
+                archive_recursion_depth: archive_recursion_depth + 1,
+                postprocess,
+                config: config.clone(),
+            }))
+            .await
+            .map_err(|_| anyhow!("could not send adaptinfo"))?;
+        }
+    }
+
+    Ok(())
+}
+
 impl FileAdapter for ZipAdapter {
     fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
-        let AdaptInfo {
-            inp,
-            filepath_hint,
-            archive_recursion_depth,
-            postprocess,
-            line_prefix,
-            config,
-            ..
-        } = ai;
-        let mut zip = ZipFileReader::new(inp);
-
-        let s = stream! {
-            while !zip.finished() {
-                if let Some(mut reader) = zip.entry_reader().await? {
-                    let file = reader.entry();
-                    /* if file.is_dir() {
-                    continue;
-                    }*/
-                    debug!(
-                        "{}{}|{}: {} ({} packed)",
-                        line_prefix,
-                        filepath_hint.display(),
-                        file.filename(),
-                        print_bytes(file.uncompressed_size() as f64),
-                        print_bytes(file.compressed_size() as f64)
-                    );
-                    let new_line_prefix = format!("{}{}: ", line_prefix, file.filename());
-                    yield Ok(AdaptInfo {
-                        filepath_hint: PathBuf::from(file.filename()),
-                        is_real_file: false,
-                        inp: Box::pin(reader),
-                        line_prefix: new_line_prefix,
-                        archive_recursion_depth: archive_recursion_depth + 1,
-                        postprocess,
-                        config: config.clone(),
-                    });
-                }
-            }
-        };
-        Ok(Box::pin(s))
+        let (s, r) = mpsc::channel(1);
+        tokio::spawn(yielder(ai, s));
+        Ok(Box::pin(ReceiverStream::new(r)))
     }
 }
 
@@ -142,6 +166,12 @@ mod test {
         // Apply the changes you've made.
         // Dropping the `ZipWriter` will have the same effect, but may silently fail
         Ok(zip.finish()?.into_inner())
+    }
+
+    #[test]
+    fn only_seek_zip() -> Result<()> {
+        let zip = test_data_dir().join("only-seek-zip.zip");
+        Ok(())
     }
     #[test]
     fn recurse() -> Result<()> {
