@@ -243,7 +243,7 @@ pub fn loop_adapt(
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
                     );
-                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).expect("todo: handle") {
+                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai)? {
                         yield ifile;
                     }
                 }

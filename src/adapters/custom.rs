@@ -42,14 +42,15 @@ pub struct CustomAdapterConfig {
     /// the name or path of the binary to run
     pub binary: String,
     /// The arguments to run the program with. Placeholders:
-    /// {}: the file path (TODO)
+    /// - $input_file_extension: the file extension (without dot). e.g. foo.tar.gz -> gz
+    /// - $input_file_stem, the file name without the last extension. e.g. foo.tar.gz -> foo.tar
+    /// - $input_path: the full input file path
     /// stdin of the program will be connected to the input file, and stdout is assumed to be the converted file
     pub args: Vec<String>,
-    /// The output path hint.
+    /// The output path hint. The placeholders are the same as for `.args`
     ///
     /// If not set, defaults to ${input_path}.txt
     ///
-    /// TODO: make more flexible for inner matching (e.g. foo.tar.gz should be foo.tar after gunzipping)
     pub output_path_hint: Option<String>,
 }
 
@@ -104,7 +105,7 @@ lazy_static! {
             // simpler markown (with more information loss but plainer text)
             //.arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
             args: strs(&[
-                "--from=$file_extension",
+                "--from=$input_file_extension",
                 "--to=plain",
                 "--wrap=none",
                 "--markdown-headings=atx"
@@ -194,13 +195,18 @@ impl GetMetadata for CustomSpawningFileAdapter {
     }
 }
 fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
-    Ok(expand_str_ez(arg, |s| match s {
-        "file_extension" => filepath_hint
+    expand_str_ez(arg, |s| match s {
+        "input_path" => Ok(filepath_hint.to_string_lossy()),
+        "input_file_stem" => Ok(filepath_hint
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()),
+        "input_file_extension" => Ok(filepath_hint
             .extension()
-            .map(|e| e.to_string_lossy())
-            .unwrap_or_default(),
-        _ => panic!("unknown replacer"),
-    }))
+            .unwrap_or_default()
+            .to_string_lossy()),
+        e => Err(anyhow::format_err!("unknown replacer ${{{e}}}")),
+    })
 }
 impl CustomSpawningFileAdapter {
     fn command(
@@ -241,15 +247,12 @@ impl FileAdapter for CustomSpawningFileAdapter {
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, &self.binary, "")?;
         Ok(one_file(AdaptInfo {
-            filepath_hint: PathBuf::from(expand_str_ez(
+            filepath_hint: PathBuf::from(arg_replacer(
                 self.output_path_hint
                     .as_deref()
                     .unwrap_or("${input_path}.txt"),
-                |r| match r {
-                    "input_path" => filepath_hint.to_string_lossy(),
-                    _ => panic!("unknown replacer in output_path_hint"),
-                },
-            )),
+                &filepath_hint,
+            )?),
             inp: output,
             line_prefix,
             is_real_file: false,

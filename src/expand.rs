@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use regex::Captures;
+use anyhow::Result;
 
 // from https://github.com/phiresky/timetrackrs/blob/1c3df09ba2c1fda6065f2927045bd28dea0738d3/src/expand.rs
 
@@ -19,35 +19,18 @@ pub fn find_byte(needle: u8, haystack: &[u8]) -> Option<usize> {
     imp(needle, haystack)
 }
 
-pub fn get_capture<'a>(caps: &'a [Captures], reference: &str) -> Option<&'a str> {
-    caps.iter()
-        .flat_map(|caps| caps.name(reference))
-        .next()
-        .map(|m| m.as_str())
-}
-
-pub fn expand_str_captures(caps: &[Captures], replacement: &str) -> String {
-    let mut dst = String::new();
-    expand_str_lambda(
-        |reference: &str| Cow::Borrowed(get_capture(caps, reference).unwrap_or("")),
-        replacement,
-        &mut dst,
-    );
-    dst
-}
-
-pub fn expand_str_ez<'a, F>(replacement: &'a str, lambda: F) -> String
+pub fn expand_str_ez<'a, F>(replacement: &'a str, lambda: F) -> Result<String>
 where
-    F: Fn(&str) -> Cow<'a, str>,
+    F: Fn(&str) -> Result<Cow<'a, str>>,
 {
     let mut dst = String::new();
-    expand_str_lambda(lambda, replacement, &mut dst);
-    dst
+    expand_str_lambda(lambda, replacement, &mut dst)?;
+    Ok(dst)
 }
 
-pub fn expand_str_lambda<'a, F>(cap: F, replacement: &'a str, dst: &mut String)
+pub fn expand_str_lambda<'a, F>(cap: F, replacement: &'a str, dst: &mut String) -> Result<()>
 where
-    F: Fn(&str) -> Cow<'a, str>,
+    F: Fn(&str) -> Result<Cow<'a, str>>,
 {
     let mut replacement = replacement;
     while !replacement.is_empty() {
@@ -73,9 +56,10 @@ where
             }
         };
         replacement = &replacement[cap_ref.end..];
-        dst.push_str(cap(cap_ref.cap).as_ref());
+        dst.push_str(cap(cap_ref.cap)?.as_ref());
     }
     dst.push_str(replacement);
+    Ok(())
 }
 
 /// `CaptureRef` represents a reference to a capture group inside some text.
