@@ -39,6 +39,11 @@ lazy_static! {
 #[derive(Default, Clone)]
 pub struct SqliteAdapter;
 
+impl SqliteAdapter {
+    pub fn new() -> SqliteAdapter {
+        SqliteAdapter
+    }
+}
 impl GetMetadata for SqliteAdapter {
     fn metadata(&self) -> &AdapterMeta {
         &METADATA
@@ -147,7 +152,6 @@ mod test {
     use super::*;
     use crate::test_utils::*;
     use pretty_assertions::assert_eq;
-    
 
     #[tokio::test]
     async fn simple() -> Result<()> {

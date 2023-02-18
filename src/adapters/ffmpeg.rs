@@ -1,12 +1,15 @@
-use super::spawning::map_exe_error;
 use super::*;
+use super::{custom::map_exe_error, writing::async_writeln};
 use anyhow::*;
+use async_trait::async_trait;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::io::BufReader;
-use std::process::*;
-use writing::{WritingFileAdapter, WritingFileAdapterTrait};
+use std::process::Stdio;
+use tokio::io::AsyncWrite;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
+use writing::WritingFileAdapter;
 // todo:
 // maybe todo: read list of extensions from
 // ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
@@ -33,8 +36,8 @@ lazy_static! {
 pub struct FFmpegAdapter;
 
 impl FFmpegAdapter {
-    pub fn new() -> WritingFileAdapter {
-        WritingFileAdapter::new(Box::new(FFmpegAdapter))
+    pub fn new() -> FFmpegAdapter {
+        FFmpegAdapter
     }
 }
 impl GetMetadata for FFmpegAdapter {
@@ -51,12 +54,13 @@ struct FFprobeOutput {
 struct FFprobeStream {
     codec_type: String, // video,audio,subtitle
 }
-impl WritingFileAdapterTrait for FFmpegAdapter {
-    fn adapt_write(
-        &self,
+
+#[async_trait]
+impl WritingFileAdapter for FFmpegAdapter {
+    async fn adapt_write(
         ai: AdaptInfo,
         _detection_reason: &FileMatcher,
-        oup: &mut dyn Write,
+        mut oup: Pin<Box<dyn AsyncWrite + Send>>,
     ) -> Result<()> {
         let AdaptInfo {
             is_real_file,
@@ -69,7 +73,7 @@ impl WritingFileAdapterTrait for FFmpegAdapter {
             // it would require using a BufReader to read at least part of the file to memory
             // but really when would you want to search for videos within archives?
             // So instead, we only run this adapter if the file is a actual file on disk for now
-            writeln!(oup, "{}[rga: skipping video in archive]", line_prefix,)?;
+            async_writeln!(oup, "{line_prefix}[rga: skipping video in archive]\n")?;
             return Ok(());
         }
         let inp_fname = filepath_hint;
@@ -89,12 +93,13 @@ impl WritingFileAdapterTrait for FFmpegAdapter {
                 .arg("-i")
                 .arg(&inp_fname)
                 .output()
+                .await
                 .map_err(spawn_fail)?;
             if !probe.status.success() {
                 return Err(format_err!("ffprobe failed: {:?}", probe.status));
             }
             let p: FFprobeOutput = serde_json::from_slice(&probe.stdout)?;
-            p.streams.iter().count() > 0
+            !p.streams.is_empty()
         };
         {
             // extract file metadata (especially chapter names in a greppable format)
@@ -117,10 +122,11 @@ impl WritingFileAdapterTrait for FFmpegAdapter {
                 .arg(&inp_fname)
                 .stdout(Stdio::piped())
                 .spawn()?;
-            for line in BufReader::new(probe.stdout.as_mut().unwrap()).lines() {
-                writeln!(oup, "metadata: {}", line?)?;
+            let mut lines = BufReader::new(probe.stdout.as_mut().unwrap()).lines();
+            while let Some(line) = lines.next_line().await? {
+                async_writeln!(oup, "metadata: {line}")?;
             }
-            let exit = probe.wait()?;
+            let exit = probe.wait().await?;
             if !exit.success() {
                 return Err(format_err!("ffprobe failed: {:?}", exit));
             }
@@ -141,15 +147,15 @@ impl WritingFileAdapterTrait for FFmpegAdapter {
             let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
             let mut time: String = "".to_owned();
             // rewrite subtitle times so they are shown as a prefix in every line
-            for line in BufReader::new(stdo).lines() {
-                let line = line?;
+            let mut lines = BufReader::new(stdo).lines();
+            while let Some(line) = lines.next_line().await? {
                 // 09:55.195 --> 09:56.730
                 if time_re.is_match(&line) {
                     time = line.to_owned();
                 } else if line.is_empty() {
-                    oup.write_all(b"\n")?;
+                    async_writeln!(oup)?;
                 } else {
-                    writeln!(oup, "{}: {}", time, line)?;
+                    async_writeln!(oup, "{time}: {line}")?;
                 }
             }
         }

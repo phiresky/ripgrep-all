@@ -1,49 +1,94 @@
-use super::{FileAdapter, GetMetadata, ReadBox};
-use anyhow::Result;
-use tokio::io::AsyncWrite;
-// use async_trait::async_trait;
+use std::pin::Pin;
 
-pub trait WritingFileAdapter: GetMetadata + Send + Clone {
-    fn adapt_write(
-        &self,
+use crate::adapted_iter::one_file;
+
+use super::{AdaptInfo, FileAdapter, GetMetadata};
+use anyhow::Result;
+use async_trait::async_trait;
+use tokio::io::AsyncWrite;
+
+#[async_trait]
+pub trait WritingFileAdapter: GetMetadata + Send + Sync + Clone {
+    async fn adapt_write(
         a: super::AdaptInfo,
         detection_reason: &crate::matching::FileMatcher,
-        oup: &mut (dyn AsyncWrite),
+        oup: Pin<Box<dyn AsyncWrite + Send>>,
     ) -> Result<()>;
 }
 
-/* struct PipedReadWriter {
-    inner: ReadBox,
-    pipe_thread: Thread,
+macro_rules! async_writeln {
+    ($dst: expr) => {
+        {
+            tokio::io::AsyncWriteExt::write_all(&mut $dst, b"\n").await
+        }
+    };
+    ($dst: expr, $fmt: expr) => {
+        {
+            use std::io::Write;
+            let mut buf = Vec::<u8>::new();
+            writeln!(buf, $fmt)?;
+            tokio::io::AsyncWriteExt::write_all(&mut $dst, &buf).await
+        }
+    };
+    ($dst: expr, $fmt: expr, $($arg: tt)*) => {
+        {
+            use std::io::Write;
+            let mut buf = Vec::<u8>::new();
+            writeln!(buf, $fmt, $( $arg )*)?;
+            tokio::io::AsyncWriteExt::write_all(&mut $dst, &buf).await
+        }
+    };
 }
+pub(crate) use async_writeln;
 
-impl<'a> Read for PipedReadWriter<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        todo!()
-    }
-}*/
-
-impl FileAdapter for WritingFileAdapter {
+impl<T> FileAdapter for T
+where
+    T: WritingFileAdapter,
+{
     fn adapt(
+        &self,
+        a: super::AdaptInfo,
+        detection_reason: &crate::matching::FileMatcher,
+    ) -> Result<crate::adapted_iter::AdaptedFilesIterBox> {
+        let (w, r) = tokio::io::duplex(128 * 1024);
+        let d2 = detection_reason.clone();
+        let archive_recursion_depth = a.archive_recursion_depth + 1;
+        let filepath_hint = format!("{}.txt", a.filepath_hint.to_string_lossy());
+        let postprocess = a.postprocess;
+        let line_prefix = a.line_prefix.clone();
+        let config = a.config.clone();
+        tokio::spawn(async move {
+            let x = d2;
+            T::adapt_write(a, &x, Box::pin(w)).await.unwrap()
+        });
+
+        Ok(one_file(AdaptInfo {
+            is_real_file: false,
+            filepath_hint: filepath_hint.into(),
+            archive_recursion_depth,
+            config,
+            inp: Box::pin(r),
+            line_prefix,
+            postprocess,
+        }))
+    }
+    /*fn adapt(
         &self,
         ai_outer: super::AdaptInfo,
         detection_reason: &crate::matching::FileMatcher,
     ) -> anyhow::Result<ReadBox> {
-        let (r, w) = crate::pipe::pipe();
-        let cc = self.inner.clone();
         let detc = detection_reason.clone();
-        panic!("ooo");
-        // cc.adapt_write(ai_outer, detc, )
-        /*tokio::spawn(move || {
-            let mut oup = w;
-            let ai = ai_outer;
-            let res = cc.adapt_write(ai, &detc, &mut oup);
-            if let Err(e) = res {
-                oup.write_err(std::io::Error::new(std::io::ErrorKind::Other, e))
-                    .expect("could not write err");
-            }
-        }); */
+        panic!("ooo");*/
+    // cc.adapt_write(ai_outer, detc, )
+    /*tokio::spawn(move || {
+        let mut oup = w;
+        let ai = ai_outer;
+        let res = cc.adapt_write(ai, &detc, &mut oup);
+        if let Err(e) = res {
+            oup.write_err(std::io::Error::new(std::io::ErrorKind::Other, e))
+                .expect("could not write err");
+        }
+    }); */
 
-        //Ok(Box::new(r))
-    }
+    //Ok(Box::new(r))
 }

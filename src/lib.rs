@@ -81,7 +81,7 @@ fn init() {
 pub fn join_handle_to_stream(join: JoinHandle<std::io::Result<()>>) -> impl AsyncRead {
     let st = stream! {
         join.await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))??;
-        yield std::io::Result::Ok((&b""[..]))
+        yield std::io::Result::Ok(&b""[..])
     };
 
     StreamReader::new(st)

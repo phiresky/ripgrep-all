@@ -57,7 +57,7 @@ impl FileAdapter for ZipAdapter {
                 for i in 0..zip.entries().len() {
                     let reader = zip.entry_reader(i).await?;
                     let file = reader.entry();
-                    if file.filename().ends_with("/") {
+                    if file.filename().ends_with('/') {
                         continue;
                     }
                     debug!(
@@ -101,7 +101,7 @@ impl FileAdapter for ZipAdapter {
                     while !zip.finished() {
                     if let Some(reader) = zip.entry_reader().await? {
                         let file = reader.entry();
-                        if file.filename().ends_with("/") {
+                        if file.filename().ends_with('/') {
                             continue;
                         }
                         debug!(
