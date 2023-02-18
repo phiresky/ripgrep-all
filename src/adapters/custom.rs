@@ -44,12 +44,12 @@ pub struct CustomAdapterConfig {
     /// The arguments to run the program with. Placeholders:
     /// - $input_file_extension: the file extension (without dot). e.g. foo.tar.gz -> gz
     /// - $input_file_stem, the file name without the last extension. e.g. foo.tar.gz -> foo.tar
-    /// - $input_path: the full input file path
+    /// - $input_virtual_path: the full input file path. Note that this path may not actually exist on disk because it is the result of another adapter
     /// stdin of the program will be connected to the input file, and stdout is assumed to be the converted file
     pub args: Vec<String>,
     /// The output path hint. The placeholders are the same as for `.args`
     ///
-    /// If not set, defaults to ${input_path}.txt
+    /// If not set, defaults to ${input_virtual_path}.txt
     ///
     pub output_path_hint: Option<String>,
 }
@@ -127,7 +127,7 @@ lazy_static! {
             args: strs(&["-", "-"]),
             disabled_by_default: None,
             match_only_by_mime: None,
-            output_path_hint: Some("${input_path}.txt.asciipagebreaks".into())
+            output_path_hint: Some("${input_virtual_path}.txt.asciipagebreaks".into())
             // postprocessors: [{name: "add_page_numbers_by_pagebreaks"}]
         }
     ];
@@ -196,7 +196,7 @@ impl GetMetadata for CustomSpawningFileAdapter {
 }
 fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
     expand_str_ez(arg, |s| match s {
-        "input_path" => Ok(filepath_hint.to_string_lossy()),
+        "input_virtual_path" => Ok(filepath_hint.to_string_lossy()),
         "input_file_stem" => Ok(filepath_hint
             .file_stem()
             .unwrap_or_default()
@@ -250,7 +250,7 @@ impl FileAdapter for CustomSpawningFileAdapter {
             filepath_hint: PathBuf::from(arg_replacer(
                 self.output_path_hint
                     .as_deref()
-                    .unwrap_or("${input_path}.txt"),
+                    .unwrap_or("${input_virtual_path}.txt"),
                 &filepath_hint,
             )?),
             inp: output,
