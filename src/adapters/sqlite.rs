@@ -1,18 +1,14 @@
-use crate::{adapted_iter::one_file, join_handle_to_stream, to_io_err};
-
-use super::*;
+use super::{writing::WritingFileAdapter, *};
 use anyhow::Result;
+use async_trait::async_trait;
 use lazy_static::lazy_static;
 use log::*;
 use rusqlite::types::ValueRef;
 use rusqlite::*;
-use std::{convert::TryInto, io::Cursor};
-use tokio::{
-    io::AsyncReadExt,
-    sync::mpsc::{self, Sender},
-};
-use tokio_stream::wrappers::ReceiverStream;
-use tokio_util::io::StreamReader;
+use std::{convert::TryInto, io::Write};
+use tokio::io::AsyncWrite;
+
+use tokio_util::io::SyncIoBridge;
 
 static EXTENSIONS: &[&str] = &["db", "db3", "sqlite", "sqlite3"];
 
@@ -67,7 +63,7 @@ fn format_blob(b: ValueRef) -> String {
     }
 }
 
-fn yielder(ai: AdaptInfo, s: Sender<std::io::Result<Cursor<Vec<u8>>>>) -> Result<()> {
+fn synchronous_dump_sqlite(ai: AdaptInfo, mut s: impl Write) -> Result<()> {
     let AdaptInfo {
         is_real_file,
         filepath_hint,
@@ -77,9 +73,7 @@ fn yielder(ai: AdaptInfo, s: Sender<std::io::Result<Cursor<Vec<u8>>>>) -> Result
     if !is_real_file {
         // db is in an archive
         // todo: read to memory and then use that blob if size < max
-        s.blocking_send(Ok(Cursor::new(
-            format!("{}[rga: skipping sqlite in archive]\n", line_prefix).into_bytes(),
-        )))?;
+        writeln!(s, "{line_prefix}[rga: skipping sqlite in archive]",)?;
         return Ok(());
     }
     let inp_fname = filepath_hint;
@@ -107,43 +101,28 @@ fn yielder(ai: AdaptInfo, s: Sender<std::io::Result<Cursor<Vec<u8>>>>) -> Result
 
         // kind of shitty (lossy) output. maybe output real csv or something?
         while let Some(row) = z.next()? {
-            let str = format!(
-                "{}{}: {}\n",
-                line_prefix,
-                table,
-                col_names
-                    .iter()
-                    .enumerate()
-                    .map(|(i, e)| Ok(format!("{}={}", e, format_blob(row.get_ref(i)?))))
-                    .collect::<Result<Vec<String>>>()?
-                    .join(", ")
-            );
-            s.blocking_send(Ok(Cursor::new(str.into_bytes())))?;
+            let row_str = col_names
+                .iter()
+                .enumerate()
+                .map(|(i, e)| Ok(format!("{}={}", e, format_blob(row.get_ref(i)?))))
+                .collect::<Result<Vec<String>>>()?
+                .join(", ");
+            writeln!(s, "{line_prefix}{table}: {row_str}",)?;
         }
     }
     Ok(())
 }
 
-impl FileAdapter for SqliteAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
-        let (s, r) = mpsc::channel(10);
-        let filepath_hint = format!("{}.txt", ai.filepath_hint.to_string_lossy());
-        let config = ai.config.clone();
-        let line_prefix = ai.line_prefix.clone();
-        let postprocess = ai.postprocess;
-        let archive_recursion_depth = ai.archive_recursion_depth;
-        let joiner = tokio::task::spawn_blocking(|| yielder(ai, s).map_err(to_io_err));
-        Ok(one_file(AdaptInfo {
-            is_real_file: false,
-            filepath_hint: filepath_hint.into(),
-            archive_recursion_depth: archive_recursion_depth + 1,
-            config,
-            inp: Box::pin(
-                StreamReader::new(ReceiverStream::new(r)).chain(join_handle_to_stream(joiner)),
-            ),
-            line_prefix,
-            postprocess,
-        }))
+#[async_trait]
+impl WritingFileAdapter for SqliteAdapter {
+    async fn adapt_write(
+        ai: AdaptInfo,
+        _detection_reason: &FileMatcher,
+        oup: Pin<Box<dyn AsyncWrite + Send>>,
+    ) -> Result<()> {
+        let oup_sync = SyncIoBridge::new(oup);
+        tokio::task::spawn_blocking(|| synchronous_dump_sqlite(ai, oup_sync)).await??;
+        Ok(())
     }
 }
 

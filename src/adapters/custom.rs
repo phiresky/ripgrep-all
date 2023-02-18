@@ -2,12 +2,12 @@ use super::*;
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 use crate::adapted_iter::one_file;
 
-use crate::join_handle_to_stream;
 use crate::{
     adapted_iter::AdaptedFilesIterBox,
     expand::expand_str_ez,
     matching::{FastFileMatcher, FileMatcher},
 };
+use crate::{join_handle_to_stream, to_io_err};
 use anyhow::Result;
 use async_stream::stream;
 use bytes::Bytes;
@@ -148,8 +148,7 @@ fn proc_wait(mut child: Child) -> impl AsyncRead {
         if res.success() {
             yield std::io::Result::Ok(Bytes::new());
         } else {
-            yield std::io::Result::Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            yield std::io::Result::Err(to_io_err(
                 format_err!("subprocess failed: {:?}", res),
             ));
         }
