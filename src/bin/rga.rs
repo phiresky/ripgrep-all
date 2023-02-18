@@ -53,7 +53,7 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
     for adapter in enabled_adapters {
         print(adapter)
     }
-    println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+pdfpages,tesseract':\n");
+    println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+foo,bar':\n");
     for adapter in disabled_adapters {
         print(adapter)
     }

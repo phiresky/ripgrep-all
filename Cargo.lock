@@ -1356,7 +1356,7 @@ dependencies = [
 
 [[package]]
 name = "ripgrep_all"
-version = "0.9.7-alpha.0"
+version = "1.0.0-alpha.2"
 dependencies = [
  "anyhow",
  "async-compression",
