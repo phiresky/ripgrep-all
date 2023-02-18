@@ -194,27 +194,38 @@ pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Sen
     let regex_linefeed = regex::bytes::Regex::new(r"\x0c").unwrap();
     let regex_newline = regex::bytes::Regex::new("\n").unwrap();
     let mut page_count: i32 = 1;
-    let mut page_prefix: String = format!("Page {page_count}: ");
+    let mut page_prefix: String = format!("\nPage {page_count}: ");
 
     let input_stream = ReaderStream::new(input);
     let output_stream = stream! {
-        for await read_chunk in input_stream {
-            match read_chunk {
-                Err(e) => yield Err(e),
-                Ok(chunk) => {
-                    let page_chunks = regex_linefeed.split(&chunk);
-                    for page_chunk in page_chunks {
-                        // println!("{}", String::from_utf8_lossy(page_prefix.as_bytes()));
-                        yield Ok(Bytes::copy_from_slice(page_prefix.as_bytes()));
-                        page_prefix = format!("\nPage {page_count}: ");
+        yield std::io::Result::Ok(Bytes::copy_from_slice(format!("Page {page_count}: ").as_bytes()));
+        // store Page X: line prefixes in pending and only write it to the output when there is more text to be written
+        // this is needed since pdftotext outputs a \x0c at the end of the last page
+        let mut pending: Option<Bytes> = None;
 
-                        yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(page_chunk, page_prefix.as_bytes())));
-                        page_count += 1;
-                        page_prefix = format!("\nPage {page_count}: ");
+        for await read_chunk in input_stream {
+            let read_chunk = read_chunk?;
+            let page_chunks = regex_linefeed.split(&read_chunk);
+            for (chunk_idx, page_chunk) in page_chunks.enumerate() {
+                if chunk_idx != 0 {
+                    page_count += 1;
+                    page_prefix = format!("\nPage {page_count}: ");
+                    if let Some(p) = pending.take() {
+                        yield Ok(p);
                     }
+                    pending = Some(Bytes::copy_from_slice(page_prefix.as_bytes()));
                 }
+                if !page_chunk.is_empty() {
+                    if let Some(p) = pending.take() {
+                        yield Ok(p);
+                    }
+                    yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(page_chunk, page_prefix.as_bytes())));
+                }
+
             }
         }
+
+
     };
     Box::pin(StreamReader::new(output_stream))
 }
@@ -236,7 +247,25 @@ mod tests {
     async fn test_with_pagebreaks() {
         let mut output: Vec<u8> = Vec::new();
         let mock: Mock = Builder::new()
-            .read(b"Hello\nWorld\x0cFoo Bar\n\x0cTest")
+            .read(b"Hello\nWorld\x0cFoo Bar\n\x0cTest\x0c")
+            .build();
+        let res = postproc_pagebreaks(mock).read_to_end(&mut output).await;
+        println!("{}", String::from_utf8_lossy(&output));
+        assert!(matches!(res, Ok(_)));
+        assert_eq!(
+            String::from_utf8_lossy(&output),
+            "Page 1: Hello\nPage 1: World\nPage 2: Foo Bar\nPage 2: \nPage 3: Test"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_with_pagebreaks_chunks() {
+        let mut output: Vec<u8> = Vec::new();
+        let mock: Mock = Builder::new()
+            .read(b"Hello\nWo")
+            .read(b"rld\x0c")
+            .read(b"Foo Bar\n")
+            .read(b"\x0cTest\x0c")
             .build();
         let res = postproc_pagebreaks(mock).read_to_end(&mut output).await;
         println!("{}", String::from_utf8_lossy(&output));
@@ -264,7 +293,6 @@ PREFIX:Page 2:
 PREFIX:Page 3: HelloWorld
 PREFIX:Page 3: 
 PREFIX:Page 3: 
-PREFIX:Page 4: 
 ",
         );
 

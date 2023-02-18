@@ -113,14 +113,12 @@ PREFIX:dir/file-b.pdf: Page 1:
 PREFIX:dir/file-b.pdf: Page 1: 1
 PREFIX:dir/file-b.pdf: Page 1: 
 PREFIX:dir/file-b.pdf: Page 1: 
-PREFIX:dir/file-b.pdf: Page 2: 
 PREFIX:dir/file-a.pdf: Page 1: hello world
 PREFIX:dir/file-a.pdf: Page 1: this is just a test.
 PREFIX:dir/file-a.pdf: Page 1: 
 PREFIX:dir/file-a.pdf: Page 1: 1
 PREFIX:dir/file-a.pdf: Page 1: 
 PREFIX:dir/file-a.pdf: Page 1: 
-PREFIX:dir/file-a.pdf: Page 2: 
 "
         );
         Ok(())
