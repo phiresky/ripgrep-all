@@ -5,6 +5,9 @@
 use anyhow::Result;
 use async_stream::stream;
 use bytes::Bytes;
+use encoding_rs::Encoding;
+use encoding_rs_io::DecodeReaderBytesBuilder;
+use tokio_util::io::SyncIoBridge;
 
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -49,7 +52,7 @@ impl FileAdapter for PostprocPrefix {
     ) -> Result<AdaptedFilesIterBox> {
         let read = add_newline(postproc_prefix(
             &a.line_prefix,
-            postproc_encoding(&a.line_prefix, a.inp)?,
+            postproc_encoding(&a.line_prefix, a.inp).await?,
         ));
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
@@ -74,50 +77,52 @@ impl Read for ReadErr {
  * Detects and converts encodings other than utf-8 to utf-8.
  * If the input stream does not contain valid text, returns the string `[rga: binary data]` instead
  */
-pub fn postproc_encoding(
+async fn postproc_encoding(
     _line_prefix: &str,
-    inp: impl AsyncRead + Send + 'static,
+    inp: Pin<Box<dyn AsyncRead + Send>>,
 ) -> Result<Pin<Box<dyn AsyncRead + Send>>> {
-    Ok(Box::pin(inp))
-    // panic!("todo: implement");
-    /*// TODO: parse these options from ripgrep's configuration
-    let encoding = None; // detect bom but usually assume utf8
-    let bom_sniffing = true;
-    let mut decode_builder = DecodeReaderBytesBuilder::new();
-    // https://github.com/BurntSushi/ripgrep/blob/a7d26c8f144a4957b75f71087a66692d0b25759a/grep-searcher/src/searcher/mod.rs#L706
-    // this detects utf-16 BOMs and transcodes to utf-8 if they are present
-    // it does not detect any other char encodings. that would require https://github.com/hsivonen/chardetng or similar but then binary detection is hard (?)
-    let inp = decode_builder
-        .encoding(encoding)
-        .utf8_passthru(true)
-        .strip_bom(bom_sniffing)
-        .bom_override(true)
-        .bom_sniffing(bom_sniffing)
-        .build(inp);
-
     // check for binary content in first 8kB
     // read the first 8kB into a buffer, check for null bytes, then return the buffer concatenated with the rest of the file
     let mut fourk = Vec::with_capacity(1 << 13);
     let mut beginning = inp.take(1 << 13);
 
-    beginning.read_to_end(&mut fourk)?;
+    beginning.read_to_end(&mut fourk).await?;
 
     if fourk.contains(&0u8) {
         log::debug!("detected binary");
         let v = "[rga: binary data]";
-        return Ok(Box::new(std::io::Cursor::new(v)));
-        /*let err = std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("{}[rga: binary data]", line_prefix),
-        );
-        return Err(err).context("");
-        return ReadErr {
-            err,
-        };*/
+        return Ok(Box::pin(std::io::Cursor::new(v)));
     }
-    Ok(Box::new(
-        std::io::Cursor::new(fourk).chain(beginning.into_inner()),
-    ))*/
+    let enc = Encoding::for_bom(&fourk);
+    let inp = std::io::Cursor::new(fourk).chain(beginning.into_inner());
+    match enc {
+        None => Ok(Box::pin(inp)),
+        Some((enc, _)) if enc == encoding_rs::UTF_8 => Ok(Box::pin(inp)),
+        Some(_) => {
+            // detected UTF16LE or UTF16BE, convert to UTF8 in separate thread
+            // TODO: parse these options from ripgrep's configuration
+            let encoding = None; // detect bom but usually assume utf8
+            let bom_sniffing = true;
+            let mut decode_builder = DecodeReaderBytesBuilder::new();
+            // https://github.com/BurntSushi/ripgrep/blob/a7d26c8f144a4957b75f71087a66692d0b25759a/grep-searcher/src/searcher/mod.rs#L706
+            // this detects utf-16 BOMs and transcodes to utf-8 if they are present
+            // it does not detect any other char encodings. that would require https://github.com/hsivonen/chardetng or similar but then binary detection is hard (?)
+            let mut inp = decode_builder
+                .encoding(encoding)
+                .utf8_passthru(true)
+                .strip_bom(bom_sniffing)
+                .bom_override(true)
+                .bom_sniffing(bom_sniffing)
+                .build(SyncIoBridge::new(inp));
+            let oup = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
+                let mut oup = Vec::new();
+                std::io::Read::read_to_end(&mut inp, &mut oup)?;
+                Ok(oup)
+            })
+            .await??;
+            Ok(Box::pin(std::io::Cursor::new(oup)))
+        }
+    }
 }
 
 /// Adds the given prefix to each line in an `AsyncRead`.

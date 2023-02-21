@@ -227,7 +227,7 @@ pub fn loop_adapt(
             match buf_choose_adapter(file?).await? {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
                     if ai.archive_recursion_depth >= ai.config.max_archive_recursion.0 {
-                        let s = format!("{}[rga: max archive recursion reached ({})]", ai.line_prefix, ai.archive_recursion_depth).into_bytes();
+                        let s = format!("{}[rga: max archive recursion reached ({})]\n", ai.line_prefix, ai.archive_recursion_depth).into_bytes();
                         yield Ok(AdaptInfo {
                             inp: Box::pin(Cursor::new(s)),
                             ..ai
