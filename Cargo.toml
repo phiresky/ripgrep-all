@@ -20,7 +20,7 @@ anyhow = "1.0.32"
 async-compression = {version = "0.3.15", features = ["all", "all-algorithms", "tokio"]}
 async-stream = "0.3.3"
 async-trait = "0.1.64"
-async_zip = "0.0.9"
+async_zip = {version = "0.0.12", features = ["full"]}
 bincode = "1.3.1"
 bytes = "1.2.1"
 clap = {version = "4.0.18", features = ["wrap_help"]}
@@ -32,7 +32,7 @@ dyn-clonable = "0.9.0"
 dyn-clone = "1.0.2"
 encoding_rs = "0.8.24"
 encoding_rs_io = "0.1.7"
-env_logger = "0.9.0"
+env_logger = "0.10.0"
 glob = "0.3.0"
 json_comments = "0.2.1"
 lazy_static = "1.4.0"
@@ -42,7 +42,7 @@ paste = "1.0.0"
 path-clean = "0.1.0"
 pretty-bytes = "0.2.2"
 regex = "1.3.9"
-rkv = "0.17"
+rkv = "0.17" # 0.18 removes lmdb backend
 rusqlite = {version = "0.28.0", features = ["vtab", "bundled"]}
 schemars = {version = "0.8.0-alpha-4", features = ["preserve_order"]}
 serde = {version = "1.0.115", features = ["derive"]}

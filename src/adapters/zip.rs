@@ -59,9 +59,9 @@ impl FileAdapter for ZipAdapter {
 
             let zip = ZipFileReader::new(&filepath_hint).await?;
             let s = stream! {
-                for i in 0..zip.entries().len() {
-                    let reader = zip.entry_reader(i).await?;
-                    let file = reader.entry();
+                for i in 0..zip.file().entries().len() {
+                    let file = zip.get_entry(i)?;
+                    let reader = zip.entry(i).await?;
                     if file.filename().ends_with('/') {
                         continue;
                     }
@@ -103,10 +103,11 @@ impl FileAdapter for ZipAdapter {
             let mut zip = ZipFileReader::new(inp);
 
             let s = stream! {
-                    while !zip.finished() {
-                    if let Some(reader) = zip.entry_reader().await? {
-                        let file = reader.entry();
+                    while let Some(mut entry) = zip.next_entry().await? {
+                        let file = entry.entry();
                         if file.filename().ends_with('/') {
+                            zip = entry.skip().await?;
+
                             continue;
                         }
                         debug!(
@@ -119,6 +120,7 @@ impl FileAdapter for ZipAdapter {
                         );
                         let new_line_prefix = format!("{}{}: ", line_prefix, file.filename());
                         let fname = PathBuf::from(file.filename());
+                        let reader = entry.reader();
                         tokio::pin!(reader);
                         // SAFETY: this should be solvable without unsafe but idk how :(
                         // the issue is that ZipEntryReader borrows from ZipFileReader, but we need to yield it here into the stream
@@ -138,7 +140,8 @@ impl FileAdapter for ZipAdapter {
                             postprocess,
                             config: config.clone(),
                         });
-                    }
+                        zip = entry.done().await.context("going to next file in zip but entry was not read fully")?;
+
                 }
             };
 
