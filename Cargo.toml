@@ -16,7 +16,7 @@ version = "1.0.0-alpha.2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.32"
+anyhow = {version = "1.0.32", features = ["backtrace"]}
 async-compression = {version = "0.3.15", features = ["all", "all-algorithms", "tokio"]}
 async-stream = "0.3.3"
 async-trait = "0.1.64"

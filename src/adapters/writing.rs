@@ -3,7 +3,7 @@ use std::pin::Pin;
 use crate::{adapted_iter::one_file, join_handle_to_stream, to_io_err};
 
 use super::{AdaptInfo, FileAdapter, GetMetadata};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tokio::io::{AsyncReadExt, AsyncWrite};
 
@@ -51,6 +51,7 @@ where
         a: super::AdaptInfo,
         detection_reason: &crate::matching::FileMatcher,
     ) -> Result<crate::adapted_iter::AdaptedFilesIterBox> {
+        let name = self.metadata().name.clone();
         let (w, r) = tokio::io::duplex(128 * 1024);
         let d2 = detection_reason.clone();
         let archive_recursion_depth = a.archive_recursion_depth + 1;
@@ -60,7 +61,10 @@ where
         let config = a.config.clone();
         let joiner = tokio::spawn(async move {
             let x = d2;
-            T::adapt_write(a, &x, Box::pin(w)).await.map_err(to_io_err)
+            T::adapt_write(a, &x, Box::pin(w))
+                .await
+                .with_context(|| format!("in {}.adapt_write", name))
+                .map_err(to_io_err)
         });
 
         Ok(one_file(AdaptInfo {

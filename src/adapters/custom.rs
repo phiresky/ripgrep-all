@@ -143,15 +143,13 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> anyhow:
     }
 }
 
-fn proc_wait(mut child: Child) -> impl AsyncRead {
+fn proc_wait(mut child: Child, context: impl FnOnce() -> String) -> impl AsyncRead {
     let s = stream! {
         let res = child.wait().await?;
         if res.success() {
             yield std::io::Result::Ok(Bytes::new());
         } else {
-            yield std::io::Result::Err(to_io_err(
-                format_err!("subprocess failed: {:?}", res),
-            ));
+            Err(format_err!("{:?}", res)).with_context(context).map_err(to_io_err)?;
         }
     };
     StreamReader::new(s)
@@ -164,6 +162,7 @@ pub fn pipe_output(
     exe_name: &str,
     help: &str,
 ) -> Result<ReadBox> {
+    let cmd_log = format!("{:?}", cmd); // todo: perf
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -177,10 +176,9 @@ pub fn pipe_output(
         tokio::io::copy(&mut z, &mut stdi).await?;
         std::io::Result::Ok(())
     });
-
-    Ok(Box::pin(
-        stdo.chain(proc_wait(cmd).chain(join_handle_to_stream(join))),
-    ))
+    Ok(Box::pin(stdo.chain(
+        proc_wait(cmd, move || format!("subprocess: {cmd_log}")).chain(join_handle_to_stream(join)),
+    )))
 }
 
 pub struct CustomSpawningFileAdapter {

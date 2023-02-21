@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
             // happens if e.g. ripgrep detects binary data in the pipe so it cancels reading
             debug!("output cancelled (broken pipe)");
         } else {
-            Err(e).context("copying adapter output to stdout {}")?;
+            Err(e).context("copying adapter output to stdout")?;
         }
     }
     debug!("running adapter took {} total", print_dur(start));
