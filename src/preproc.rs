@@ -11,11 +11,14 @@ use crate::{
 use anyhow::*;
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_stream::stream;
+// use futures::future::{BoxFuture, FutureExt};
 use log::*;
 use path_clean::PathClean;
 use postproc::PostprocPrefix;
+use std::future::Future;
 use std::io::Cursor;
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
@@ -185,7 +188,7 @@ async fn adapt_caching(
         Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
         None => {
             debug!("cache MISS, running adapter with caching...");
-            let inp = loop_adapt(adapter.as_ref(), detection_reason, ai)?;
+            let inp = loop_adapt(adapter.as_ref(), detection_reason, ai).await?;
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
                 inp,
@@ -213,15 +216,25 @@ pub fn loop_adapt(
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
+) -> Pin<Box<dyn Future<Output = anyhow::Result<AdaptedFilesIterBox>> + Send + '_>> {
+    Box::pin(async move { loop_adapt_inner(adapter, detection_reason, ai).await })
+}
+pub async fn loop_adapt_inner(
+    adapter: &dyn FileAdapter,
+    detection_reason: FileMatcher,
+    ai: AdaptInfo,
 ) -> anyhow::Result<AdaptedFilesIterBox> {
     let fph = ai.filepath_hint.clone();
-    let inp = adapter.adapt(ai, &detection_reason).with_context(|| {
-        format!(
-            "adapting {} via {} failed",
-            fph.to_string_lossy(),
-            adapter.metadata().name
-        )
-    })?;
+    let inp = adapter
+        .adapt(ai, &detection_reason)
+        .await
+        .with_context(|| {
+            format!(
+                "adapting {} via {} failed",
+                fph.to_string_lossy(),
+                adapter.metadata().name
+            )
+        })?;
     let s = stream! {
         for await file in inp {
             match buf_choose_adapter(file?).await? {
@@ -243,7 +256,7 @@ pub fn loop_adapt(
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
                     );
-                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai)? {
+                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).await? {
                         yield ifile;
                     }
                 }

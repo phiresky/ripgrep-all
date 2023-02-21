@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 use async_stream::stream;
+use async_trait::async_trait;
 use bytes::Bytes;
 use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -44,8 +45,9 @@ impl GetMetadata for PostprocPrefix {
         &METADATA
     }
 }
+#[async_trait]
 impl FileAdapter for PostprocPrefix {
-    fn adapt<'a>(
+    async fn adapt(
         &self,
         a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
@@ -87,18 +89,12 @@ async fn postproc_encoding(
     let mut beginning = inp.take(1 << 13);
 
     beginning.read_to_end(&mut fourk).await?;
+    let has_binary = fourk.contains(&0u8);
 
-    if fourk.contains(&0u8) {
-        log::debug!("detected binary");
-        let v = "[rga: binary data]";
-        return Ok(Box::pin(std::io::Cursor::new(v)));
-    }
     let enc = Encoding::for_bom(&fourk);
-    let inp = std::io::Cursor::new(fourk).chain(beginning.into_inner());
+    let inp = Cursor::new(fourk).chain(beginning.into_inner());
     match enc {
-        None => Ok(Box::pin(inp)),
-        Some((enc, _)) if enc == encoding_rs::UTF_8 => Ok(Box::pin(inp)),
-        Some(_) => {
+        Some((enc, _)) if enc != encoding_rs::UTF_8 => {
             // detected UTF16LE or UTF16BE, convert to UTF8 in separate thread
             // TODO: parse these options from ripgrep's configuration
             let encoding = None; // detect bom but usually assume utf8
@@ -120,7 +116,14 @@ async fn postproc_encoding(
                 Ok(oup)
             })
             .await??;
-            Ok(Box::pin(std::io::Cursor::new(oup)))
+            Ok(Box::pin(Cursor::new(oup)))
+        }
+        _ => {
+            if has_binary {
+                log::debug!("detected binary");
+                return Ok(Box::pin(Cursor::new("[rga: binary data]")));
+            }
+            Ok(Box::pin(inp))
         }
     }
 }
@@ -169,13 +172,14 @@ impl GetMetadata for PostprocPageBreaks {
         &METADATA
     }
 }
+#[async_trait]
 impl FileAdapter for PostprocPageBreaks {
-    fn adapt<'a>(
+    async fn adapt(
         &self,
         a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
-        let read = postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp)?);
+        let read = postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp).await?);
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
             inp: Box::pin(read),
@@ -287,7 +291,7 @@ mod tests {
         let fname = test_data_dir().join("twoblankpages.pdf");
         let rd = File::open(&fname).await?;
         let (a, d) = simple_adapt_info(&fname, Box::pin(rd));
-        let res = loop_adapt(&adapter, d, a)?;
+        let res = loop_adapt(&adapter, d, a).await?;
 
         let buf = adapted_to_vec(res).await?;
 
@@ -332,7 +336,8 @@ PREFIX:Page 3:
         b: &str,
     ) -> Result<()> {
         let mut oup = Vec::new();
-        let inp = postproc_encoding("", a)?;
+        let inp = Box::pin(Cursor::new(a));
+        let inp = postproc_encoding("", inp).await?;
         if pagebreaks {
             postproc_pagebreaks(inp).read_to_end(&mut oup).await?;
         } else {
@@ -343,6 +348,23 @@ PREFIX:Page 3:
         let c = String::from_utf8_lossy(&oup);
         assert_eq!(c, b, "source: {}", String::from_utf8_lossy(a));
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_utf16() -> Result<()> {
+        let utf16lebom: &[u8] = &[
+            0xff, 0xfe, 0x68, 0x00, 0x65, 0x00, 0x6c, 0x00, 0x6c, 0x00, 0x6f, 0x00, 0x20, 0x00,
+            0x77, 0x00, 0x6f, 0x00, 0x72, 0x00, 0x6c, 0x00, 0x64, 0x00, 0x20, 0x00, 0x3d, 0xd8,
+            0xa9, 0xdc, 0x0a, 0x00,
+        ];
+        let utf16bebom: &[u8] = &[
+            0xfe, 0xff, 0x00, 0x68, 0x00, 0x65, 0x00, 0x6c, 0x00, 0x6c, 0x00, 0x6f, 0x00, 0x20,
+            0x00, 0x77, 0x00, 0x6f, 0x00, 0x72, 0x00, 0x6c, 0x00, 0x64, 0x00, 0x20, 0xd8, 0x3d,
+            0xdc, 0xa9, 0x00, 0x0a,
+        ];
+        test_from_bytes(false, "", utf16lebom, "hello world 💩\n").await?;
+        test_from_bytes(false, "", utf16bebom, "hello world 💩\n").await?;
         Ok(())
     }
 
@@ -367,20 +389,19 @@ PREFIX:Page 3:
 
         Ok(())
     }
-    /*
-    todo: uncomment when fixed
+
     #[tokio::test]
-     async fn test_binary_content() -> Result<()> {
-         test_from_strs(
-             false,
-             "foo:",
-             "this is a test \n\n \0 foo",
-             "foo:[rga: binary data]",
-         )
-         .await?;
-         test_from_strs(false, "foo:", "\0", "foo:[rga: binary data]").await?;
-         Ok(())
-     }*/
+    async fn test_binary_content() -> Result<()> {
+        test_from_strs(
+            false,
+            "foo:",
+            "this is a test \n\n \0 foo",
+            "foo:[rga: binary data]",
+        )
+        .await?;
+        test_from_strs(false, "foo:", "\0", "foo:[rga: binary data]").await?;
+        Ok(())
+    }
 
     /*#[test]
     fn chardet() -> Result<()> {

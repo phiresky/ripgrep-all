@@ -36,8 +36,13 @@ impl GetMetadata for ZipAdapter {
     }
 }
 
+#[async_trait]
 impl FileAdapter for ZipAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
+    async fn adapt(
+        &self,
+        ai: AdaptInfo,
+        _detection_reason: &FileMatcher,
+    ) -> Result<AdaptedFilesIterBox> {
         // let (s, r) = mpsc::channel(1);
         let AdaptInfo {
             inp,
@@ -52,8 +57,8 @@ impl FileAdapter for ZipAdapter {
         if is_real_file {
             use async_zip::read::fs::ZipFileReader;
 
+            let zip = ZipFileReader::new(&filepath_hint).await?;
             let s = stream! {
-                let zip = ZipFileReader::new(&filepath_hint).await?;
                 for i in 0..zip.entries().len() {
                     let reader = zip.entry_reader(i).await?;
                     let file = reader.entry();
@@ -182,7 +187,6 @@ impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
 #[cfg(test)]
 mod test {
     use async_zip::{write::ZipFileWriter, Compression, ZipEntryBuilder};
-    
 
     use super::*;
     use crate::{preproc::loop_adapt, test_utils::*};
@@ -213,7 +217,7 @@ mod test {
     async fn only_seek_zip_fs() -> Result<()> {
         let zip = test_data_dir().join("only-seek-zip.zip");
         let (a, d) = simple_fs_adapt_info(&zip).await?;
-        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a)?).await?;
+        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a).await?).await?;
         // assert_eq!(String::from_utf8(v)?, "");
 
         Ok(())
@@ -236,7 +240,7 @@ mod test {
             &PathBuf::from("outer.zip"),
             Box::pin(std::io::Cursor::new(zipfile)),
         );
-        let buf = adapted_to_vec(loop_adapt(&adapter, d, a)?).await?;
+        let buf = adapted_to_vec(loop_adapt(&adapter, d, a).await?).await?;
 
         assert_eq!(
             String::from_utf8(buf)?,

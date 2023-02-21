@@ -224,8 +224,9 @@ impl CustomSpawningFileAdapter {
         Ok(command)
     }
 }
+#[async_trait]
 impl FileAdapter for CustomSpawningFileAdapter {
-    fn adapt<'a>(
+    async fn adapt(
         &self,
         ai: AdaptInfo,
         _detection_reason: &FileMatcher,
@@ -314,7 +315,7 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         // let r = adapter.adapt(a, &d)?;
-        let r = loop_adapt(&adapter, d, a)?;
+        let r = loop_adapt(&adapter, d, a).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
@@ -368,7 +369,7 @@ PREFIX:Page 1:
             Path::new("foo.txt"),
             Box::pin(Cursor::new(Vec::from(input))),
         );
-        let output = adapter.adapt(a, &d).unwrap();
+        let output = adapter.adapt(a, &d).await.unwrap();
 
         let oup = adapted_to_vec(output).await?;
         println!("output: {}", String::from_utf8_lossy(&oup));

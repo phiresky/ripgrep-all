@@ -6,6 +6,7 @@ use crate::{
 };
 use anyhow::*;
 use async_stream::stream;
+use async_trait::async_trait;
 use lazy_static::lazy_static;
 use log::*;
 use std::path::PathBuf;
@@ -45,8 +46,13 @@ impl GetMetadata for TarAdapter {
     }
 }
 
+#[async_trait]
 impl FileAdapter for TarAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
+    async fn adapt(
+        &self,
+        ai: AdaptInfo,
+        _detection_reason: &FileMatcher,
+    ) -> Result<AdaptedFilesIterBox> {
         let AdaptInfo {
             filepath_hint,
             inp,
@@ -103,7 +109,7 @@ mod tests {
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
 
         let adapter = TarAdapter::new();
-        let r = loop_adapt(&adapter, d, a).context("adapt")?;
+        let r = loop_adapt(&adapter, d, a).await.context("adapt")?;
         let o = adapted_to_vec(r).await.context("adapted_to_vec")?;
         assert_eq!(
             String::from_utf8(o).context("parsing utf8")?,

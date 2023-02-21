@@ -41,11 +41,12 @@ macro_rules! async_writeln {
 }
 pub(crate) use async_writeln;
 
+#[async_trait]
 impl<T> FileAdapter for T
 where
     T: WritingFileAdapter,
 {
-    fn adapt(
+    async fn adapt(
         &self,
         a: super::AdaptInfo,
         detection_reason: &crate::matching::FileMatcher,
