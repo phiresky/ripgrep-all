@@ -39,7 +39,12 @@
         inherit (pkgs) lib;
 
         craneLib = crane.lib.${system};
-        src = craneLib.cleanCargoSource ./.;
+        src = pkgs.lib.cleanSourceWith {
+          src = craneLib.path ./.; # original, unfiltered source
+          filter = path: type:
+            (builtins.match ".*jsonc$" path != null) # include JSONC files
+            || (craneLib.filterCargoSources path type);
+        };
 
         buildInputs = with pkgs;
           [ ffmpeg imagemagick pandoc poppler_utils ripgrep tesseract ]
