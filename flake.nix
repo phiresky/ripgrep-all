@@ -3,7 +3,7 @@
     "ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc.";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs";
 
     crane = {
       url = "github:ipetkov/crane";
@@ -25,7 +25,13 @@
       flake = false;
     };
 
-    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    pre-commit-hooks = {
+      url = "github:cachix/pre-commit-hooks.nix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
   };
 
   outputs = { self, nixpkgs, crane, flake-utils, rust-overlay, advisory-db
