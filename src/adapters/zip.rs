@@ -182,7 +182,6 @@ impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
 #[cfg(test)]
 mod test {
     use async_zip::{write::ZipFileWriter, Compression, ZipEntryBuilder};
-    
 
     use super::*;
     use crate::{preproc::loop_adapt, test_utils::*};
