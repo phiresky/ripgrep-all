@@ -119,7 +119,10 @@
         };
 
         # `nix build`
-        packages.default = rga;
+        packages = {
+          inherit rga; # `nix build .#rga`
+          default = rga; # `nix build`
+        };
 
         # `nix run`
         apps.default = flake-utils.lib.mkApp { drv = rga; };
