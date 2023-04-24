@@ -42,7 +42,6 @@
           inherit system;
           overlays = [ (import rust-overlay) ];
         };
-        inherit (pkgs) lib;
 
         craneLib = crane.lib.${system};
         src = pkgs.lib.cleanSourceWith {
@@ -54,7 +53,7 @@
 
         buildInputs = with pkgs;
           [ ffmpeg imagemagick pandoc poppler_utils ripgrep tesseract ]
-          ++ lib.optionals pkgs.stdenv.isDarwin [
+          ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             # Additional darwin specific inputs can be set here
             pkgs.libiconv
           ];
@@ -111,7 +110,7 @@
               cargo-check.enable = true;
             };
           };
-        } // lib.optionalAttrs (system == "x86_64-linux") {
+        } // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
           # NB: cargo-tarpaulin only supports x86_64 systems
           # Check code coverage (note: this will not upload coverage anywhere)
           rga-coverage =
