@@ -35,19 +35,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - name: Install xmllint
-        run: sudo apt-get install -y poppler-utils
+      - name: Install nix
+        uses: cachix/install-nix-action@v18
 
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - name: Run tests
+        run: nix develop --command cargo test
 
   lints:
     name: Lints
