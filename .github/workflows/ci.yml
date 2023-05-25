@@ -41,6 +41,8 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - name: Install xmllint
+        run: sudo apt-get install -y poppler-utils
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
