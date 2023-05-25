@@ -1486,6 +1486,7 @@ dependencies = [
  "structopt",
  "tempfile",
  "tokio",
+ "tokio-rusqlite",
  "tokio-stream",
  "tokio-tar",
  "tokio-test",
@@ -1850,6 +1851,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.16",
+]
+
+[[package]]
+name = "tokio-rusqlite"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aa66395f5ff117faee90c9458232c936405f9227ad902038000b74b3bc1feac"
+dependencies = [
+ "crossbeam-channel",
+ "rusqlite",
+ "tokio",
 ]
 
 [[package]]

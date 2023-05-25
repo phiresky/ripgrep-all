@@ -1,17 +1,17 @@
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
 use anyhow::Result;
 use async_compression::tokio::write::ZstdEncoder;
 use async_stream::stream;
 
+use crate::to_io_err;
 use log::*;
 use tokio::io::{AsyncRead, AsyncWriteExt};
 use tokio_stream::StreamExt;
 use tokio_util::io::{ReaderStream, StreamReader};
 
-use crate::to_io_err;
-
-type FinishHandler = dyn FnOnce((u64, Option<Vec<u8>>)) -> Result<()> + Send;
+type FinishHandler =
+    dyn FnOnce((u64, Option<Vec<u8>>)) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send;
 /**
  * wrap a AsyncRead so that it is passthrough,
  * but also the written data is compressed and written into a buffer,
@@ -64,7 +64,7 @@ pub fn async_read_and_write_to_cache<'a>(
         };
 
         // EOF, finish!
-        on_finish(finish)
+        on_finish(finish).await
             .map_err(to_io_err)?;
 
     };
