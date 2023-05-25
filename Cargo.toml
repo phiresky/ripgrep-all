@@ -17,7 +17,7 @@ version = "1.0.0-alpha.2"
 
 [dependencies]
 anyhow = {version = "1.0.32", features = ["backtrace"]}
-async-compression = {version = "0.3.15", features = ["all", "all-algorithms", "tokio"]}
+async-compression = { version = "0.4.0", features = ["all", "all-algorithms", "tokio"] }
 async-stream = "0.3.3"
 async-trait = "0.1.64"
 async_zip = {version = "0.0.12", features = ["full"]}
@@ -39,11 +39,11 @@ lazy_static = "1.4.0"
 log = "0.4.11"
 memchr = "2.3.3"
 paste = "1.0.0"
-path-clean = "0.1.0"
+path-clean = "1.0.1"
 pretty-bytes = "0.2.2"
 regex = "1.3.9"
 rkv = "0.17" # 0.18 removes lmdb backend
-rusqlite = {version = "0.28.0", features = ["vtab", "bundled"]}
+rusqlite = {version = "0.29.0", features = ["vtab", "bundled"]}
 schemars = {version = "0.8.0-alpha-4", features = ["preserve_order"]}
 serde = {version = "1.0.115", features = ["derive"]}
 serde_json = "1.0.57"
@@ -58,6 +58,6 @@ tree_magic = {package = "tree_magic_mini", version = "3.0.0"}
 
 [dev-dependencies]
 async-recursion = "1.0.0"
-ctor = "0.1.20"
+ctor = "0.2.0"
 pretty_assertions = "1.3.0"
 tokio-test = "0.4.2"
