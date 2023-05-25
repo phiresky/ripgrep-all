@@ -5,7 +5,7 @@ use async_stream::stream;
 use lazy_static::lazy_static;
 use log::*;
 
-static EXTENSIONS: &[&str] = &["zip"];
+static EXTENSIONS: &[&str] = &["zip", "jar"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
