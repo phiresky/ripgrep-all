@@ -49,8 +49,9 @@ pub struct CustomAdapterConfig {
     pub args: Vec<String>,
     /// The output path hint. The placeholders are the same as for `.args`
     ///
-    /// If not set, defaults to ${input_virtual_path}.txt
+    /// If not set, defaults to "${input_virtual_path}.txt"
     ///
+    /// Setting this is useful if the output format is not plain text (.txt) but instead some other format that should be passed to another adapter
     pub output_path_hint: Option<String>,
 }
 
@@ -128,7 +129,6 @@ lazy_static! {
             disabled_by_default: None,
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt.asciipagebreaks".into())
-            // postprocessors: [{name: "add_page_numbers_by_pagebreaks"}]
         }
     ];
 }

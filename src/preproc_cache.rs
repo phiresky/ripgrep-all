@@ -1,6 +1,5 @@
 use crate::{adapters::FileAdapter, preproc::ActiveAdapters};
 use anyhow::{Context, Result};
-use log::*;
 use path_clean::PathClean;
 use rusqlite::{named_params, OptionalExtension};
 use std::{path::Path, time::UNIX_EPOCH};

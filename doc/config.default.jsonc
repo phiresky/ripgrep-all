@@ -7,7 +7,7 @@
   // https://github.com/phiresky/ripgrep-all/blob/master/doc/config.default.jsonc
 
   // The config options are the same as the command line options,
-  // but with --rga- prefix removed and - replaced with _.
+  // but with --rga- prefix removed and - and . replaced with _.
   // e.g. --rga-no-cache becomes `"no_cache": true.
   // The only exception is the `custom_adapters` option, which can only be set in this file.
 

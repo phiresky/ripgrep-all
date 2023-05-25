@@ -209,7 +209,9 @@ pub struct CacheConfig {
 
     /// Max compressed size to cache
     ///
-    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time. Allowed suffixes: k M G
+    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time.
+    ///
+    /// Allowed suffixes on command line: k M G
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
