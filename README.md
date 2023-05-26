@@ -52,6 +52,7 @@ rga-fzf() {
 ```
 
 And for your `~/.config/fish/config.fish`:
+
 ```
 function rga-fzf
     set RG_PREFIX 'rga --files-with-matches'
@@ -86,9 +87,11 @@ Linux x64, macOS and Windows binaries are available [in GitHub Releases][latestr
 `pacman -S ripgrep-all`.
 
 #### Nix
+
 `nix-env -iA nixpkgs.ripgrep-all`
 
 #### Debian-based
+
 download the [rga binary][latestrelease] and get the dependencies like this:
 
 `apt install ripgrep pandoc poppler-utils ffmpeg`
@@ -139,50 +142,46 @@ rga --rga-list-adapters
 
 Adapters:
 
--   **ffmpeg**
-    Uses ffmpeg to extract video metadata/chapters and subtitles.  
-     Extensions: `.mkv`, `.mp4`, `.avi`
+- **pandoc**
+  Uses pandoc to convert binary/unreadable text documents to plain markdown-like text
+  Runs: pandoc --from= --to=plain --wrap=none --markdown-headings=atx  
+   Extensions: .epub, .odt, .docx, .fb2, .ipynb
 
-*   **pandoc**
-    Uses pandoc to convert binary/unreadable text documents to plain markdown-like text.  
-     Extensions: `.epub`, `.odt`, `.docx`, `.fb2`, `.ipynb`
+- **poppler**
+  Uses pdftotext (from poppler-utils) to extract plain text from PDF files
+  Runs: pdftotext - -  
+   Extensions: .pdf  
+   Mime Types: application/pdf
 
--   **poppler**
-    Uses pdftotext (from poppler-utils) to extract plain text from PDF files.  
-     Extensions: `.pdf`  
-     Mime Types: `application/pdf`
+- **postprocpagebreaks**
+  Adds the page number to each line for an input file that specifies page breaks as ascii page break character.
+  Mainly to be used internally by the poppler adapter.  
+   Extensions: .asciipagebreaks
 
--   **zip**
-    Reads a zip file as a stream and recurses down into its contents.  
-     Extensions: `.zip`  
-     Mime Types: `application/zip`
+- **ffmpeg**
+  Uses ffmpeg to extract video metadata/chapters, subtitles, lyrics, and other metadata  
+   Extensions: .mkv, .mp4, .avi, .mp3, .ogg, .flac
 
--   **decompress**
-    Reads compressed file as a stream and runs a different extractor on the contents.  
-     Extensions: `.tgz`, `.tbz`, `.tbz2`, `.gz`, `.bz2`, `.xz`, `.zst`  
-     Mime Types: `application/gzip`, `application/x-bzip`, `application/x-xz`, `application/zstd`
+- **zip**
+  Reads a zip file as a stream and recurses down into its contents  
+   Extensions: .zip, .jar  
+   Mime Types: application/zip
 
--   **tar**
-    Reads a tar file as a stream and recurses down into its contents.  
-     Extensions: `.tar`
+- **decompress**
+  Reads compressed file as a stream and runs a different extractor on the contents.  
+   Extensions: .tgz, .tbz, .tbz2, .gz, .bz2, .xz, .zst  
+   Mime Types: application/gzip, application/x-bzip, application/x-xz, application/zstd
 
-*   **sqlite**
-    Uses sqlite bindings to convert sqlite databases into a simple plain text format.  
-     Extensions: `.db`, `.db3`, `.sqlite`, `.sqlite3`  
-     Mime Types: `application/x-sqlite3`
+- **tar**
+  Reads a tar file as a stream and recurses down into its contents  
+   Extensions: .tar
 
-The following adapters are disabled by default, and can be enabled using `--rga-adapters=+pdfpages,tesseract`:
+- **sqlite**
+  Uses sqlite bindings to convert sqlite databases into a simple plain text format  
+   Extensions: .db, .db3, .sqlite, .sqlite3  
+   Mime Types: application/x-sqlite3
 
--   **pdfpages**
-    Converts a pdf to its individual pages as png files. Only useful in combination with tesseract.  
-     Extensions: `.pdf`  
-     Mime Types: `application/pdf`
-
--   **tesseract**
-    Uses tesseract to run OCR on images to make them searchable.
-    May need `-j1` to prevent overloading the system.
-    Make sure you have tesseract installed.  
-     Extensions: `.jpg`, `.png`
+The following adapters are disabled by default, and can be enabled using '--rga-adapters=+foo,bar':
 
 ## USAGE:
 
@@ -202,6 +201,17 @@ The following adapters are disabled by default, and can be enabled using `--rga-
 > Detection is only done on the first 8KiB of the file, since we can\'t
 > always seek on the input (in archives).
 
+**\--rga-no-cache**
+
+> Disable caching of results
+>
+> By default, rga caches the extracted text, if it is small enough, to a
+> database in \${XDG*CACHE_DIR-\~/.cache}/ripgrep-all on Linux,
+> *\~/Library/Caches/ripgrep-all\_ on macOS, or
+> C:\\Users\\username\\AppData\\Local\\ripgrep-all on Windows. This way,
+> repeated searches on the same set of files will be much faster. If you
+> pass this flag, all caching will be disabled.
+
 **-h**, **\--help**
 
 > Prints help information
@@ -210,15 +220,9 @@ The following adapters are disabled by default, and can be enabled using `--rga-
 
 > List all known adapters
 
-**\--rga-no-cache**
+**\--rga-print-config-schema**
 
-> Disable caching of results
->
-> By default, rga caches the extracted text, if it is small enough, to a
-> database in \~/.cache/rga on Linux, _\~/Library/Caches/rga_ on macOS,
-> or C:\\Users\\username\\AppData\\Local\\rga on Windows. This way,
-> repeated searches on the same set of files will be much faster. If you
-> pass this flag, all caching will be disabled.
+> Print the JSON Schema of the configuration file
 
 **\--rg-help**
 
@@ -242,24 +246,31 @@ The following adapters are disabled by default, and can be enabled using `--rga-
 > use all default adapters except for bar and baz. \"+bar,baz\" means
 > use all default adapters and also bar and baz.
 
-**\--rga-cache-compression-level=**\<cache-compression-level\>
+**\--rga-cache-compression-level=**\<compression-level\>
 
 > ZSTD compression level to apply to adapter outputs before storing in
 > cache db
 >
 > Ranges from 1 - 22 \[default: 12\]
 
-**\--rga-cache-max-blob-len=**\<cache-max-blob-len\>
-
-> Max compressed size to cache
->
-> Longest byte length (after compression) to store in cache. Longer
-> adapter outputs will not be cached and recomputed every time. Allowed
-> suffixes: k M G \[default: 2000000\]
+**\--rga-config-file=**\<config-file-path\>
 
 **\--rga-max-archive-recursion=**\<max-archive-recursion\>
 
 > Maximum nestedness of archives to recurse into \[default: 4\]
+
+**\--rga-cache-max-blob-len=**\<max-blob-len\>
+
+> Max compressed size to cache
+>
+> Longest byte length (after compression) to store in cache. Longer
+> adapter outputs will not be cached and recomputed every time.
+>
+> Allowed suffixes on command line: k M G \[default: 2000000\]
+
+**\--rga-cache-path=**\<path\>
+
+> Path to store cache db \[default: /home/phire/.cache/ripgrep-all\]
 
 **-h** shows a concise overview, **\--help** shows more detail and
 advanced options.
@@ -287,6 +298,7 @@ to debug the adapters.
 
 You can use the provided [`flake.nix`](./flake.nix) to setup all build- and
 run-time dependencies:
+
 1. Enable [Flakes](https://nixos.wiki/wiki/Flakes) in your Nix configuration.
 1. Add [`direnv`](https://direnv.net/) to your profile:
    `nix profile install nixpkgs#direnv`

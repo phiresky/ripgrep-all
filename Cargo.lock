@@ -1371,7 +1371,7 @@ checksum = "436b050e76ed2903236f032a59761c1eb99e1b0aead2c257922771dab1fc8c78"
 
 [[package]]
 name = "ripgrep_all"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.5"
 dependencies = [
  "anyhow",
  "async-compression 0.4.0",
