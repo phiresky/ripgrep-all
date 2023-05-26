@@ -14,13 +14,15 @@ use writing::WritingFileAdapter;
 // maybe todo: read list of extensions from
 // ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
 // but really, the probability of getting useful information from a .flv is low
-static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi"];
+static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "mp3", "ogg", "flac"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "ffmpeg".to_owned(),
         version: 1,
-        description: "Uses ffmpeg to extract video metadata/chapters and subtitles".to_owned(),
+        description:
+            "Uses ffmpeg to extract video metadata/chapters, subtitles, lyrics, and other metadata"
+                .to_owned(),
         recurses: false,
         fast_matchers: EXTENSIONS
             .iter()
@@ -124,6 +126,7 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .spawn()?;
             let mut lines = BufReader::new(probe.stdout.as_mut().unwrap()).lines();
             while let Some(line) = lines.next_line().await? {
+                let line = line.replace("\\r\\n", "\n").replace("\\n", "\n"); // just unescape newlines
                 async_writeln!(oup, "metadata: {line}")?;
             }
             let exit = probe.wait().await?;
