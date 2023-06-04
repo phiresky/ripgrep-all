@@ -98,7 +98,11 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .await
                 .map_err(spawn_fail)?;
             if !probe.status.success() {
-                return Err(format_err!("ffprobe failed: {:?}", probe.status));
+                return Err(format_err!(
+                    "ffprobe failed: {:?}\n{}",
+                    probe.status,
+                    String::from_utf8_lossy(&probe.stderr)
+                ));
             }
             let p: FFprobeOutput = serde_json::from_slice(&probe.stdout)?;
             !p.streams.is_empty()

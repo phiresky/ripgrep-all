@@ -198,16 +198,19 @@ pub async fn loop_adapt_inner(
     ai: AdaptInfo,
 ) -> anyhow::Result<AdaptedFilesIterBox> {
     let fph = ai.filepath_hint.clone();
-    let inp = adapter
-        .adapt(ai, &detection_reason)
-        .await
-        .with_context(|| {
+    let inp = adapter.adapt(ai, &detection_reason).await;
+    let inp = if adapter.metadata().name == "postprocprefix" {
+        // don't add confusing error context
+        inp?
+    } else {
+        inp.with_context(|| {
             format!(
                 "adapting {} via {} failed",
                 fph.to_string_lossy(),
                 adapter.metadata().name
             )
-        })?;
+        })?
+    };
     let s = stream! {
         for await file in inp {
             match buf_choose_adapter(file?).await? {
