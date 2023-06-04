@@ -49,7 +49,7 @@ pub trait PreprocCache {
     async fn set(&mut self, key: &CacheKey, value: Vec<u8>) -> Result<()>;
 }
 
-async fn pragmas(db: &Connection) -> Result<()> {
+async fn connect_pragmas(db: &Connection) -> Result<()> {
     // https://phiresky.github.io/blog/2020/sqlite-performance-tuning/
     //let want_page_size = 32768;
     //db.execute(&format!("pragma page_size = {};", want_page_size))
@@ -62,9 +62,6 @@ async fn pragmas(db: &Connection) -> Result<()> {
     pragma temp_store = memory;
     pragma synchronous = off; -- integrity isn't very important here
     pragma mmap_size = 30000000000;
-
-    pragma application_id = 924716026;
-    pragma user_version = 2; -- todo: on upgrade clear db if version is unexpected
 
     create table if not exists preproc_cache (
         adapter text not null,
@@ -80,23 +77,36 @@ async fn pragmas(db: &Connection) -> Result<()> {
     ",
         )
     })
-    .await?;
-    /*let jm: String = db
-        .call(|db| db.pragma_query_value(None, "journal_mode", |r| r.get(0))?)
+    .await.context("connect_pragmas")?;
+    let jm: i64 = db
+        .call(|db| db.pragma_query_value(None, "application_id", |r| r.get(0)))
         .await?;
-    if &jm != "wal" {
-        anyhow::bail!("journal mode is not wal");
-    }*/
+    if jm != 924716026 {
+        // (probably) newly created db
+        create_pragmas(db).await.context("create_pragmas")?;
+    }
     Ok(())
 }
 
+async fn create_pragmas(db: &Connection) -> Result<()> {
+    db.call(|db| {
+        db.execute_batch(
+            "
+        pragma application_id = 924716026;
+        pragma user_version = 2; -- todo: on upgrade clear db if version is unexpected
+        ",
+        )
+    })
+    .await?;
+    Ok(())
+}
 struct SqliteCache {
     db: Connection,
 }
 impl SqliteCache {
     async fn new(path: &Path) -> Result<SqliteCache> {
         let db = Connection::open(path.join("cache.sqlite3")).await?;
-        pragmas(&db).await?;
+        connect_pragmas(&db).await?;
 
         Ok(SqliteCache { db })
     }

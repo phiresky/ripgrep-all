@@ -151,7 +151,7 @@ async fn adapt_caching(
     let mut cache = cache.context("No cache?")?;
     let cache_key = CacheKey::new(&ai.filepath_hint, adapter.as_ref(), &active_adapters)?;
     // let dbg_ctx = format!("adapter {}", &adapter.metadata().name);
-    let cached = cache.get(&cache_key).await?;
+    let cached = cache.get(&cache_key).await.context("cache.get")?;
     match cached {
         Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
         None => {

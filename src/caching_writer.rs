@@ -1,6 +1,6 @@
 use std::{future::Future, pin::Pin};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_compression::tokio::write::ZstdEncoder;
 use async_stream::stream;
 
@@ -64,7 +64,7 @@ pub fn async_read_and_write_to_cache<'a>(
         };
 
         // EOF, finish!
-        on_finish(finish).await
+        on_finish(finish).await.context("write_to_cache on_finish")
             .map_err(to_io_err)?;
 
     };
