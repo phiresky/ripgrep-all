@@ -14,7 +14,7 @@ use writing::WritingFileAdapter;
 // maybe todo: read list of extensions from
 // ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
 // but really, the probability of getting useful information from a .flv is low
-static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "mp3", "ogg", "flac"];
+static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "mp3", "ogg", "flac", "webm"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
