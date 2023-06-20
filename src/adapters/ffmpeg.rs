@@ -134,7 +134,7 @@ impl WritingFileAdapter for FFmpegAdapter {
                 return Err(format_err!("ffprobe failed: {:?}", exit));
             }
         }
-        if subtitle_streams.len() > 0 {
+        if !subtitle_streams.is_empty() {
             for probe_stream in subtitle_streams.iter() {
                 // extract subtitles
                 let mut cmd = Command::new("ffmpeg");
@@ -143,7 +143,7 @@ impl WritingFileAdapter for FFmpegAdapter {
                     .arg("-i")
                     .arg(&inp_fname)
                     .arg("-map")
-                    .arg(format!("0:{}", probe_stream.index.to_string())) // 0 for first input
+                    .arg(format!("0:{}", probe_stream.index)) // 0 for first input
                     .arg("-f")
                     .arg("webvtt")
                     .arg("-");
