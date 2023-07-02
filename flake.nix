@@ -108,6 +108,11 @@
               nixfmt.enable = true;
               rustfmt.enable = true;
               cargo-check.enable = true;
+              typos = {
+                enable = true;
+                types = [ "text" ];
+                excludes = [ "exampledir/.*" ];
+              };
             };
           };
         } // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
