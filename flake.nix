@@ -45,10 +45,8 @@
 
         craneLib = crane.lib.${system};
         src = pkgs.lib.cleanSourceWith {
-          src = craneLib.path ./.; # original, unfiltered source
-          filter = path: type:
-            (builtins.match ".*jsonc$" path != null) # include JSONC files
-            || (craneLib.filterCargoSources path type);
+          src = craneLib.path ./.;
+          filter = pkgs.lib.cleanSourceFilter;
         };
 
         buildInputs = with pkgs;
@@ -115,7 +113,7 @@
           # NB: cargo-tarpaulin only supports x86_64 systems
           # Check code coverage (note: this will not upload coverage anywhere)
           rga-coverage =
-            craneLib.cargoTarpaulin { inherit cargoArtifacts src; };
+            craneLib.cargoTarpaulin { inherit buildInputs cargoArtifacts src; };
         };
 
         # `nix build`
