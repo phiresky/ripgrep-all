@@ -109,11 +109,6 @@
               };
             };
           };
-        } // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
-          # NB: cargo-tarpaulin only supports x86_64 systems
-          # Check code coverage (note: this will not upload coverage anywhere)
-          rga-coverage =
-            craneLib.cargoTarpaulin { inherit buildInputs cargoArtifacts src; };
         };
 
         # `nix build`
