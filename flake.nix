@@ -64,10 +64,7 @@
 
         # Build the actual crate itself, reusing the dependency
         # artifacts from above.
-        rga = craneLib.buildPackage {
-          inherit cargoArtifacts src buildInputs;
-          doCheck = false;
-        };
+        rga = craneLib.buildPackage { inherit cargoArtifacts src buildInputs; };
 
         pre-commit = pre-commit-hooks.lib."${system}".run;
       in {
@@ -107,7 +104,6 @@
             hooks = {
               nixfmt.enable = true;
               rustfmt.enable = true;
-              cargo-check.enable = true;
               typos = {
                 enable = true;
                 types = [ "text" ];
