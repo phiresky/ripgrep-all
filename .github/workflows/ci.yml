@@ -9,7 +9,7 @@ name: ci
 
 jobs:
   nix-flake-check:
-    name: Lints
+    name: nix flake check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
