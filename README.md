@@ -33,46 +33,7 @@ demo/
 
 ![rga-fzf](doc/rga-fzf.gif)
 
-You can use rga interactively via fzf. Add the following to your ~/.{bash,zsh}rc:
-
-```bash
-rga-fzf() {
-	RG_PREFIX="rga --files-with-matches"
-	local file
-	file="$(
-		FZF_DEFAULT_COMMAND="$RG_PREFIX '$1'" \
-			fzf --sort --preview="[[ ! -z {} ]] && rga --pretty --context 5 {q} {}" \
-				--phony -q "$1" \
-				--bind "change:reload:$RG_PREFIX {q}" \
-				--preview-window="70%:wrap"
-	)" &&
-	echo "opening $file" &&
-	xdg-open "$file"
-}
-```
-
-And for your `~/.config/fish/config.fish`:
-
-```
-function rga-fzf
-    set RG_PREFIX 'rga --files-with-matches'
-    if test (count $argv) -gt 1
-        set RG_PREFIX "$RG_PREFIX $argv[1..-2]"
-    end
-    set -l file $file
-    set file (
-        FZF_DEFAULT_COMMAND="$RG_PREFIX '$argv[-1]'" \
-        fzf --sort \
-            --preview='test ! -z {} && \
-                rga --pretty --context 5 {q} {}' \
-            --phony -q "$argv[-1]" \
-            --bind "change:reload:$RG_PREFIX {q}" \
-            --preview-window='50%:wrap'
-    ) && \
-    echo "opening $file" && \
-    open "$file"
-end
-```
+See [the wiki](https://github.com/phiresky/ripgrep-all/wiki/fzf-Integration) for instructions of integrating rga with fzf.
 
 ## INSTALLATION
 
@@ -120,7 +81,7 @@ If you get an error like `VCRUNTIME140.DLL could not be found`, you need to inst
 
 To install the dependencies that are each not strictly necessary but very useful:
 
-`brew install pandoc poppler tesseract ffmpeg`
+`brew install pandoc poppler ffmpeg`
 
 ### Compile from source
 
