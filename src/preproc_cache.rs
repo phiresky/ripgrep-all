@@ -181,7 +181,7 @@ mod test {
     #[tokio::test]
     async fn test_read_write() -> anyhow::Result<()> {
         let path = tempfile::tempdir()?;
-        let db = open_cache_db(&path.path().join("foo.sqlite3")).await?;
+        let _db = open_cache_db(&path.path().join("foo.sqlite3")).await?;
         // db.set();
         Ok(())
     }

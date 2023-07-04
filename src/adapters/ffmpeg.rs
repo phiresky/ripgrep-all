@@ -54,7 +54,7 @@ struct FFprobeOutput {
 }
 #[derive(Serialize, Deserialize)]
 struct FFprobeStream {
-    index: i32,           // stream index
+    index: i32, // stream index
 }
 
 #[async_trait]
@@ -83,10 +83,14 @@ impl WritingFileAdapter for FFmpegAdapter {
         let subtitle_streams = {
             let probe = Command::new("ffprobe")
                 .args(vec![
-                    "-v", "error",                    // show all errors
-                    "-select_streams", "s",           // show only subtitle streams
-                    "-of", "json",                    // use json as output format
-                    "-show_entries", "stream=index",  // show index of subtitle streams
+                    "-v",
+                    "error", // show all errors
+                    "-select_streams",
+                    "s", // show only subtitle streams
+                    "-of",
+                    "json", // use json as output format
+                    "-show_entries",
+                    "stream=index", // show index of subtitle streams
                 ])
                 .arg("-i")
                 .arg(&inp_fname)
@@ -134,16 +138,17 @@ impl WritingFileAdapter for FFmpegAdapter {
                 return Err(format_err!("ffprobe failed: {:?}", exit));
             }
         }
-        if subtitle_streams.len() > 0 {
+        if !subtitle_streams.is_empty() {
             for probe_stream in subtitle_streams.iter() {
                 // extract subtitles
                 let mut cmd = Command::new("ffmpeg");
                 cmd.arg("-hide_banner")
-                    .arg("-loglevel").arg("panic")
+                    .arg("-loglevel")
+                    .arg("panic")
                     .arg("-i")
                     .arg(&inp_fname)
                     .arg("-map")
-                    .arg(format!("0:{}", probe_stream.index.to_string())) // 0 for first input
+                    .arg(format!("0:{}", probe_stream.index)) // 0 for first input
                     .arg("-f")
                     .arg("webvtt")
                     .arg("-");

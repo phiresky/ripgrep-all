@@ -45,10 +45,8 @@
 
         craneLib = crane.lib.${system};
         src = pkgs.lib.cleanSourceWith {
-          src = craneLib.path ./.; # original, unfiltered source
-          filter = path: type:
-            (builtins.match ".*jsonc$" path != null) # include JSONC files
-            || (craneLib.filterCargoSources path type);
+          src = craneLib.path ./.;
+          filter = pkgs.lib.cleanSourceFilter;
         };
 
         buildInputs = with pkgs;
@@ -64,10 +62,7 @@
 
         # Build the actual crate itself, reusing the dependency
         # artifacts from above.
-        rga = craneLib.buildPackage {
-          inherit cargoArtifacts src buildInputs;
-          doCheck = false;
-        };
+        rga = craneLib.buildPackage { inherit cargoArtifacts src buildInputs; };
 
         pre-commit = pre-commit-hooks.lib."${system}".run;
       in {
@@ -107,14 +102,13 @@
             hooks = {
               nixfmt.enable = true;
               rustfmt.enable = true;
-              cargo-check.enable = true;
+              typos = {
+                enable = true;
+                types = [ "text" ];
+                excludes = [ "exampledir/.*" ];
+              };
             };
           };
-        } // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
-          # NB: cargo-tarpaulin only supports x86_64 systems
-          # Check code coverage (note: this will not upload coverage anywhere)
-          rga-coverage =
-            craneLib.cargoTarpaulin { inherit cargoArtifacts src; };
         };
 
         # `nix build`
