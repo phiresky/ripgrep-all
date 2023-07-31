@@ -14,13 +14,15 @@ use writing::WritingFileAdapter;
 // maybe todo: read list of extensions from
 // ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
 // but really, the probability of getting useful information from a .flv is low
-static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi"];
+static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "mp3", "ogg", "flac", "webm"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "ffmpeg".to_owned(),
         version: 1,
-        description: "Uses ffmpeg to extract video metadata/chapters and subtitles".to_owned(),
+        description:
+            "Uses ffmpeg to extract video metadata/chapters, subtitles, lyrics, and other metadata"
+                .to_owned(),
         recurses: false,
         fast_matchers: EXTENSIONS
             .iter()
@@ -52,7 +54,7 @@ struct FFprobeOutput {
 }
 #[derive(Serialize, Deserialize)]
 struct FFprobeStream {
-    codec_type: String, // video,audio,subtitle
+    index: i32, // stream index
 }
 
 #[async_trait]
@@ -78,17 +80,17 @@ impl WritingFileAdapter for FFmpegAdapter {
         }
         let inp_fname = filepath_hint;
         let spawn_fail = |e| map_exe_error(e, "ffprobe", "Make sure you have ffmpeg installed.");
-        let has_subtitles = {
+        let subtitle_streams = {
             let probe = Command::new("ffprobe")
                 .args(vec![
                     "-v",
-                    "error",
+                    "error", // show all errors
                     "-select_streams",
-                    "s",
+                    "s", // show only subtitle streams
                     "-of",
-                    "json",
+                    "json", // use json as output format
                     "-show_entries",
-                    "stream=codec_type",
+                    "stream=index", // show index of subtitle streams
                 ])
                 .arg("-i")
                 .arg(&inp_fname)
@@ -96,10 +98,14 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .await
                 .map_err(spawn_fail)?;
             if !probe.status.success() {
-                return Err(format_err!("ffprobe failed: {:?}", probe.status));
+                return Err(format_err!(
+                    "ffprobe failed: {:?}\n{}",
+                    probe.status,
+                    String::from_utf8_lossy(&probe.stderr)
+                ));
             }
             let p: FFprobeOutput = serde_json::from_slice(&probe.stdout)?;
-            !p.streams.is_empty()
+            p.streams
         };
         {
             // extract file metadata (especially chapter names in a greppable format)
@@ -124,6 +130,7 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .spawn()?;
             let mut lines = BufReader::new(probe.stdout.as_mut().unwrap()).lines();
             while let Some(line) = lines.next_line().await? {
+                let line = line.replace("\\r\\n", "\n").replace("\\n", "\n"); // just unescape newlines
                 async_writeln!(oup, "metadata: {line}")?;
             }
             let exit = probe.wait().await?;
@@ -131,31 +138,35 @@ impl WritingFileAdapter for FFmpegAdapter {
                 return Err(format_err!("ffprobe failed: {:?}", exit));
             }
         }
-        if has_subtitles {
-            // extract subtitles
-            let mut cmd = Command::new("ffmpeg");
-            cmd.arg("-hide_banner")
-                .arg("-loglevel")
-                .arg("panic")
-                .arg("-i")
-                .arg(&inp_fname)
-                .arg("-f")
-                .arg("webvtt")
-                .arg("-");
-            let mut cmd = cmd.stdout(Stdio::piped()).spawn().map_err(spawn_fail)?;
-            let stdo = cmd.stdout.as_mut().expect("is piped");
-            let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
-            let mut time: String = "".to_owned();
-            // rewrite subtitle times so they are shown as a prefix in every line
-            let mut lines = BufReader::new(stdo).lines();
-            while let Some(line) = lines.next_line().await? {
-                // 09:55.195 --> 09:56.730
-                if time_re.is_match(&line) {
-                    time = line.to_owned();
-                } else if line.is_empty() {
-                    async_writeln!(oup)?;
-                } else {
-                    async_writeln!(oup, "{time}: {line}")?;
+        if !subtitle_streams.is_empty() {
+            for probe_stream in subtitle_streams.iter() {
+                // extract subtitles
+                let mut cmd = Command::new("ffmpeg");
+                cmd.arg("-hide_banner")
+                    .arg("-loglevel")
+                    .arg("panic")
+                    .arg("-i")
+                    .arg(&inp_fname)
+                    .arg("-map")
+                    .arg(format!("0:{}", probe_stream.index)) // 0 for first input
+                    .arg("-f")
+                    .arg("webvtt")
+                    .arg("-");
+                let mut cmd = cmd.stdout(Stdio::piped()).spawn().map_err(spawn_fail)?;
+                let stdo = cmd.stdout.as_mut().expect("is piped");
+                let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
+                let mut time: String = "".to_owned();
+                // rewrite subtitle times so they are shown as a prefix in every line
+                let mut lines = BufReader::new(stdo).lines();
+                while let Some(line) = lines.next_line().await? {
+                    // 09:55.195 --> 09:56.730
+                    if time_re.is_match(&line) {
+                        time = line.to_owned();
+                    } else if line.is_empty() {
+                        async_writeln!(oup)?;
+                    } else {
+                        async_writeln!(oup, "{time}: {line}")?;
+                    }
                 }
             }
         }

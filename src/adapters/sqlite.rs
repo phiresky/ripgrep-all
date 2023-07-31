@@ -77,11 +77,13 @@ fn synchronous_dump_sqlite(ai: AdaptInfo, mut s: impl Write) -> Result<()> {
         return Ok(());
     }
     let inp_fname = filepath_hint;
-
-    let conn = Connection::open_with_flags(inp_fname, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let conn = Connection::open_with_flags(&inp_fname, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .with_context(|| format!("opening sqlite connection to {}", inp_fname.display()))?;
     let tables: Vec<String> = conn
-        .prepare("select name from sqlite_master where type='table'")?
-        .query_map([], |r| r.get::<_, String>(0))?
+        .prepare("select name from sqlite_master where type='table'")
+        .context("while preparing query")?
+        .query_map([], |r| r.get::<_, String>(0))
+        .context("while executing query")?
         .filter_map(|e| e.ok())
         .collect();
     debug!("db has {} tables", tables.len());
@@ -121,7 +123,9 @@ impl WritingFileAdapter for SqliteAdapter {
         oup: Pin<Box<dyn AsyncWrite + Send>>,
     ) -> Result<()> {
         let oup_sync = SyncIoBridge::new(oup);
-        tokio::task::spawn_blocking(|| synchronous_dump_sqlite(ai, oup_sync)).await??;
+        tokio::task::spawn_blocking(|| synchronous_dump_sqlite(ai, oup_sync))
+            .await?
+            .context("in synchronous sqlite task")?;
         Ok(())
     }
 }
@@ -134,10 +138,10 @@ mod test {
 
     #[tokio::test]
     async fn simple() -> Result<()> {
-        let adapter: Box<dyn FileAdapter> = Box::new(SqliteAdapter::default());
+        let adapter: Box<dyn FileAdapter> = Box::<SqliteAdapter>::default();
         let fname = test_data_dir().join("hello.sqlite3");
         let (a, d) = simple_fs_adapt_info(&fname).await?;
-        let res = adapter.adapt(a, &d)?;
+        let res = adapter.adapt(a, &d).await?;
 
         let buf = adapted_to_vec(res).await?;
 

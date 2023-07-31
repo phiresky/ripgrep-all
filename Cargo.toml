@@ -2,7 +2,7 @@
 [package]
 authors = ["phiresky <phireskyde+git@gmail.com>"]
 description = "rga: ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc."
-edition = "2018"
+edition = "2021"
 exclude = [
   "exampledir/*",
 ]
@@ -11,56 +11,57 @@ license = "AGPL-3.0-or-later"
 name = "ripgrep_all"
 readme = "README.md"
 repository = "https://github.com/phiresky/ripgrep-all"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.5"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.32"
-async-compression = {version = "0.3.15", features = ["all", "all-algorithms", "tokio"]}
-async-stream = "0.3.3"
-async-trait = "0.1.64"
-async_zip = "0.0.9"
-bincode = "1.3.1"
-bytes = "1.2.1"
-clap = {version = "4.0.18", features = ["wrap_help"]}
-crossbeam = "0.8.1"
-crossbeam-channel = "0.5.1"
-derive_more = "0.99.9"
+anyhow = {version = "1.0.71", features = ["backtrace"]}
+async-compression = { version = "0.4.0", features = ["all", "all-algorithms", "tokio"] }
+async-stream = "0.3.5"
+async-trait = "0.1.68"
+async_zip = {version = "0.0.12", features = ["full"]}
+bincode = "1.3.3"
+bytes = "1.4.0"
+clap = {version = "4.3.0", features = ["wrap_help"]}
+crossbeam = "0.8.2"
+crossbeam-channel = "0.5.8"
+derive_more = "0.99.17"
 directories-next = "2.0.0"
 dyn-clonable = "0.9.0"
-dyn-clone = "1.0.2"
-encoding_rs = "0.8.24"
+dyn-clone = "1.0.11"
+encoding_rs = "0.8.32"
 encoding_rs_io = "0.1.7"
-env_logger = "0.9.0"
-glob = "0.3.0"
+env_logger = "0.10.0"
+glob = "0.3.1"
 json_comments = "0.2.1"
 lazy_static = "1.4.0"
-log = "0.4.11"
+log = "0.4.17"
 mailbox = "0.2.0"
 mailparse = "0.14.0"
-memchr = "2.3.3"
+memchr = "2.5.0"
 mime2ext = "0.1.52"
-paste = "1.0.0"
-path-clean = "0.1.0"
+paste = "1.0.12"
+path-clean = "1.0.1"
 pretty-bytes = "0.2.2"
-regex = "1.3.9"
-rkv = "0.17"
-rusqlite = {version = "0.28.0", features = ["vtab", "bundled"]}
-schemars = {version = "0.8.0-alpha-4", features = ["preserve_order"]}
-serde = {version = "1.0.115", features = ["derive"]}
-serde_json = "1.0.57"
+regex = "1.8.2"
+rusqlite = {version = "0.29.0", features = ["vtab", "bundled"]}
+schemars = {version = "0.8.12", features = ["preserve_order"]}
+serde = {version = "1.0.163", features = ["derive"]}
+serde_json = "1.0.96"
 size_format = "1.0.2"
-structopt = "0.3.17"
-tempfile = "3.1.0"
-tokio = {version = "1.21.2", features = ["full"]}
-tokio-stream = {version = "0.1.11", features = ["io-util", "tokio-util"]}
+structopt = "0.3.26"
+tempfile = "3.5.0"
+tokio = {version = "1.28.1", features = ["full"]}
+tokio-rusqlite = "0.4.0"
+tokio-stream = {version = "0.1.14", features = ["io-util", "tokio-util"]}
 tokio-tar = { git = "https://github.com/vorot93/tokio-tar", version = "0.3.0" }
-tokio-util = {version = "0.7.4", features = ["io", "full"]}
-tree_magic = {package = "tree_magic_mini", version = "3.0.0"}
+tokio-util = {version = "0.7.8", features = ["io", "full"]}
+tree_magic = {package = "tree_magic_mini", version = "3.0.3"}
 
 [dev-dependencies]
-async-recursion = "1.0.0"
-ctor = "0.1.20"
+async-recursion = "1.0.4"
+ctor = "0.2.0"
 pretty_assertions = "1.3.0"
+tempfile = "3.5.0"
 tokio-test = "0.4.2"

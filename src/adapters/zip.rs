@@ -5,7 +5,7 @@ use async_stream::stream;
 use lazy_static::lazy_static;
 use log::*;
 
-static EXTENSIONS: &[&str] = &["zip"];
+static EXTENSIONS: &[&str] = &["zip", "jar"];
 
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
@@ -36,8 +36,13 @@ impl GetMetadata for ZipAdapter {
     }
 }
 
+#[async_trait]
 impl FileAdapter for ZipAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
+    async fn adapt(
+        &self,
+        ai: AdaptInfo,
+        _detection_reason: &FileMatcher,
+    ) -> Result<AdaptedFilesIterBox> {
         // let (s, r) = mpsc::channel(1);
         let AdaptInfo {
             inp,
@@ -52,11 +57,11 @@ impl FileAdapter for ZipAdapter {
         if is_real_file {
             use async_zip::read::fs::ZipFileReader;
 
+            let zip = ZipFileReader::new(&filepath_hint).await?;
             let s = stream! {
-                let zip = ZipFileReader::new(&filepath_hint).await?;
-                for i in 0..zip.entries().len() {
-                    let reader = zip.entry_reader(i).await?;
-                    let file = reader.entry();
+                for i in 0..zip.file().entries().len() {
+                    let file = zip.get_entry(i)?;
+                    let reader = zip.entry(i).await?;
                     if file.filename().ends_with('/') {
                         continue;
                     }
@@ -98,10 +103,11 @@ impl FileAdapter for ZipAdapter {
             let mut zip = ZipFileReader::new(inp);
 
             let s = stream! {
-                    while !zip.finished() {
-                    if let Some(reader) = zip.entry_reader().await? {
-                        let file = reader.entry();
+                    while let Some(mut entry) = zip.next_entry().await? {
+                        let file = entry.entry();
                         if file.filename().ends_with('/') {
+                            zip = entry.skip().await?;
+
                             continue;
                         }
                         debug!(
@@ -114,6 +120,7 @@ impl FileAdapter for ZipAdapter {
                         );
                         let new_line_prefix = format!("{}{}: ", line_prefix, file.filename());
                         let fname = PathBuf::from(file.filename());
+                        let reader = entry.reader();
                         tokio::pin!(reader);
                         // SAFETY: this should be solvable without unsafe but idk how :(
                         // the issue is that ZipEntryReader borrows from ZipFileReader, but we need to yield it here into the stream
@@ -133,7 +140,8 @@ impl FileAdapter for ZipAdapter {
                             postprocess,
                             config: config.clone(),
                         });
-                    }
+                        zip = entry.done().await.context("going to next file in zip but entry was not read fully")?;
+
                 }
             };
 
@@ -182,7 +190,6 @@ impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
 #[cfg(test)]
 mod test {
     use async_zip::{write::ZipFileWriter, Compression, ZipEntryBuilder};
-    
 
     use super::*;
     use crate::{preproc::loop_adapt, test_utils::*};
@@ -213,7 +220,7 @@ mod test {
     async fn only_seek_zip_fs() -> Result<()> {
         let zip = test_data_dir().join("only-seek-zip.zip");
         let (a, d) = simple_fs_adapt_info(&zip).await?;
-        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a)?).await?;
+        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a).await?).await?;
         // assert_eq!(String::from_utf8(v)?, "");
 
         Ok(())
@@ -236,7 +243,7 @@ mod test {
             &PathBuf::from("outer.zip"),
             Box::pin(std::io::Cursor::new(zipfile)),
         );
-        let buf = adapted_to_vec(loop_adapt(&adapter, d, a)?).await?;
+        let buf = adapted_to_vec(loop_adapt(&adapter, d, a).await?).await?;
 
         assert_eq!(
             String::from_utf8(buf)?,

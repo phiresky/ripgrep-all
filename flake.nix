@@ -3,7 +3,7 @@
     "ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc.";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs";
 
     crane = {
       url = "github:ipetkov/crane";
@@ -25,7 +25,13 @@
       flake = false;
     };
 
-    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    pre-commit-hooks = {
+      url = "github:cachix/pre-commit-hooks.nix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
   };
 
   outputs = { self, nixpkgs, crane, flake-utils, rust-overlay, advisory-db
@@ -36,14 +42,16 @@
           inherit system;
           overlays = [ (import rust-overlay) ];
         };
-        inherit (pkgs) lib;
 
         craneLib = crane.lib.${system};
-        src = craneLib.cleanCargoSource ./.;
+        src = pkgs.lib.cleanSourceWith {
+          src = craneLib.path ./.;
+          filter = pkgs.lib.cleanSourceFilter;
+        };
 
         buildInputs = with pkgs;
           [ ffmpeg imagemagick pandoc poppler_utils ripgrep tesseract ]
-          ++ lib.optionals pkgs.stdenv.isDarwin [
+          ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             # Additional darwin specific inputs can be set here
             pkgs.libiconv
           ];
@@ -54,10 +62,7 @@
 
         # Build the actual crate itself, reusing the dependency
         # artifacts from above.
-        rga = craneLib.buildPackage {
-          inherit cargoArtifacts src buildInputs;
-          doCheck = false;
-        };
+        rga = craneLib.buildPackage { inherit cargoArtifacts src buildInputs; };
 
         pre-commit = pre-commit-hooks.lib."${system}".run;
       in {
@@ -97,18 +102,20 @@
             hooks = {
               nixfmt.enable = true;
               rustfmt.enable = true;
-              cargo-check.enable = true;
+              typos = {
+                enable = true;
+                types = [ "text" ];
+                excludes = [ "exampledir/.*" ];
+              };
             };
           };
-        } // lib.optionalAttrs (system == "x86_64-linux") {
-          # NB: cargo-tarpaulin only supports x86_64 systems
-          # Check code coverage (note: this will not upload coverage anywhere)
-          rga-coverage =
-            craneLib.cargoTarpaulin { inherit cargoArtifacts src; };
         };
 
         # `nix build`
-        packages.default = rga;
+        packages = {
+          inherit rga; # `nix build .#rga`
+          default = rga; # `nix build`
+        };
 
         # `nix run`
         apps.default = flake-utils.lib.mkApp { drv = rga; };

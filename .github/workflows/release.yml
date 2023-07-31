@@ -18,14 +18,14 @@ on:
     # branches:
     # - ag/release
     tags:
-    - 'v[0-9]+.[0-9]+.[0-9]+'
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 jobs:
   create-release:
     name: create-release
     runs-on: ubuntu-latest
     # env:
-      # Set to force version number, e.g., when no tag exists.
-      # RG_VERSION: TEST-0.0.0
+    # Set to force version number, e.g., when no tag exists.
+    # RG_VERSION: TEST-0.0.0
     steps:
       - name: Create artifacts directory
         run: mkdir artifacts
@@ -62,7 +62,7 @@ jobs:
 
   build-release:
     name: build-release
-    needs: ['create-release']
+    needs: ["create-release"]
     runs-on: ${{ matrix.os }}
     env:
       # For some builds, we use cross to test on 32-bit and big-endian
@@ -78,124 +78,124 @@ jobs:
       matrix:
         build: [linux, linux-arm, macos, win-msvc]
         include:
-        - build: linux
-          os: ubuntu-18.04
-          rust: nightly
-          target: x86_64-unknown-linux-musl
-        - build: linux-arm
-          os: ubuntu-18.04
-          rust: nightly
-          target: arm-unknown-linux-gnueabihf
-        - build: macos
-          os: macos-latest
-          rust: nightly
-          target: x86_64-apple-darwin
-        - build: win-msvc
-          os: windows-2019
-          rust: nightly
-          target: x86_64-pc-windows-msvc
+          - build: linux
+            os: ubuntu-22.04
+            rust: nightly
+            target: x86_64-unknown-linux-musl
+          - build: linux-arm
+            os: ubuntu-22.04
+            rust: nightly
+            target: arm-unknown-linux-gnueabihf
+          - build: macos
+            os: macos-latest
+            rust: nightly
+            target: x86_64-apple-darwin
+          - build: win-msvc
+            os: windows-2019
+            rust: nightly
+            target: x86_64-pc-windows-msvc
         #- build: win-gnu
         #  os: windows-2019
         #  rust: nightly-x86_64-gnu
         #  target: x86_64-pc-windows-gnu
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 1
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
 
-    - name: Install packages (Ubuntu)
-      if: matrix.os == 'ubuntu-18.04'
-      run: |
-        ci/ubuntu-install-packages
+      - name: Install packages (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          ci/ubuntu-install-packages
 
-    - name: Install packages (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        ci/macos-install-packages
+      - name: Install packages (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          ci/macos-install-packages
 
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: ${{ matrix.rust }}
-        profile: minimal
-        override: true
-        target: ${{ matrix.target }}
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
 
-    - name: Use Cross
-      # if: matrix.os != 'windows-2019'
-      run: |
-        cargo install cross
-        echo "CARGO=cross" >> $GITHUB_ENV
-        echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
-        echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+      - name: Use Cross
+        shell: bash
+        run: |
+          cargo install cross
+          echo "CARGO=cross" >> $GITHUB_ENV
+          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
-    - name: Show command used for Cargo
-      run: |
-        echo "cargo command is: ${{ env.CARGO }}"
-        echo "target flag is: ${{ env.TARGET_FLAGS }}"
-        echo "target dir is: ${{ env.TARGET_DIR }}"
+      - name: Show command used for Cargo
+        run: |
+          echo "cargo command is: ${{ env.CARGO }}"
+          echo "target flag is: ${{ env.TARGET_FLAGS }}"
+          echo "target dir is: ${{ env.TARGET_DIR }}"
 
-    - name: Get release download URL
-      uses: actions/download-artifact@v1
-      with:
-        name: artifacts
-        path: artifacts
+      - name: Get release download URL
+        uses: actions/download-artifact@v1
+        with:
+          name: artifacts
+          path: artifacts
 
-    - name: Set release upload URL and release version
-      shell: bash
-      run: |
-        echo "RELEASE_UPLOAD_URL=$(cat artifacts/release-upload-url)" >> $GITHUB_ENV
-        echo "release upload url: $RELEASE_UPLOAD_URL"
-        echo "RELEASE_VERSION=$(cat artifacts/release-version)" >> $GITHUB_ENV
-        echo "release version: $RELEASE_VERSION"
+      - name: Set release upload URL and release version
+        shell: bash
+        run: |
+          echo "RELEASE_UPLOAD_URL=$(cat artifacts/release-upload-url)" >> $GITHUB_ENV
+          echo "release upload url: $RELEASE_UPLOAD_URL"
+          echo "RELEASE_VERSION=$(cat artifacts/release-version)" >> $GITHUB_ENV
+          echo "release version: $RELEASE_VERSION"
 
-    - name: Build release binary
-      run: ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
+      - name: Build release binary
+        run: ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
 
-    - name: Strip release binary (linux and macos)
-      if: matrix.build == 'linux' || matrix.build == 'macos'
-      run: |
-        strip "target/${{ matrix.target }}/release/rga" "target/${{ matrix.target }}/release/rga-preproc"
+      - name: Strip release binary (linux and macos)
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: |
+          strip "target/${{ matrix.target }}/release/rga" "target/${{ matrix.target }}/release/rga-preproc"
 
-    - name: Strip release binary (arm)
-      if: matrix.build == 'linux-arm'
-      run: |
-        docker run --rm -v \
-          "$PWD/target:/target:Z" \
-          rustembedded/cross:arm-unknown-linux-gnueabihf \
-          arm-linux-gnueabihf-strip \
-          /target/arm-unknown-linux-gnueabihf/release/rga \
-          /target/arm-unknown-linux-gnueabihf/release/rga-preproc
+      - name: Strip release binary (arm)
+        if: matrix.build == 'linux-arm'
+        run: |
+          docker run --rm -v \
+            "$PWD/target:/target:Z" \
+            rustembedded/cross:arm-unknown-linux-gnueabihf \
+            arm-linux-gnueabihf-strip \
+            /target/arm-unknown-linux-gnueabihf/release/rga \
+            /target/arm-unknown-linux-gnueabihf/release/rga-preproc
 
-    - name: Build archive
-      shell: bash
-      run: |
-        staging="ripgrep_all-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
-        mkdir -p "$staging"/doc
+      - name: Build archive
+        shell: bash
+        run: |
+          staging="ripgrep_all-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
+          mkdir -p "$staging"/doc
 
-        cp {README.md,LICENSE.md} "$staging/"
-        cp CHANGELOG.md "$staging/doc/"
+          cp {README.md,LICENSE.md} "$staging/"
+          cp CHANGELOG.md "$staging/doc/"
 
-        if [ "${{ matrix.os }}" = "windows-2019" ]; then
-          cp "target/${{ matrix.target }}/release/rga.exe" "$staging/"
-          cp "target/${{ matrix.target }}/release/rga-preproc.exe" "$staging/"
-          7z a "$staging.zip" "$staging"
-          echo "ASSET=$staging.zip" >> $GITHUB_ENV
-        else
-          cp "target/${{ matrix.target }}/release/rga" "$staging/"
-          cp "target/${{ matrix.target }}/release/rga-preproc" "$staging/"
-          tar czf "$staging.tar.gz" "$staging"
-          echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
-        fi
+          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+            cp "target/${{ matrix.target }}/release/rga.exe" "$staging/"
+            cp "target/${{ matrix.target }}/release/rga-preproc.exe" "$staging/"
+            7z a "$staging.zip" "$staging"
+            echo "ASSET=$staging.zip" >> $GITHUB_ENV
+          else
+            cp "target/${{ matrix.target }}/release/rga" "$staging/"
+            cp "target/${{ matrix.target }}/release/rga-preproc" "$staging/"
+            tar czf "$staging.tar.gz" "$staging"
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+          fi
 
-    - name: Upload release archive
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ env.RELEASE_UPLOAD_URL }}
-        asset_path: ${{ env.ASSET }}
-        asset_name: ${{ env.ASSET }}
-        asset_content_type: application/octet-stream
+      - name: Upload release archive
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.RELEASE_UPLOAD_URL }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream

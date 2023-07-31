@@ -10,6 +10,7 @@ pub mod writing;
 pub mod zip;
 use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
 use anyhow::{format_err, Context, Result};
+use async_trait::async_trait;
 use custom::CustomAdapterConfig;
 use custom::BUILTIN_SPAWNING_ADAPTERS;
 use log::*;
@@ -77,11 +78,17 @@ impl AdapterMeta {
 pub trait GetMetadata {
     fn metadata(&self) -> &AdapterMeta;
 }
+
+#[async_trait]
 pub trait FileAdapter: GetMetadata + Send + Sync {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
-    fn adapt(&self, a: AdaptInfo, detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox>;
+    async fn adapt(
+        &self,
+        a: AdaptInfo,
+        detection_reason: &FileMatcher,
+    ) -> Result<AdaptedFilesIterBox>;
 }
 
 pub struct AdaptInfo {

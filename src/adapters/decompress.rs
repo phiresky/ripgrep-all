@@ -93,8 +93,13 @@ fn get_inner_filename(filename: &Path) -> PathBuf {
     filename.with_file_name(format!("{}{}", stem, new_extension))
 }
 
+#[async_trait]
 impl FileAdapter for DecompressAdapter {
-    fn adapt(&self, ai: AdaptInfo, detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
+    async fn adapt(
+        &self,
+        ai: AdaptInfo,
+        detection_reason: &FileMatcher,
+    ) -> Result<AdaptedFilesIterBox> {
         Ok(one_file(AdaptInfo {
             filepath_hint: get_inner_filename(&ai.filepath_hint),
             is_real_file: false,
@@ -137,7 +142,7 @@ mod tests {
         let filepath = test_data_dir().join("hello.gz");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let r = adapter.adapt(a, &d)?;
+        let r = adapter.adapt(a, &d).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(String::from_utf8(o)?, "hello\n");
         Ok(())
@@ -150,7 +155,7 @@ mod tests {
         let filepath = test_data_dir().join("short.pdf.gz");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let r = loop_adapt(&adapter, d, a)?;
+        let r = loop_adapt(&adapter, d, a).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,

@@ -49,8 +49,9 @@ pub struct CustomAdapterConfig {
     pub args: Vec<String>,
     /// The output path hint. The placeholders are the same as for `.args`
     ///
-    /// If not set, defaults to ${input_virtual_path}.txt
+    /// If not set, defaults to "${input_virtual_path}.txt"
     ///
+    /// Setting this is useful if the output format is not plain text (.txt) but instead some other format that should be passed to another adapter
     pub output_path_hint: Option<String>,
 }
 
@@ -128,7 +129,6 @@ lazy_static! {
             disabled_by_default: None,
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt.asciipagebreaks".into())
-            // postprocessors: [{name: "add_page_numbers_by_pagebreaks"}]
         }
     ];
 }
@@ -143,15 +143,13 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> anyhow:
     }
 }
 
-fn proc_wait(mut child: Child) -> impl AsyncRead {
+fn proc_wait(mut child: Child, context: impl FnOnce() -> String) -> impl AsyncRead {
     let s = stream! {
         let res = child.wait().await?;
         if res.success() {
             yield std::io::Result::Ok(Bytes::new());
         } else {
-            yield std::io::Result::Err(to_io_err(
-                format_err!("subprocess failed: {:?}", res),
-            ));
+            Err(format_err!("{:?}", res)).with_context(context).map_err(to_io_err)?;
         }
     };
     StreamReader::new(s)
@@ -164,6 +162,7 @@ pub fn pipe_output(
     exe_name: &str,
     help: &str,
 ) -> Result<ReadBox> {
+    let cmd_log = format!("{:?}", cmd); // todo: perf
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -177,10 +176,9 @@ pub fn pipe_output(
         tokio::io::copy(&mut z, &mut stdi).await?;
         std::io::Result::Ok(())
     });
-
-    Ok(Box::pin(
-        stdo.chain(proc_wait(cmd).chain(join_handle_to_stream(join))),
-    ))
+    Ok(Box::pin(stdo.chain(
+        proc_wait(cmd, move || format!("subprocess: {cmd_log}")).chain(join_handle_to_stream(join)),
+    )))
 }
 
 pub struct CustomSpawningFileAdapter {
@@ -224,8 +222,9 @@ impl CustomSpawningFileAdapter {
         Ok(command)
     }
 }
+#[async_trait]
 impl FileAdapter for CustomSpawningFileAdapter {
-    fn adapt<'a>(
+    async fn adapt(
         &self,
         ai: AdaptInfo,
         _detection_reason: &FileMatcher,
@@ -314,7 +313,7 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         // let r = adapter.adapt(a, &d)?;
-        let r = loop_adapt(&adapter, d, a)?;
+        let r = loop_adapt(&adapter, d, a).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
@@ -368,7 +367,7 @@ PREFIX:Page 1:
             Path::new("foo.txt"),
             Box::pin(Cursor::new(Vec::from(input))),
         );
-        let output = adapter.adapt(a, &d).unwrap();
+        let output = adapter.adapt(a, &d).await.unwrap();
 
         let oup = adapted_to_vec(output).await?;
         println!("output: {}", String::from_utf8_lossy(&oup));

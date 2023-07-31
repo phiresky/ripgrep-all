@@ -3,25 +3,28 @@ use crate::adapters::*;
 use crate::caching_writer::async_read_and_write_to_cache;
 use crate::config::RgaConfig;
 use crate::matching::*;
+use crate::preproc_cache::CacheKey;
 use crate::recurse::concat_read_streams;
 use crate::{
-    preproc_cache::{LmdbCache, PreprocCache},
+    preproc_cache::{open_cache_db, PreprocCache},
     print_bytes,
 };
 use anyhow::*;
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_stream::stream;
+// use futures::future::{BoxFuture, FutureExt};
 use log::*;
-use path_clean::PathClean;
 use postproc::PostprocPrefix;
+use std::future::Future;
 use std::io::Cursor;
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 
-type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
+pub type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
 
 async fn choose_adapter(
     config: &RgaConfig,
@@ -120,36 +123,6 @@ pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
         .with_context(|| format!("run_adapter({})", &path_hint_copy.to_string_lossy()))
 }
 
-fn compute_cache_key(
-    filepath_hint: &Path,
-    adapter: &dyn FileAdapter,
-    active_adapters: ActiveAdapters,
-) -> Result<Vec<u8>> {
-    let clean_path = filepath_hint.to_owned().clean();
-    let meta = std::fs::metadata(filepath_hint)
-        .with_context(|| format!("reading metadata for {}", filepath_hint.to_string_lossy()))?;
-    let modified = meta.modified().expect("weird OS that can't into mtime");
-
-    if adapter.metadata().recurses {
-        let active_adapters_cache_key = active_adapters
-            .iter()
-            .map(|a| (a.metadata().name.clone(), a.metadata().version))
-            .collect::<Vec<_>>();
-        let key = (active_adapters_cache_key, clean_path, modified);
-        debug!("Cache key (with recursion): {:?}", key);
-        bincode::serialize(&key).context("could not serialize path")
-    } else {
-        let key = (
-            adapter.metadata().name.clone(),
-            adapter.metadata().version,
-            clean_path,
-            modified,
-        );
-        debug!("Cache key (no recursion): {:?}", key);
-        bincode::serialize(&key).context("could not serialize path")
-    }
-}
-
 async fn adapt_caching(
     ai: AdaptInfo,
     adapter: Arc<dyn FileAdapter>,
@@ -166,41 +139,44 @@ async fn adapt_caching(
         ai.filepath_hint.to_string_lossy(),
         &meta.name
     );
-    let db_name = format!("{}.v{}", meta.name, meta.version);
     let cache_compression_level = ai.config.cache.compression_level;
     let cache_max_blob_len = ai.config.cache.max_blob_len;
 
-    let cache = if ai.is_real_file {
-        LmdbCache::open(&ai.config.cache)?
+    let cache = if ai.is_real_file && !ai.config.cache.disabled {
+        Some(open_cache_db(Path::new(&ai.config.cache.path.0)).await?)
     } else {
         None
     };
 
     let mut cache = cache.context("No cache?")?;
-    let cache_key: Vec<u8> =
-        compute_cache_key(&ai.filepath_hint, adapter.as_ref(), active_adapters)?;
+    let cache_key = CacheKey::new(&ai.filepath_hint, adapter.as_ref(), &active_adapters)?;
     // let dbg_ctx = format!("adapter {}", &adapter.metadata().name);
-    let cached = cache.get(&db_name, &cache_key)?;
+    let cached = cache.get(&cache_key).await.context("cache.get")?;
     match cached {
         Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
         None => {
             debug!("cache MISS, running adapter with caching...");
-            let inp = loop_adapt(adapter.as_ref(), detection_reason, ai)?;
+            let inp = loop_adapt(adapter.as_ref(), detection_reason, ai).await?;
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
                 inp,
                 cache_max_blob_len.0,
                 cache_compression_level.0,
                 Box::new(move |(uncompressed_size, compressed)| {
-                    debug!(
-                        "uncompressed output: {}",
-                        print_bytes(uncompressed_size as f64)
-                    );
-                    if let Some(cached) = compressed {
-                        debug!("compressed output: {}", print_bytes(cached.len() as f64));
-                        cache.set(&db_name, &cache_key, &cached)?
-                    }
-                    Ok(())
+                    Box::pin(async move {
+                        debug!(
+                            "uncompressed output: {}",
+                            print_bytes(uncompressed_size as f64)
+                        );
+                        if let Some(cached) = compressed {
+                            debug!("compressed output: {}", print_bytes(cached.len() as f64));
+                            cache
+                                .set(&cache_key, cached)
+                                .await
+                                .context("writing to cache")?
+                        }
+                        Ok(())
+                    })
                 }),
             )?;
 
@@ -213,21 +189,34 @@ pub fn loop_adapt(
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
+) -> Pin<Box<dyn Future<Output = anyhow::Result<AdaptedFilesIterBox>> + Send + '_>> {
+    Box::pin(async move { loop_adapt_inner(adapter, detection_reason, ai).await })
+}
+pub async fn loop_adapt_inner(
+    adapter: &dyn FileAdapter,
+    detection_reason: FileMatcher,
+    ai: AdaptInfo,
 ) -> anyhow::Result<AdaptedFilesIterBox> {
     let fph = ai.filepath_hint.clone();
-    let inp = adapter.adapt(ai, &detection_reason).with_context(|| {
-        format!(
-            "adapting {} via {} failed",
-            fph.to_string_lossy(),
-            adapter.metadata().name
-        )
-    })?;
+    let inp = adapter.adapt(ai, &detection_reason).await;
+    let inp = if adapter.metadata().name == "postprocprefix" {
+        // don't add confusing error context
+        inp?
+    } else {
+        inp.with_context(|| {
+            format!(
+                "adapting {} via {} failed",
+                fph.to_string_lossy(),
+                adapter.metadata().name
+            )
+        })?
+    };
     let s = stream! {
         for await file in inp {
             match buf_choose_adapter(file?).await? {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
                     if ai.archive_recursion_depth >= ai.config.max_archive_recursion.0 {
-                        let s = format!("{}[rga: max archive recursion reached ({})]", ai.line_prefix, ai.archive_recursion_depth).into_bytes();
+                        let s = format!("{}[rga: max archive recursion reached ({})]\n", ai.line_prefix, ai.archive_recursion_depth).into_bytes();
                         yield Ok(AdaptInfo {
                             inp: Box::pin(Cursor::new(s)),
                             ..ai
@@ -243,7 +232,7 @@ pub fn loop_adapt(
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
                     );
-                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai)? {
+                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).await? {
                         yield ifile;
                     }
                 }

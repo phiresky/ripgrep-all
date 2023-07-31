@@ -1,17 +1,17 @@
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_compression::tokio::write::ZstdEncoder;
 use async_stream::stream;
 
+use crate::to_io_err;
 use log::*;
 use tokio::io::{AsyncRead, AsyncWriteExt};
 use tokio_stream::StreamExt;
 use tokio_util::io::{ReaderStream, StreamReader};
 
-use crate::to_io_err;
-
-type FinishHandler = dyn FnOnce((u64, Option<Vec<u8>>)) -> Result<()> + Send;
+type FinishHandler =
+    dyn FnOnce((u64, Option<Vec<u8>>)) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send;
 /**
  * wrap a AsyncRead so that it is passthrough,
  * but also the written data is compressed and written into a buffer,
@@ -26,7 +26,7 @@ pub fn async_read_and_write_to_cache<'a>(
     let inp = Box::pin(inp);
     let mut zstd_writer = Some(ZstdEncoder::with_quality(
         Vec::new(),
-        async_compression::Level::Precise(compression_level as u32),
+        async_compression::Level::Precise(compression_level),
     ));
     let mut bytes_written = 0;
 
@@ -64,7 +64,7 @@ pub fn async_read_and_write_to_cache<'a>(
         };
 
         // EOF, finish!
-        on_finish(finish)
+        on_finish(finish).await.context("write_to_cache on_finish")
             .map_err(to_io_err)?;
 
     };
