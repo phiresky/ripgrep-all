@@ -1,0 +1,86 @@
+From 
+Message-ID: <55a23774-4da7-057c-77a7-ec390fed487b@posteo.de>
+Date: Mon, 27 Feb 2023 12:05:46 +0100
+MIME-Version: 1.0
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.8.0
+From: Arne Keller <2012gdwu@web.de>
+Subject: From encoding test
+To: arne.keller@posteo.de
+Content-Language: de-DE
+X-Enigmail-Draft-Status: N00200
+X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
+ attachmentreminder=0; deliveryformat=0
+X-Identity-Key: id2
+Fcc: imap://2012gdwu@imap.web.de/Gesendet
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  </head>
+  <body>
+    <p>&gt;From</p>
+    <p>Another word &gt;From<br>
+    </p>
+  </body>
+</html>
+From 
+Message-ID: <55a23774-4da7-057c-77a7-ec390fed487b@posteo.de>
+Date: Mon, 27 Feb 2023 12:06:56 +0100
+MIME-Version: 1.0
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.8.0
+From: Arne Keller <2012gdwu@web.de>
+Subject: From encoding test
+To: arne.keller@posteo.de
+Content-Language: de-DE
+X-Enigmail-Draft-Status: N00200
+X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
+ attachmentreminder=0; deliveryformat=1
+X-Identity-Key: id2
+Fcc: imap://2012gdwu@imap.web.de/Gesendet
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  </head>
+  <body>
+    <p>&gt;From</p>
+    <p>Another word &gt;From<br>
+    </p>
+  </body>
+</html>
+From - Mon Feb 27 12:06:57 2023
+X-Mozilla-Status: 0001
+X-Mozilla-Status2: 00000000
+Message-ID: <55a23774-4da7-057c-77a7-ec390fed487b@posteo.de>
+Date: Mon, 27 Feb 2023 12:06:56 +0100
+MIME-Version: 1.0
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.8.0
+From: Arne Keller <2012gdwu@web.de>
+Subject: From encoding test
+To: arne.keller@posteo.de
+Content-Language: de-DE
+X-Enigmail-Draft-Status: N00200
+X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
+ attachmentreminder=0; deliveryformat=1
+X-Identity-Key: id2
+Fcc: imap://2012gdwu@imap.web.de/Gesendet
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  </head>
+  <body>
+    <p>&gt;From</p>
+    <p>Another word &gt;From<br>
+    </p>
+  </body>
+</html>

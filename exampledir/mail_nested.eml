@@ -1,0 +1,217 @@
+To: submit.t4eseGWSvG1JST3r@spam.spamcop.net
+From: 2012gdwu <2012gdwu@posteo.de>
+Subject: Postbank Spam
+Autocrypt: addr=2012gdwu@posteo.de; keydata=
+ mDMEXXjwiRYJKwYBBAHaRw8BAQdAmjXRazNXXy5tK05Dwl5mSRbdth9JkQq92V/QVyqjdgm0
+ I0FybmUgS2VsbGVyIDxhcm5lLmtlbGxlckBwb3N0ZW8uZGU+iJYEExYIAD4WIQR2UN3HoAGx
+ KI0B7Eih+UCxBQvPLgUCXXjwiQIbAwUJCWYBgAULCQgHAgYVCgkICwIEFgIDAQIeAQIXgAAK
+ CRCh+UCxBQvPLpPfAP4gs6Oky3+UO2LU2XxweeQO+YEWXK0QtM2+ajzrGaF3HAD+LBfmyB9+
+ Wom2KP0CwxUzI4d6zmiAMSKOnGGgzd65igm4OARdePCJEgorBgEEAZdVAQUBAQdAncxZ3Rox
+ wmvm+/qCkCm9+PU2HmWr08M3qdqkf2L4IngDAQgHiH4EGBYIACYWIQR2UN3HoAGxKI0B7Eih
+ +UCxBQvPLgUCXXjwiQIbDAUJCWYBgAAKCRCh+UCxBQvPLpQkAQCgYOlOftMNi+sfn+XQvfOc
+ ULQWp+cgOBMcyVCdpJEQCwD9HBuwuHobl8FPm0PbRtlCn/7GY4WK+Hh4+3BKmhRn8wU=
+Message-ID: <1530ae05-33a7-fa40-9473-ca625a14385a@posteo.de>
+Date: Mon, 20 Jul 2020 07:35:55 +0200
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101
+ Thunderbird/68.10.0
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------6670F92201FB126ED9472803"
+Content-Language: de-DE
+
+This is a multi-part message in MIME format.
+--------------6670F92201FB126ED9472803
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+here you go
+
+
+--------------6670F92201FB126ED9472803
+Content-Type: message/rfc822;
+ name="postbank.eml"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="postbank.eml"
+
+Return-Path: <gxnwgddl@carcarry.de>
+Delivered-To: arne.keller@posteo.de
+Received: from proxy02.posteo.name ([127.0.0.1])
+	by dovecot12 (Dovecot) with LMTP id EaKBGxv9FF+9mwEAJesNpQ
+	for <arne.keller@posteo.de>; Mon, 20 Jul 2020 04:15:27 +0200
+Received: from proxy02.posteo.de ([127.0.0.1])
+	by proxy02.posteo.name (Dovecot) with LMTP id 31UFGtHsFF+T4gMAGFAyLg
+	; Mon, 20 Jul 2020 04:15:27 +0200
+Received: from mailin05.posteo.de (unknown [10.0.1.5])
+	by proxy02.posteo.de (Postfix) with ESMTPS id 4B950v2JYGz11fk
+	for <arne.keller@posteo.de>; Mon, 20 Jul 2020 04:15:27 +0200 (CEST)
+Received: from mx03.posteo.de (mailin05.posteo.de [127.0.0.1])
+	by mailin05.posteo.de (Postfix) with ESMTPS id 4270120F15
+	for <arne.keller@posteo.de>; Mon, 20 Jul 2020 04:15:27 +0200 (CEST)
+X-Virus-Scanned: amavisd-new at posteo.de
+X-Spam-Flag: NO
+X-Spam-Score: 2.639
+X-Spam-Level: **
+X-Spam-Status: No, score=2.639 tagged_above=-1000 required=8
+	tests=[AV:Heuristics.Phishing.Email.SpoofedDomain=0.1, ALL_TRUSTED=-1,
+	FROM_LOCAL_NOVOWEL=0.5, HK_RANDOM_ENVFROM=0.626, HK_RANDOM_FROM=0.999,
+	HTML_FONT_LOW_CONTRAST=0.001, HTML_IMAGE_ONLY_24=1.282,
+	HTML_MESSAGE=0.001, HTTPS_HTTP_MISMATCH=0.1, POSTEO_GENERICS_IO=0.01,
+	T_FILL_THIS_FORM_SHORT=0.01, T_REMOTE_IMAGE=0.01] autolearn=disabled
+Received: from mout.web.de (mout.web.de [212.227.15.14])
+	by mx03.posteo.de (Postfix) with ESMTPS id 4B950t696Mz10nB
+	for <arne.keller@posteo.de>; Mon, 20 Jul 2020 04:15:26 +0200 (CEST)
+Authentication-Results: mx03.posteo.de; dmarc=none (p=none dis=none) header.from=carcarry.de
+Received: from [212.227.15.17] ([212.227.15.17]) by mx-ha.web.de (mxweb010
+ [212.227.15.17]) with ESMTPS (Nemesis) id 1MRloE-1kQNT22I4w-00T9hm for
+ <arne.keller@posteo.de>; Mon, 20 Jul 2020 04:15:26 +0200
+Received: from mout.kundenserver.de ([212.227.17.24]) by mx-ha.web.de
+ (mxweb010 [212.227.15.17]) with ESMTPS (Nemesis) id 1MINbE-1k0aRm2Hzw-00EOVM
+ for <2012gdwu@web.de>; Mon, 20 Jul 2020 04:15:26 +0200
+Received: from 217.160.251.109 ([217.160.251.109]) by mrelayeu.kundenserver.de
+ (mreue107 [212.227.15.183]) with ESMTPSA (Nemesis) id
+ 1MPoPd-1kBHRt0o2F-00MqkS for <2012gdwu@web.de>; Mon, 20 Jul 2020 04:15:26
+ +0200
+From: "=?utf-8?B?UE9TVEJBTs2fS82f?=" <gxnwgddl@carcarry.de>
+Subject: BsetSign App : Y7P32-HTXU2-FRDG7
+To: "2012gdwu" <2012gdwu@web.de>
+Content-Type: multipart/alternative; boundary="QHebeB08yNTYquFAhtQnxv=_cOW4Xd528c"
+MIME-Version: 1.0
+Date: Mon, 20 Jul 2020 02:15:26 +0000
+Message-ID: <1M3lHZ-1jyAPt0pTn-000u1I@mrelayeu.kundenserver.de>
+X-Provags-ID: V03:K1:68TECBVA88ZKh8HcSl/N+ElwlecL1tc+1AuDDyqm9em66WO295R
+ IfuHqA9uG7+Vlyr99v+OneGltnr43KfsgRKj9GgOpDj2QelHphKFGPILAvvsQ8vOq6ucC2W
+ BW3NEOh3JhitB6o4xLEmj+dbivC0ie728/cPMcjj6TwyBzw5nT1or8mBZWoEMSF/zcu+PIr
+ gGpFY2puzzURN4oKX82/w==
+X-Spam-Flag: NO
+X-UI-Out-Filterresults: notjunk:1;V03:K0:c01ZANnvlk8=:ouSMGue72FUx2PJOSNnmEW
+ qI8A89gf6q3aAdJBhLX1Bhd70xio64ljpha9X5ArOYg6Q2RH1JYyvfBSMoTo3HMy37H3L8kaq
+ ReRCdSPOMD8+llZ/rRpPLl+7PofGOv+Hu3UO7gzgm9v0YqwLZIwh9P2w9TIu+GqVJWeDdmxrs
+ RDPeHY8lsRL+8AFeSGNiWBYMEHDxKofTqS5Zh7mal1Bm4JbgEEIP36V4oL3c6V1olMHQZzEH9
+ 7D0T8U6LyLyfSbuu5M6QN2FZ+F6IDJNDUG1uwNt9K12ESY6TweMR3xInFabiZ9fMPmrjPaNwW
+ hlyKg67tDYL2lfk2fpa/LbhLnlfKEDqSvkgK54CZh+xbIQetju66cZUEFQyCIcGdAOWI8+nty
+ FdbNUzxhNpZTPBrA7H95gRuc0u2GJBfZZsxdp46jpBwG65yqmJ32pkJrATo8CNbBO9A6hpdyL
+ UNu5bavZBJp9dsyY6Cnm6vMOIjJ8qMy/vNkrtRXNWBrnVHhuQZ3B+osG8XWLiyq7s4hFOwDxY
+ WLRgjKL6HgIj+2DLParwiuSsX8TVy5+WhxDUou0UJDzD3C1JmYiryTlo4Vu4CIZFXkgAuAsEq
+ c55M6L2eUmD3xQNaqgMEJFksT2qXWaSb2Qw6HM7mtLBbSUhuWtSv2oeVrNwgx8XWexWYYZYFv
+ KAZzICpkVhxpYIntoKRiDtQZxBDejPwGmne2iG81rn34pGJwOOYojf9dFghodE5bZEqVh6KbA
+ f/38x9FIoYewzA2WuyngX/bXTdkLQM49W1vdlF5DQOlgYuM8Ni7NeJG888VhDZxcUn6vIIJs3
+ xH0jOWrWCUz0gK9uyyagjcfdXr54Zv1E7i936CTlRq5QnDKN2C9jQFH5ymD4G1W5zX6Xj/05O
+ M7VaU9Y3mvOM/+82zsKc5zJOFOf9MoI5JBhnPjHWeqaJgpYhNoKgGvPo3QfZFwzk/MHH2PgB1
+ PLGvjSE8u/cpYeGhJdzTXM00J9ai5yGRNFD71zHoHBOFGCpmZVnJJ8SD+qUd4K4BfSD+DJ5Qd
+ t1wsCpH5bgodnXgMcN6Zj0q3P/ODk3dnah1hsYMyIWDBFZ0cTlp2QkYhAKZh1HM5WcfSc5UwU
+ SrcK9HHiG7BKOFYA1r6Rx5YYqwGWeGxr9mlH7MLyfCwI8PlWtfeB7Pj4eEI1hLy9GMnHBCJDj
+ W8o1yDeE54rgWHR7CtIF6w+qF+quA3ZdwVSPOHwQeH7vS4OaJjeEyeeT4YOJdIMI7UknEasAG
+ LfMS/PKWx7+YcUNaz0xvO70NwZj1FKJuWqDS6ZTciMSvGkEFTWVOqn5nPlHi8hDbBTVn70aPa
+ BQi3U68hgdDpJIHlVLLvRcaCYYly3L60NQBgJroag4fRiIvDUSXfDatrDYOv+L4xBYdB3GP+s
+ wqtsPY82YOwXP5KlRMPVEZcuWX5tWiOuaNjePbEkXpE2iQZUqfkDQTYNUGZR+TTBqHOWjO7R3
+ hORQB0gOwe85gZv80G1EL32EtRjVxJxQfrHGPCGXb8HRXbvGGV3Xu3wZEE8iuJngBUJtWeDBq
+ q61rYwZxVuml72lfRM6Lo+OGLAsyqvobxujY9BHpokZH4FNlUstjUoPANTGoAhM+MyQb0fSAV
+ 8HA/r6n0oJh0B8+2AxJvVokbhEbL/RlJIZIYpCeRceeA+jjBaR7EvuglUoLN3CcB9CrdDH/qz
+ ymHzEjPVnFar3/sqRjeKyIk71z4yotOKCPQcdD1gTbYWehZiIJwAlDFSpfPdFTQLOJMWd3wuD
+ 0mHLep6tLtCY+hjhCYWlTyKKQ8CWiBWPTql21bPp7XVWCfc+4u8kZi5Y3dg3pvpSwwmcyRisX
+ +7+8a+pBzN4VOEuX+dzglKDrNd6h2OL0tBMnk1yqAV27dX9cMRrO941IvtiaZO90BjZtV92oP
+ XkGxvKnGQuynHus/3yblaw==
+
+This is a multi-part message in MIME format
+
+--QHebeB08yNTYquFAhtQnxv=_cOW4Xd528c
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+
+
+
+
+
+
+ Sehr geehrter Herr / Frau =E2=80=A6,
+
+ Ab dem 20. Jul 2020 aktualisiert die Postbank alle BestSign-Anwendung=
+en.
+
+
+
+ =C3=96ffnen Sie den unten stehenden Aktivierungslink, um am Upgrade t=
+eilzunehmen. Verkn=C3=BCpfung
+
+
+
+
+ https://meine.postbank.de/#/login
+
+
+
+
+ Wir empfehlen dringend, dieses Upgrade durchzuf=C3=BChren.
+
+ Reundliche Gr=C3=BC=C3=9Fe,
+
+ =C2=A9 2020 Postbank=E2=80=93 eine Niederlassung der Deutsche Bank AG=
+
+
+Hypnotiseur/zertifizierter Hypnosecoach (DVH)
+Burnoutpr=C3=A4ventionscoach
+Modeberater f=C3=BCr Ma=C3=9Fhemden/Ma=C3=9Fblusen
+Kurs/Seminarleiter Waldbaden/Waldcoach
+Am Wiesengrund 5
+24980 Schafflund
+Tel.: 04639-98475
+Mob.: 015117317305
+Home : www.hypnosepraxis-im-norden.de
+Home : www.masshemden-im-norden.de
+Home : www.waldbaden-zwischen-den-meeren.de
+
+
+--QHebeB08yNTYquFAhtQnxv=_cOW4Xd528c
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+<html><head></head><body><p><img width=3D"174" height=3D"51" alt=3D"" =
+src=3D"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Postb=
+ank-Logo.svg/1200px-Postbank-Logo.svg.png"></p><p><br></p>
+<div>
+<div>&nbsp;Sehr geehrter Herr / Frau =E2=80=A6,</div>
+<div>&nbsp;Ab dem 20. Jul 2020 aktualisiert die Postbank alle BestSign=
+-Anwendungen.<br><br></div>
+<div>&nbsp;=C3=96ffnen Sie den unten stehenden Aktivierungslink, um am=
+ Upgrade teilzunehmen. Verkn=C3=BCpfung</div><div><br></div>
+<div>&nbsp;<a href=3D"https://www.astcdubai.com/.well-known/.re/">http=
+s://meine.postbank.de/#/login</a></div><div><br></div>
+<div>&nbsp;Wir empfehlen dringend, dieses Upgrade durchzuf=C3=BChren.<=
+/div>
+<div>&nbsp;Reundliche Gr=C3=BC=C3=9Fe,</div>
+<div>&nbsp;<strong>=C2=A9</strong> 2020 <strong>Postbank</strong>=E2=80=
+=93 eine Niederlassung der Deutsche Bank AG<br><br> <span style=3D"col=
+or: rgb(255, 255, 255);">Hypnotiseur/zertifizierter Hypnosecoach (DVH)=
+</span><br><span style=3D"color: rgb(255, 255, 255);"> Burnoutpr=C3=A4=
+ventionscoach</span><br><span style=3D"color: rgb(255, 255, 255);"> Mo=
+deberater f=C3=BCr Ma=C3=9Fhemden/Ma=C3=9Fblusen</span><br><span style=
+=3D"color: rgb(255, 255, 255);"> Kurs/Seminarleiter Waldbaden/Waldcoac=
+h</span><br><span style=3D"color: rgb(255, 255, 255);"> Am Wiesengrund=
+ 5</span><br><span style=3D"color: rgb(255, 255, 255);"> 24980 Schaffl=
+und</span><br><span style=3D"color: rgb(255, 255, 255);"> Tel.: 04639-=
+98475</span><br><span style=3D"color: rgb(255, 255, 255);"> Mob.: 0151=
+17317305</span><br><span style=3D"color: rgb(255, 255, 255);"> Home : =
+<a style=3D"color: rgb(255, 255, 255);" href=3D"https://deref-gmx.net/=
+mail/client/Pk7kcpLwLpI/dereferrer/?redirectUrl=3Dhttp%3A%2F%2Fwww.hyp=
+nosepraxis-im-norden.de" target=3D"_blank" rel=3D"noopener">www.hypnos=
+epraxis-im-norden.de</a></span><br><span style=3D"color: rgb(255, 255,=
+ 255);"> Home : <a style=3D"color: rgb(255, 255, 255);" href=3D"https:=
+//deref-gmx.net/mail/client/KR0VAuy5YPo/dereferrer/?redirectUrl=3Dhttp=
+%3A%2F%2Fwww.masshemden-im-norden.de" target=3D"_blank" rel=3D"noopene=
+r">www.masshemden-im-norden.de</a></span><br><span style=3D"color: rgb=
+(255, 255, 255);"> Home : <a style=3D"color: rgb(255, 255, 255);" href=
+=3D"https://deref-gmx.net/mail/client/QTybHixMVsI/dereferrer/?redirect=
+Url=3Dhttp%3A%2F%2Fwww.waldbaden-zwischen-den-meeren.de" target=3D"_bl=
+ank" rel=3D"noopener">www.waldbaden-zwischen-den-meeren.de</a></span><=
+/div>
+</div></body></html>
+
+
+--QHebeB08yNTYquFAhtQnxv=_cOW4Xd528c--
+
+
+--------------6670F92201FB126ED9472803--
