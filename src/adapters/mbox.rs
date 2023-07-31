@@ -1,25 +1,24 @@
-use crate::adapted_iter::one_file;
-
 use super::*;
 
 use anyhow::Result;
 use async_stream::stream;
 use lazy_static::lazy_static;
-use tokio::io::{BufReader, AsyncReadExt};
+use mime2ext::mime2ext;
+use tokio::io::AsyncReadExt;
 
-use std::{path::{Path, PathBuf}, sync::Mutex, io::Cursor};
+use std::{
+    collections::VecDeque,
+    io::Cursor,
+};
 
-static EXTENSIONS: &[&str] = &["mbox", "mbx"];
-static MIME_TYPES: &[&str] = &[
-    "application/mbox",
-];
+static EXTENSIONS: &[&str] = &["mbox", "mbx", "eml"];
+static MIME_TYPES: &[&str] = &["application/mbox", "message/rfc822"];
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
-        name: "mbox".to_owned(),
+        name: "mail".to_owned(),
         version: 1,
-        description:
-            "Reads mailbox files and runs extractors on the contents and attachments."
-                .to_owned(),
+        description: "Reads mailbox/mail files and runs extractors on the contents and attachments."
+            .to_owned(),
         recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
@@ -49,25 +48,13 @@ impl GetMetadata for MboxAdapter {
     }
 }
 
-fn get_inner_filename(filename: &Path) -> PathBuf {
-    let extension = filename
-        .extension()
-        .map(|e| e.to_string_lossy())
-        .unwrap_or(Cow::Borrowed(""));
-    let stem = filename
-        .file_stem()
-        .expect("no filename given?")
-        .to_string_lossy();
-    let new_extension = match extension.as_ref() {
-        "tgz" | "tbz" | "tbz2" => ".tar",
-        _other => "",
-    };
-    filename.with_file_name(format!("{}{}", stem, new_extension))
-}
-
+#[async_trait]
 impl FileAdapter for MboxAdapter {
-    fn adapt(&self, ai: AdaptInfo, _detection_reason: &FileMatcher) -> Result<AdaptedFilesIterBox> {
-        println!("running mbox adapter");
+    async fn adapt(
+        &self,
+        ai: AdaptInfo,
+        _detection_reason: &FileMatcher,
+    ) -> Result<AdaptedFilesIterBox> {
         let AdaptInfo {
             filepath_hint,
             mut inp,
@@ -88,17 +75,26 @@ impl FileAdapter for MboxAdapter {
                 let mail_bytes = mail.as_bytes(); // &content[offset..offset2];
                 let mail_content = mail_bytes.splitn(2, |x| *x == b'\n').skip(1).next().unwrap();
                 let mail = mailparse::parse_mail(mail_content)?;
-                let mail_body = mail.get_body()?;
-                println!("body {:?}", mail_body);
 
+                let mut todos = VecDeque::new();
+                todos.push_back(mail);
+
+                while let Some(mail) = todos.pop_front() {
                 let mut path = filepath_hint.clone();
-                println!("{:?}", mail.ctype.mimetype);
+                let filename = mail.get_content_disposition().params.get("filename").cloned();
                 match &*mail.ctype.mimetype {
-                    "text/html" => {
-                        path.push("mail.html");
-                    },
-                    _ => {
-                        path.push("mail.txt");
+                    x if x.starts_with("multipart/") => {
+                        todos.extend(mail.subparts);
+                        continue;
+                    }
+                    mime => {
+                        if let Some(name) = filename {
+                            path.push(name);
+                        } else if let Some(extension) = mime2ext(mime) {
+                            path.push(format!("data.{extension}"));
+                        } else {
+                            path.push("data");
+                        }
                     }
                 }
 
@@ -109,12 +105,13 @@ impl FileAdapter for MboxAdapter {
                     filepath_hint: path,
                     is_real_file: false,
                     archive_recursion_depth: archive_recursion_depth + 1,
-                    inp: Box::pin(Cursor::new(mail_body.into_bytes())),
+                    inp: Box::pin(Cursor::new(mail.get_body_raw()?)),
                     line_prefix: line_prefix.to_string(),
                     config: config,
                     postprocess,
                 };
                 ais.push(ai2);
+                }
             }
             for a in ais {
                 yield(Ok(a));
@@ -131,54 +128,92 @@ mod tests {
     use crate::test_utils::*;
     use pretty_assertions::assert_eq;
     use tokio::fs::File;
-
-    #[test]
-    fn test_inner_filename() {
-        for (a, b) in &[
-            ("hi/test.tgz", "hi/test.tar"),
-            ("hi/hello.gz", "hi/hello"),
-            ("a/b/initramfs", "a/b/initramfs"),
-            ("hi/test.tbz2", "hi/test.tar"),
-            ("hi/test.tbz", "hi/test.tar"),
-            ("hi/test.hi.bz2", "hi/test.hi"),
-            ("hello.tar.gz", "hello.tar"),
-        ] {
-            assert_eq!(get_inner_filename(&PathBuf::from(a)), PathBuf::from(*b));
-        }
-    }
+    use tokio_stream::StreamExt;
 
     #[tokio::test]
-    async fn gz() -> Result<()> {
+    async fn mail_simple() -> Result<()> {
         let adapter = MboxAdapter;
 
-        let filepath = test_data_dir().join("hello.gz");
+        let filepath = test_data_dir().join("github_email.eml");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let r = adapter.adapt(a, &d)?;
-        let o = adapted_to_vec(r).await?;
-        assert_eq!(String::from_utf8(o)?, "hello\n");
+        let mut r = adapter.adapt(a, &d).await?;
+        let mut count = 0;
+        while let Some(file) = r.next().await {
+            let mut file = file?;
+            let mut buf = Vec::new();
+            file.inp.read_to_end(&mut buf).await?;
+            match file.filepath_hint.components().last().unwrap().as_os_str().to_str().unwrap() {
+                "data.txt" | "data.html" => {
+                    assert!(String::from_utf8(buf)?.contains("Thank you for your contribution"));
+                },
+                x => panic!("unexpected filename {x:?}"),
+            }
+            count += 1;
+        }
+        assert_eq!(2, count);
         Ok(())
     }
 
     #[tokio::test]
-    async fn pdf_gz() -> Result<()> {
+    async fn mbox_simple() -> Result<()> {
         let adapter = MboxAdapter;
 
-        let filepath = test_data_dir().join("short.pdf.gz");
+        let filepath = test_data_dir().join("test.mbx");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let r = loop_adapt(&adapter, d, a)?;
-        let o = adapted_to_vec(r).await?;
-        assert_eq!(
-            String::from_utf8(o)?,
-            "PREFIX:Page 1: hello world
-PREFIX:Page 1: this is just a test.
-PREFIX:Page 1: 
-PREFIX:Page 1: 1
-PREFIX:Page 1: 
-PREFIX:Page 1: 
-"
-        );
+        let mut r = adapter.adapt(a, &d).await?;
+        let mut count = 0;
+        while let Some(file) = r.next().await {
+            let mut file = file?;
+            assert_eq!(
+                "data.html",
+                file.filepath_hint.components().last().unwrap().as_os_str()
+            );
+            let mut buf = Vec::new();
+            file.inp.read_to_end(&mut buf).await?;
+            assert_eq!("<html>\r\n  <head>\r\n    <meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\r\n  </head>\r\n  <body>\r\n    <p>&gt;From</p>\r\n    <p>Another word &gt;From<br>\r\n    </p>\r\n  </body>\r\n</html>", String::from_utf8(buf)?.trim());
+            count += 1;
+        }
+        assert_eq!(3, count);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn mbox_attachment() -> Result<()> {
+        let adapter = MboxAdapter;
+
+        let filepath = test_data_dir().join("mail_with_attachment.mbox");
+
+        let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
+        let mut r = loop_adapt(&adapter, d, a).await?;
+        let mut count = 0;
+        while let Some(file) = r.next().await {
+            let mut file = file?;
+            let path = file
+                .filepath_hint
+                .components()
+                .last()
+                .unwrap()
+                .as_os_str()
+                .to_str()
+                .unwrap();
+            let mut buf = Vec::new();
+            file.inp.read_to_end(&mut buf).await?;
+            match path {
+                "data.html.txt" => {
+                    assert_eq!("PREFIX:regular text\nPREFIX:\n", String::from_utf8(buf)?);
+                }
+                "short.pdf.txt" => {
+                    assert_eq!("PREFIX:Page 1: hello world\nPREFIX:Page 1: this is just a test.\nPREFIX:Page 1: \nPREFIX:Page 1: 1\nPREFIX:Page 1: \nPREFIX:Page 1: \n", String::from_utf8(buf)?);
+                }
+                _ => {
+                    panic!("unrelated {path:?}");
+                }
+            }
+            count += 1;
+        }
+        assert_eq!(2, count); // one message + one attachment
         Ok(())
     }
 }

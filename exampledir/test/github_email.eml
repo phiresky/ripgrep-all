@@ -1,0 +1,69 @@
+Return-Path: <noreply@github.com>
+Date: Mon, 31 Jul 2023 01:34:57 -0700
+From: "github-actions[bot]" <notifications@github.com>
+To: KeYProject/key <key@noreply.github.com>
+In-Reply-To: <KeYProject/key/pull/3232@github.com>
+References: <KeYProject/key/pull/3232@github.com>
+Subject: Re: [KeYProject/key] Fix more UI bugs (PR #3232)
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="--==_mimepart_64c77231630fb_12bafdd0c012685";
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Precedence: list
+X-GitHub-Sender: github-actions[bot]
+X-GitHub-Recipient: FliegendeWurst
+X-GitHub-Reason: author
+List-ID: KeYProject/key <key.KeYProject.github.com>
+List-Archive: https://github.com/KeYProject/key
+X-Auto-Response-Suppress: All
+destinations: 2012gdwu+github@posteo.de
+X-GitHub-Recipient-Address: 2012gdwu+github@posteo.de
+
+
+----==_mimepart_64c77231630fb_12bafdd0c012685
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Thank you for your contribution.
+
+The test artifacts are available on [Artiweb](https://keyproject.github.io/artiweb/3232/).
+The newest artifact is [here](https://keyproject.github.io/artiweb/3232/833812796/).
+
+-- 
+Reply to this email directly or view it on GitHub:
+https://github.com/KeYProject/key/pull/3232#issuecomment-1657918122
+You are receiving this because you authored the thread.
+
+Message ID: <KeYProject/key/pull/3232/c1657918122@github.com>
+----==_mimepart_64c77231630fb_12bafdd0c012685
+Content-Type: text/html;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<p></p>
+<p dir="auto">Thank you for your contribution.</p>
+<p dir="auto">The test artifacts are available on <a href="https://keyproject.github.io/artiweb/3232/" rel="nofollow">Artiweb</a>.<br>
+The newest artifact is <a href="https://keyproject.github.io/artiweb/3232/833812796/" rel="nofollow">here</a>.</p>
+
+<p style="font-size:small;-webkit-text-size-adjust:none;color:#666;">&mdash;<br />Reply to this email directly, <a href="https://github.com/KeYProject/key/pull/3232#issuecomment-1657918122">view it on GitHub</a>, or <a href="https://github.com/notifications/unsubscribe-auth/AC72QTN2XK2D42XVPNPMTXLXS5U3DANCNFSM6AAAAAA25Y7T4M">unsubscribe</a>.<br />You are receiving this because you authored the thread.<img src="https://github.com/notifications/beacon/AC72QTNZM6RAGMF7TAEUEL3XS5U3DA5CNFSM6AAAAAA25Y7T4OWGG33NNVSW45C7OR4XAZNMJFZXG5LFINXW23LFNZ2KUY3PNVWWK3TUL5UWJTTC2HJKU.gif" height="1" width="1" alt="" /><span style="color: transparent; font-size: 0; display: none; visibility: hidden; overflow: hidden; opacity: 0; width: 0; height: 0; max-width: 0; max-height: 0; mso-hide: all">Message ID: <span>&lt;KeYProject/key/pull/3232/c1657918122</span><span>@</span><span>github</span><span>.</span><span>com&gt;</span></span></p>
+<script type="application/ld+json">[
+{
+"@context": "http://schema.org",
+"@type": "EmailMessage",
+"potentialAction": {
+"@type": "ViewAction",
+"target": "https://github.com/KeYProject/key/pull/3232#issuecomment-1657918122",
+"url": "https://github.com/KeYProject/key/pull/3232#issuecomment-1657918122",
+"name": "View Pull Request"
+},
+"description": "View this Pull Request on GitHub",
+"publisher": {
+"@type": "Organization",
+"name": "GitHub",
+"url": "https://github.com"
+}
+}
+]</script>
+----==_mimepart_64c77231630fb_12bafdd0c012685--
