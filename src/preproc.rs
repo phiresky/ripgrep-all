@@ -41,9 +41,13 @@ async fn choose_adapter(
 
     let mimetype = if config.accurate {
         let buf = inp.fill_buf().await?; // fill but do not consume!
-        let mimetype = tree_magic::from_u8(buf);
-        debug!("mimetype: {:?}", mimetype);
-        Some(mimetype)
+        if buf.starts_with(b"From \x0d") || buf.starts_with(b"From -") {
+            Some("application/mbox")
+        } else {
+            let mimetype = tree_magic::from_u8(buf);
+            debug!("mimetype: {:?}", mimetype);
+            Some(mimetype)
+        }
     } else {
         None
     };

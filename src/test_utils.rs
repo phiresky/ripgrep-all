@@ -46,7 +46,11 @@ pub fn simple_adapt_info_full(
             postprocess: true,
         },
         FastFileMatcher::FileExtension(
-            filepath.extension().unwrap().to_string_lossy().into_owned(),
+            filepath
+                .extension()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
         )
         .into(),
     )
@@ -67,4 +71,9 @@ pub fn poppler_adapter() -> CustomSpawningFileAdapter {
         .expect("no poppler adapter");
 
     adapter.to_adapter()
+}
+
+#[cfg(test)]
+pub fn init_logging() {
+    let _ = env_logger::builder().is_test(true).try_init();
 }

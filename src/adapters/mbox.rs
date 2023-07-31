@@ -4,12 +4,10 @@ use anyhow::Result;
 use async_stream::stream;
 use lazy_static::lazy_static;
 use mime2ext::mime2ext;
+use regex::bytes::Regex;
 use tokio::io::AsyncReadExt;
 
-use std::{
-    collections::VecDeque,
-    io::Cursor,
-};
+use std::{collections::VecDeque, io::Cursor};
 
 static EXTENSIONS: &[&str] = &["mbox", "mbx", "eml"];
 static MIME_TYPES: &[&str] = &["application/mbox", "message/rfc822"];
@@ -17,8 +15,9 @@ lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "mail".to_owned(),
         version: 1,
-        description: "Reads mailbox/mail files and runs extractors on the contents and attachments."
-            .to_owned(),
+        description:
+            "Reads mailbox/mail files and runs extractors on the contents and attachments."
+                .to_owned(),
         recurses: true,
         fast_matchers: EXTENSIONS
             .iter()
@@ -33,6 +32,7 @@ lazy_static! {
         disabled_by_default: true,
         keep_fast_matchers_if_accurate: true
     };
+    static ref FROM_REGEX: Regex = Regex::new("\r?\nFrom [^\n]+\n").unwrap();
 }
 #[derive(Default)]
 pub struct MboxAdapter;
@@ -65,16 +65,18 @@ impl FileAdapter for MboxAdapter {
             ..
         } = ai;
 
-        let mut content = String::new();
+        let mut content = Vec::new();
         let s = stream! {
-            inp.read_to_string(&mut content).await?;
+            inp.read_to_end(&mut content).await?;
 
             let mut ais = vec![];
-            for mail in content.split("\nFrom ") {
-
-                let mail_bytes = mail.as_bytes(); // &content[offset..offset2];
+            for mail_bytes in FROM_REGEX.splitn(&content, usize::MAX) {
                 let mail_content = mail_bytes.splitn(2, |x| *x == b'\n').skip(1).next().unwrap();
-                let mail = mailparse::parse_mail(mail_content)?;
+                let mail = mailparse::parse_mail(mail_content);
+                if mail.is_err() {
+                    continue;
+                }
+                let mail = mail.unwrap();
 
                 let mut todos = VecDeque::new();
                 todos.push_back(mail);
@@ -101,11 +103,15 @@ impl FileAdapter for MboxAdapter {
                 let mut config = config.clone();
                 config.accurate = true;
 
+                let raw_body = mail.get_body_raw();
+                if raw_body.is_err() {
+                    continue;
+                }
                 let ai2: AdaptInfo = AdaptInfo {
                     filepath_hint: path,
                     is_real_file: false,
                     archive_recursion_depth: archive_recursion_depth + 1,
-                    inp: Box::pin(Cursor::new(mail.get_body_raw()?)),
+                    inp: Box::pin(Cursor::new(raw_body.unwrap())),
                     line_prefix: line_prefix.to_string(),
                     config: config,
                     postprocess,
@@ -143,10 +149,18 @@ mod tests {
             let mut file = file?;
             let mut buf = Vec::new();
             file.inp.read_to_end(&mut buf).await?;
-            match file.filepath_hint.components().last().unwrap().as_os_str().to_str().unwrap() {
+            match file
+                .filepath_hint
+                .components()
+                .last()
+                .unwrap()
+                .as_os_str()
+                .to_str()
+                .unwrap()
+            {
                 "data.txt" | "data.html" => {
                     assert!(String::from_utf8(buf)?.contains("Thank you for your contribution"));
-                },
+                }
                 x => panic!("unexpected filename {x:?}"),
             }
             count += 1;
@@ -181,6 +195,8 @@ mod tests {
 
     #[tokio::test]
     async fn mbox_attachment() -> Result<()> {
+        init_logging();
+
         let adapter = MboxAdapter;
 
         let filepath = test_data_dir().join("mail_with_attachment.mbox");
@@ -202,10 +218,13 @@ mod tests {
             file.inp.read_to_end(&mut buf).await?;
             match path {
                 "data.html.txt" => {
-                    assert_eq!("PREFIX:regular text\nPREFIX:\n", String::from_utf8(buf)?);
+                    assert_eq!(
+                        "PREFIX:regular text\nPREFIX:\n",
+                        String::from_utf8(buf).unwrap_or("err".to_owned())
+                    );
                 }
                 "short.pdf.txt" => {
-                    assert_eq!("PREFIX:Page 1: hello world\nPREFIX:Page 1: this is just a test.\nPREFIX:Page 1: \nPREFIX:Page 1: 1\nPREFIX:Page 1: \nPREFIX:Page 1: \n", String::from_utf8(buf)?);
+                    assert_eq!("PREFIX:Page 1: hello world\nPREFIX:Page 1: this is just a test.\nPREFIX:Page 1: \nPREFIX:Page 1: 1\nPREFIX:Page 1: \nPREFIX:Page 1: \n", String::from_utf8(buf).unwrap_or("err".to_owned()));
                 }
                 _ => {
                     panic!("unrelated {path:?}");
