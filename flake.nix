@@ -121,11 +121,10 @@
         apps.default = flake-utils.lib.mkApp { drv = rga; };
 
         # `nix develop`
-        devShells.default = pkgs.mkShell {
+        devShells.default = craneLib.devShell {
           inherit (self.checks.${system}.pre-commit) shellHook;
           inputsFrom = builtins.attrValues self.checks;
-          buildInputs = buildInputs
-            ++ (with pkgs; [ cargo nixfmt rustc rustfmt ]);
+          packages = buildInputs;
         };
       });
 }
