@@ -49,27 +49,46 @@
           filter = pkgs.lib.cleanSourceFilter;
         };
 
-        buildInputs = with pkgs;
-          [ ffmpeg imagemagick pandoc poppler_utils ripgrep tesseract ]
-          ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            # Additional darwin specific inputs can be set here
-            pkgs.libiconv
-          ];
+        nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          # Additional darwin specific inputs can be set here
+          pkgs.libiconv
+        ];
+
+        runtimeInputs = with pkgs; [
+          ffmpeg
+          imagemagick
+          pandoc
+          poppler_utils
+          ripgrep
+          tesseract
+          zip
+        ];
 
         # Build *just* the cargo dependencies, so we can reuse
         # all of that work (e.g. via cachix) when running in CI
-        cargoArtifacts = craneLib.buildDepsOnly { inherit src buildInputs; };
+        cargoArtifacts =
+          craneLib.buildDepsOnly { inherit src nativeBuildInputs; };
 
         # Build the actual crate itself, reusing the dependency
         # artifacts from above.
-        rga = craneLib.buildPackage { inherit cargoArtifacts src buildInputs; };
+        rgaBinary = craneLib.buildPackage {
+          inherit cargoArtifacts src nativeBuildInputs;
+          buildInputs = runtimeInputs; # needed for tests
+        };
+
+        # Provide a shell script of the Rust binary plus runtime dependencies.
+        rga = pkgs.pkgs.writeShellApplication {
+          name = "rga";
+          text = ''rga "$@"'';
+          runtimeInputs = runtimeInputs ++ [ rgaBinary ];
+        };
 
         pre-commit = pre-commit-hooks.lib."${system}".run;
       in {
         # `nix flake check`
         checks = {
           # Build the crate as part of `nix flake check` for convenience
-          inherit rga;
+          inherit rgaBinary;
 
           # Run clippy (and deny all warnings) on the crate source,
           # again, resuing the dependency artifacts from above.
@@ -78,7 +97,7 @@
           # we can block the CI if there are issues here, but not
           # prevent downstream consumers from building our crate by itself.
           rga-clippy = craneLib.cargoClippy {
-            inherit cargoArtifacts src buildInputs;
+            inherit cargoArtifacts src;
             cargoClippyExtraArgs = "--all-targets -- --deny warnings";
           };
 
@@ -92,7 +111,8 @@
 
           # Run tests with cargo-nextest.
           rga-nextest = craneLib.cargoNextest {
-            inherit cargoArtifacts src buildInputs;
+            inherit cargoArtifacts src nativeBuildInputs;
+            buildInputs = runtimeInputs; # needed for tests
             partitions = 1;
             partitionType = "count";
           };
@@ -113,7 +133,7 @@
 
         # `nix build`
         packages = {
-          inherit rga; # `nix build .#rga`
+          inherit rgaBinary rga;
           default = rga; # `nix build`
         };
 
@@ -124,7 +144,7 @@
         devShells.default = craneLib.devShell {
           inherit (self.checks.${system}.pre-commit) shellHook;
           inputsFrom = builtins.attrValues self.checks;
-          packages = buildInputs;
+          packages = runtimeInputs ++ nativeBuildInputs;
         };
       });
 }
