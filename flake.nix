@@ -54,15 +54,7 @@
           pkgs.libiconv
         ];
 
-        runtimeInputs = with pkgs; [
-          ffmpeg
-          imagemagick
-          pandoc
-          poppler_utils
-          ripgrep
-          tesseract
-          zip
-        ];
+        runtimeInputs = with pkgs; [ ffmpeg pandoc poppler_utils ripgrep zip ];
 
         # Build *just* the cargo dependencies, so we can reuse
         # all of that work (e.g. via cachix) when running in CI
