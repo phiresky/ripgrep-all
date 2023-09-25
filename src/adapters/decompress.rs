@@ -8,7 +8,7 @@ use tokio::io::BufReader;
 
 use std::path::{Path, PathBuf};
 
-static EXTENSIONS: &[&str] = &["tgz", "tbz", "tbz2", "gz", "bz2", "xz", "zst"];
+static EXTENSIONS: &[&str] = &["als", "bz2", "gz", "tbz", "tbz2", "tgz", "xz", "zst"];
 static MIME_TYPES: &[&str] = &[
     "application/gzip",
     "application/x-bzip",
@@ -62,10 +62,10 @@ fn decompress_any(reason: &FileMatcher, inp: ReadBox) -> Result<ReadBox> {
 
     Ok(match reason {
         Fast(FileExtension(ext)) => match ext.as_ref() {
-            "tgz" | "gz" => gz(inp),
-            "tbz" | "tbz2" | "bz2" => bz2(inp),
-            "xz" => xz(inp),
+            "als" | "gz" | "tgz" => gz(inp),
+            "bz2" | "tbz" | "tbz2" => bz2(inp),
             "zst" => zst(inp),
+            "xz" => xz(inp),
             ext => Err(format_err!("don't know how to decompress {}", ext))?,
         },
         MimeType(mime) => match mime.as_ref() {
