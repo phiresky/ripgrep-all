@@ -260,7 +260,7 @@ mod tests {
             .build();
         let res = postproc_pagebreaks(mock).read_to_end(&mut output).await;
         println!("{}", String::from_utf8_lossy(&output));
-        assert!(matches!(res, Ok(_)));
+        assert!(res.is_ok());
         assert_eq!(
             String::from_utf8_lossy(&output),
             "Page 1: Hello\nPage 1: World\nPage 2: Foo Bar\nPage 2: \nPage 3: Test"
@@ -278,7 +278,7 @@ mod tests {
             .build();
         let res = postproc_pagebreaks(mock).read_to_end(&mut output).await;
         println!("{}", String::from_utf8_lossy(&output));
-        assert!(matches!(res, Ok(_)));
+        assert!(res.is_ok());
         assert_eq!(
             String::from_utf8_lossy(&output),
             "Page 1: Hello\nPage 1: World\nPage 2: Foo Bar\nPage 2: \nPage 3: Test"
@@ -316,7 +316,7 @@ PREFIX:Page 3:
             .read_to_end(&mut output)
             .await;
         println!("{}", String::from_utf8_lossy(&output));
-        assert!(matches!(res, Ok(_)));
+        assert!(res.is_ok());
         assert_eq!(output, b"prefix: Hello\nprefix: World");
     }
 
