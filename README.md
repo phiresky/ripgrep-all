@@ -63,13 +63,19 @@ rga will search for all binaries it calls in \$PATH and the directory itself is 
 
 ### Windows
 
-Install ripgrep-all via [Chocolatey](https://chocolatey.org/packages/ripgrep-all):
+#### Chocolatey
 
 ```
 choco install ripgrep-all
 ```
 
-Note that installing via chocolatey or scoop is the only supported download method. If you download the binary from releases manually, you will not get the dependencies (for example pdftotext from poppler).
+#### Scoop
+
+```
+scoop install rga
+```
+
+Note that installing via [chocolatey](https://chocolatey.org/packages/ripgrep-all) or [scoop](https://github.com/ScoopInstaller/Main/blob/master/bucket/rga.json) is the only supported download method. If you download the binary from releases manually, you will not get the dependencies (for example pdftotext from poppler).
 
 If you get an error like `VCRUNTIME140.DLL could not be found`, you need to install [vc_redist.x64.exe](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads).
 
@@ -88,9 +94,9 @@ To install the dependencies that are each not strictly necessary but very useful
 rga should compile with stable Rust (v1.36.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
 
 ```
-   ~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
-   ~$ cargo install --locked ripgrep_all
-   ~$ rga --version    # this should work now
+~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
+~$ cargo install --locked ripgrep_all
+~$ rga --version    # this should work now
 ```
 
 ## Available Adapters
