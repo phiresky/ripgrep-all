@@ -1,13 +1,20 @@
-# 1.0.0 (unreleased)
+# 0.10.0 (unreleased)
+
+This was originally supposed to be version 1.0.0, but I don't feel confident enough in the stability to call it that.
+
+Highlights:
+
+- add a config file (~/.config/ripgrep-all/config.jsonc) that is generated on first use, including schema
+- allow custom subprocess-spawning adapters defined via config file. See https://github.com/phiresky/ripgrep-all/wiki
+
+Others:
 
 - auto generate parts of the readme
 - add loads of debug logs and performance timings when `--debug` is used
 - better error messages via `anyhow`
 - add cross-platform rga-fzf binary
-- add a config file (~/.config/ripgrep-all/config.jsonc) that is generated on first use, including schema
 - change whole code base to be async
 - change adapter interface from `(&Read, &Write) -> ()` to `AsyncRead -> AsyncRead` to allow chaining of adapters
-- allow custom subprocess-spawning adapters defined via config file
 
 # 0.9.6 (2020-05-19)
 
