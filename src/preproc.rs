@@ -20,9 +20,9 @@ use std::io::Cursor;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
+use tokio::io::{AsyncBufRead, AsyncReadExt};
 
 pub type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
 
@@ -185,6 +185,17 @@ async fn adapt_caching(
     }
 }
 
+async fn read_discard(mut x: ReadBox) -> Result<()> {
+    let mut buf = [0u8; 1 << 16];
+    loop {
+        let n = x.read(&mut buf).await?;
+        if n == 0 {
+            break;
+        }
+    }
+    Ok(())
+}
+
 pub fn loop_adapt(
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
@@ -213,9 +224,12 @@ pub async fn loop_adapt_inner(
     };
     let s = stream! {
         for await file in inp {
+            trace!("next file");
             match buf_choose_adapter(file?).await? {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
                     if ai.archive_recursion_depth >= ai.config.max_archive_recursion.0 {
+                        // some adapters (esp. zip) assume that the entry is read fully and might hang otherwise
+                        read_discard(ai.inp).await?;
                         let s = format!("{}[rga: max archive recursion reached ({})]\n", ai.line_prefix, ai.archive_recursion_depth).into_bytes();
                         yield Ok(AdaptInfo {
                             inp: Box::pin(Cursor::new(s)),
@@ -241,7 +255,9 @@ pub async fn loop_adapt_inner(
                     yield Ok(ai);
                 }
             }
+            trace!("done with files");
         }
+        trace!("stream ended");
     };
     Ok(Box::pin(s))
 }

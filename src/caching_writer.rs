@@ -33,6 +33,7 @@ pub fn async_read_and_write_to_cache<'a>(
     let s = stream! {
         let mut stream = ReaderStream::new(inp);
         while let Some(bytes) = stream.next().await {
+            trace!("read bytes: {:?}", bytes);
             if let Ok(bytes) = &bytes {
                 if let Some(writer) = zstd_writer.as_mut() {
                     writer.write_all(bytes).await?;
@@ -48,14 +49,18 @@ pub fn async_read_and_write_to_cache<'a>(
             }
             yield bytes;
         }
+        trace!("eof");
         // EOF, call on_finish
         let finish = {
             if let Some(mut writer) = zstd_writer.take() {
                 writer.shutdown().await?;
                 let res = writer.into_inner();
+                trace!("EOF");
                 if res.len() <= max_cache_size {
+                    trace!("writing {} bytes to cache", res.len());
                     (bytes_written, Some(res))
                 } else {
+                    trace!("cache longer than max, dropping");
                     (bytes_written, None)
                 }
             } else {

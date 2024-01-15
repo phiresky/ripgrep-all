@@ -2,10 +2,7 @@ use crate::{adapters::FileAdapter, preproc::ActiveAdapters};
 use anyhow::{Context, Result};
 use path_clean::PathClean;
 use rusqlite::{named_params, OptionalExtension};
-use std::{
-    path::Path,
-    time::{Duration, UNIX_EPOCH},
-};
+use std::{path::Path, time::UNIX_EPOCH};
 use tokio_rusqlite::Connection;
 
 #[derive(Clone)]
@@ -58,7 +55,7 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
     //db.execute(&format!("pragma page_size = {};", want_page_size))
     //    .context("setup pragma 1")?;
     db.call(|db| {
-        db.busy_timeout(Duration::from_secs(10))?;
+        // db.busy_timeout(Duration::from_secs(10))?;
         db.pragma_update(None, "journal_mode", "wal")?;
         db.pragma_update(None, "foreign_keys", "on")?;
         db.pragma_update(None, "temp_store", "memory")?;
@@ -145,6 +142,12 @@ impl PreprocCache for SqliteCache {
 
     async fn set(&mut self, key: &CacheKey, value: Vec<u8>) -> Result<()> {
         let key = (*key).clone(); // todo: without cloning
+        log::trace!(
+            "Writing to cache: {}, {}, {} byte",
+            key.adapter,
+            key.file_path,
+            value.len()
+        );
         Ok(self
             .db
             .call(move |db| {

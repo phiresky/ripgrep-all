@@ -103,7 +103,9 @@ impl FileAdapter for ZipAdapter {
             let mut zip = ZipFileReader::new(inp);
 
             let s = stream! {
+                    trace!("begin zip");
                     while let Some(mut entry) = zip.next_entry().await? {
+                        trace!("zip next entry");
                         let file = entry.entry();
                         if file.filename().ends_with('/') {
                             zip = entry.skip().await?;
@@ -143,6 +145,7 @@ impl FileAdapter for ZipAdapter {
                         zip = entry.done().await.context("going to next file in zip but entry was not read fully")?;
 
                 }
+                trace!("zip over");
             };
 
             Ok(Box::pin(s))
