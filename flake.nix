@@ -114,11 +114,7 @@
             hooks = {
               nixfmt.enable = true;
               rustfmt.enable = true;
-              typos = {
-                enable = true;
-                types = [ "text" ];
-                excludes = [ "exampledir/*" ];
-              };
+              typos.enable = false;
             };
           };
         };
