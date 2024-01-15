@@ -122,6 +122,10 @@ impl WritingFileAdapter for SqliteAdapter {
         _detection_reason: &FileMatcher,
         oup: Pin<Box<dyn AsyncWrite + Send>>,
     ) -> Result<()> {
+        if ai.filepath_hint.file_name().and_then(|e| e.to_str()) == Some("Thumbs.db") {
+            // skip windows thumbnail cache
+            return Ok(());
+        }
         let oup_sync = SyncIoBridge::new(oup);
         tokio::task::spawn_blocking(|| synchronous_dump_sqlite(ai, oup_sync))
             .await?

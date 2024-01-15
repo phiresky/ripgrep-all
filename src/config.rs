@@ -38,7 +38,7 @@ impl ToString for MaxArchiveRecursion {
 }
 impl Default for MaxArchiveRecursion {
     fn default() -> Self {
-        MaxArchiveRecursion(4)
+        MaxArchiveRecursion(5)
     }
 }
 
