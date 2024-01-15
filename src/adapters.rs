@@ -181,7 +181,17 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
             } else {
                 let adapter = adapters_map
                     .get(name)
-                    .ok_or_else(|| format_err!("Unknown adapter: \"{}\"", name))?
+                    .ok_or_else(|| {
+                        format_err!(
+                            "Unknown adapter: \"{}\". Known adapters: {}",
+                            name,
+                            adapters_map
+                                .keys()
+                                .map(|e| e.as_ref())
+                                .collect::<Vec<&str>>()
+                                .join(", ")
+                        )
+                    })?
                     .clone();
                 if additive {
                     adapters.insert(0, adapter);

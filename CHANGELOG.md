@@ -9,6 +9,7 @@ Highlights:
 
 Others:
 
+- mbox adapter (@FliegendeWurst https://github.com/phiresky/ripgrep-all/pull/104)
 - auto generate parts of the readme
 - add loads of debug logs and performance timings when `--debug` is used
 - better error messages via `anyhow`
