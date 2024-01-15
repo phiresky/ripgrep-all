@@ -4,8 +4,9 @@ This was originally supposed to be version 1.0.0, but I don't feel confident eno
 
 Highlights:
 
-- add a config file (~/.config/ripgrep-all/config.jsonc) that is generated on first use, including schema
-- allow custom subprocess-spawning adapters defined via config file. See https://github.com/phiresky/ripgrep-all/wiki
+- rga is now configurable via a config file (~/.config/ripgrep-all/config.jsonc) that is generated on first use, including schema.
+- Custom subprocess-spawning adapters can be defined via config file. See https://github.com/phiresky/ripgrep-all/wiki
+- External adapters can be shared with the community at https://github.com/phiresky/ripgrep-all/discussions
 
 Others:
 

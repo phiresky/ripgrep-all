@@ -91,7 +91,7 @@ To install the dependencies that are each not strictly necessary but very useful
 
 ### Compile from source
 
-rga should compile with stable Rust (v1.36.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
+rga should compile with stable Rust (v1.75.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
 
 ```
 ~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
@@ -116,7 +116,7 @@ Adapters:
 - **pandoc**
   Uses pandoc to convert binary/unreadable text documents to plain markdown-like text
   Runs: pandoc --from= --to=plain --wrap=none --markdown-headings=atx  
-   Extensions: .epub, .odt, .docx, .fb2, .ipynb
+   Extensions: .epub, .odt, .docx, .fb2, .ipynb, .html, .htm
 
 - **poppler**
   Uses pdftotext (from poppler-utils) to extract plain text from PDF files
@@ -140,7 +140,7 @@ Adapters:
 
 - **decompress**
   Reads compressed file as a stream and runs a different extractor on the contents.  
-   Extensions: .tgz, .tbz, .tbz2, .gz, .bz2, .xz, .zst  
+   Extensions: .als, .bz2, .gz, .tbz, .tbz2, .tgz, .xz, .zst  
    Mime Types: application/gzip, application/x-bzip, application/x-xz, application/zstd
 
 - **tar**
@@ -154,6 +154,11 @@ Adapters:
 
 The following adapters are disabled by default, and can be enabled using '--rga-adapters=+foo,bar':
 
+- **mail**
+  Reads mailbox/mail files and runs extractors on the contents and attachments.  
+   Extensions: .mbox, .mbx, .eml  
+   Mime Types: application/mbox, message/rfc822
+
 ## USAGE:
 
 > rga \[RGA OPTIONS\] \[RG OPTIONS\] PATTERN \[PATH \...\]
@@ -163,7 +168,7 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 **\--rga-accurate**
 
 > Use more accurate but slower matching by mime type
->
+
 > By default, rga will match files using file extensions. Some programs,
 > such as sqlite3, don\'t care about the file extension at all, so users
 > sometimes use any or no extension at all. With this flag, rga will try
@@ -175,10 +180,10 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 **\--rga-no-cache**
 
 > Disable caching of results
->
+
 > By default, rga caches the extracted text, if it is small enough, to a
-> database in \${XDG*CACHE_DIR-\~/.cache}/ripgrep-all on Linux,
-> *\~/Library/Caches/ripgrep-all\_ on macOS, or
+> database in \${XDG_CACHE_DIR-\~/.cache}/ripgrep-all on Linux,
+> _\~/Library/Caches/ripgrep-all_ on macOS, or
 > C:\\Users\\username\\AppData\\Local\\ripgrep-all on Windows. This way,
 > repeated searches on the same set of files will be much faster. If you
 > pass this flag, all caching will be disabled.
@@ -212,7 +217,7 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 **\--rga-adapters=**\<adapters\>\...
 
 > Change which adapters to use and in which priority order (descending)
->
+
 > \"foo,bar\" means use only adapters foo and bar. \"-bar,baz\" means
 > use all default adapters except for bar and baz. \"+bar,baz\" means
 > use all default adapters and also bar and baz.
@@ -221,22 +226,22 @@ The following adapters are disabled by default, and can be enabled using '--rga-
 
 > ZSTD compression level to apply to adapter outputs before storing in
 > cache db
->
+
 > Ranges from 1 - 22 \[default: 12\]
 
 **\--rga-config-file=**\<config-file-path\>
 
 **\--rga-max-archive-recursion=**\<max-archive-recursion\>
 
-> Maximum nestedness of archives to recurse into \[default: 4\]
+> Maximum nestedness of archives to recurse into \[default: 5\]
 
 **\--rga-cache-max-blob-len=**\<max-blob-len\>
 
 > Max compressed size to cache
->
+
 > Longest byte length (after compression) to store in cache. Longer
 > adapter outputs will not be cached and recomputed every time.
->
+
 > Allowed suffixes on command line: k M G \[default: 2000000\]
 
 **\--rga-cache-path=**\<path\>
