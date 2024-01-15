@@ -174,7 +174,7 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
                 let inx = adapters
                     .iter()
                     .position(|a| a.metadata().name == name)
-                    .ok_or_else(|| format_err!("Could not remove {}: Not in list", name))?;
+                    .ok_or_else(|| format_err!("Could not remove adapter {}: Not in list", name))?;
                 adapters.remove(inx);
             } else {
                 let adapter = adapters_map

@@ -75,11 +75,11 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
     
     create unique index if not exists preproc_cache_idx on preproc_cache (adapter, adapter_version, file_path, active_adapters);
     ",
-        )
+        )?; Ok(())
     })
     .await.context("connect_pragmas")?;
     let jm: i64 = db
-        .call(|db| db.pragma_query_value(None, "application_id", |r| r.get(0)))
+        .call(|db| Ok(db.pragma_query_value(None, "application_id", |r| r.get(0))?))
         .await?;
     if jm != 924716026 {
         // (probably) newly created db
@@ -95,7 +95,8 @@ async fn create_pragmas(db: &Connection) -> Result<()> {
         pragma application_id = 924716026;
         pragma user_version = 2; -- todo: on upgrade clear db if version is unexpected
         ",
-        )
+        )?;
+        Ok(())
     })
     .await?;
     Ok(())
@@ -119,24 +120,25 @@ impl PreprocCache for SqliteCache {
         Ok(self
             .db
             .call(move |db| {
-                db.query_row(
-                    "select text_content_zstd from preproc_cache where
+                Ok(db
+                    .query_row(
+                        "select text_content_zstd from preproc_cache where
                             adapter = :adapter
                         and adapter_version = :adapter_version
                         and active_adapters = :active_adapters
                         and file_path = :file_path
                         and file_mtime_unix_ms = :file_mtime_unix_ms
                 ",
-                    named_params! {
-                        ":adapter": &key.adapter,
-                        ":adapter_version": &key.adapter_version,
-                        ":active_adapters": &key.active_adapters,
-                        ":file_path": &key.file_path,
-                        ":file_mtime_unix_ms": &key.file_mtime_unix_ms
-                    },
-                    |r| r.get::<_, Vec<u8>>(0),
-                )
-                .optional()
+                        named_params! {
+                            ":adapter": &key.adapter,
+                            ":adapter_version": &key.adapter_version,
+                            ":active_adapters": &key.active_adapters,
+                            ":file_path": &key.file_path,
+                            ":file_mtime_unix_ms": &key.file_mtime_unix_ms
+                        },
+                        |r| r.get::<_, Vec<u8>>(0),
+                    )
+                    .optional()?)
             })
             .await
             .context("reading from cache")?)
@@ -161,8 +163,8 @@ impl PreprocCache for SqliteCache {
                         ":file_path": &key.file_path,
                         ":file_mtime_unix_ms": &key.file_mtime_unix_ms,
                         ":text_content_zstd": value
-                    }
-                ).map(|_| ())
+                    })?;
+                Ok(())
             })
             .await?)
     }
