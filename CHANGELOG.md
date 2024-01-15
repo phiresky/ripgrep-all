@@ -1,4 +1,4 @@
-# 0.10 (unreleased)
+# 0.10.3
 
 This was originally supposed to be version 1.0.0, but I don't feel confident enough in the stability to call it that.
 
