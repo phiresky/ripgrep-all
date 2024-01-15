@@ -117,7 +117,7 @@
               typos = {
                 enable = true;
                 types = [ "text" ];
-                excludes = [ "exampledir/.*" ];
+                excludes = [ "exampledir/*" ];
               };
             };
           };

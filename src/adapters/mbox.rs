@@ -71,7 +71,7 @@ impl FileAdapter for MboxAdapter {
 
             let mut ais = vec![];
             for mail_bytes in FROM_REGEX.splitn(&content, usize::MAX) {
-                let mail_content = mail_bytes.splitn(2, |x| *x == b'\n').skip(1).next().unwrap();
+                let mail_content = mail_bytes.splitn(2, |x| *x == b'\n').nth(1).unwrap();
                 let mail = mailparse::parse_mail(mail_content);
                 if mail.is_err() {
                     continue;
@@ -113,7 +113,7 @@ impl FileAdapter for MboxAdapter {
                     archive_recursion_depth: archive_recursion_depth + 1,
                     inp: Box::pin(Cursor::new(raw_body.unwrap())),
                     line_prefix: line_prefix.to_string(),
-                    config: config,
+                    config,
                     postprocess,
                 };
                 ais.push(ai2);
