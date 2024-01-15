@@ -2,7 +2,10 @@ use crate::{adapters::FileAdapter, preproc::ActiveAdapters};
 use anyhow::{Context, Result};
 use path_clean::PathClean;
 use rusqlite::{named_params, OptionalExtension};
-use std::{path::Path, time::UNIX_EPOCH};
+use std::{
+    path::Path,
+    time::{Duration, UNIX_EPOCH},
+};
 use tokio_rusqlite::Connection;
 
 #[derive(Clone)]
@@ -55,27 +58,27 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
     //db.execute(&format!("pragma page_size = {};", want_page_size))
     //    .context("setup pragma 1")?;
     db.call(|db| {
-        db.execute_batch(
-            "
-    pragma journal_mode = WAL;
-    pragma foreign_keys = on;
-    pragma temp_store = memory;
-    pragma synchronous = off; -- integrity isn't very important here
-    pragma mmap_size = 30000000000;
+        db.busy_timeout(Duration::from_secs(10))?;
+        db.pragma_update(None, "journal_mode", "wal")?;
+        db.pragma_update(None, "foreign_keys", "on")?;
+        db.pragma_update(None, "temp_store", "memory")?;
+        db.pragma_update(None, "synchronous", "off")?; // integrity isn't very important here
+        db.pragma_update(None, "mmap_size", "2000000000")?;
+        db.execute("
+            create table if not exists preproc_cache (
+                adapter text not null,
+                adapter_version integer not null,
+                created_unix_ms integer not null default (unixepoch() * 1000),
+                active_adapters text not null, -- 'null' if adapter cannot recurse
+                file_path text not null,
+                file_mtime_unix_ms integer not null,
+                text_content_zstd blob not null
+            ) strict", []
+        )?;
 
-    create table if not exists preproc_cache (
-        adapter text not null,
-        adapter_version integer not null,
-        created_unix_ms integer not null default (unixepoch() * 1000),
-        active_adapters text not null, -- 'null' if adapter cannot recurse
-        file_path text not null,
-        file_mtime_unix_ms integer not null,
-        text_content_zstd blob not null
-    ) strict;
-    
-    create unique index if not exists preproc_cache_idx on preproc_cache (adapter, adapter_version, file_path, active_adapters);
-    ",
-        )?; Ok(())
+        db.execute("create unique index if not exists preproc_cache_idx on preproc_cache (adapter, adapter_version, file_path, active_adapters)", [])?;
+
+        Ok(())
     })
     .await.context("connect_pragmas")?;
     let jm: i64 = db
@@ -90,12 +93,8 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
 
 async fn create_pragmas(db: &Connection) -> Result<()> {
     db.call(|db| {
-        db.execute_batch(
-            "
-        pragma application_id = 924716026;
-        pragma user_version = 2; -- todo: on upgrade clear db if version is unexpected
-        ",
-        )?;
+        db.pragma_update(None, "application_id", "924716026")?;
+        db.pragma_update(None, "user_version", "2")?; // todo: on upgrade clear db if version is unexpected
         Ok(())
     })
     .await?;
