@@ -1,12 +1,15 @@
 use crate::{adapters::FileAdapter, preproc::ActiveAdapters};
 use anyhow::{Context, Result};
+use log::warn;
 use path_clean::PathClean;
 use rusqlite::{named_params, OptionalExtension};
 use std::{path::Path, time::UNIX_EPOCH};
 use tokio_rusqlite::Connection;
 
+static SCHEMA_VERSION: i32 = 3;
 #[derive(Clone)]
 pub struct CacheKey {
+    config_hash: String,
     adapter: String,
     adapter_version: i32,
     active_adapters: String,
@@ -15,6 +18,7 @@ pub struct CacheKey {
 }
 impl CacheKey {
     pub fn new(
+        postprocess: bool,
         filepath_hint: &Path,
         adapter: &dyn FileAdapter,
         active_adapters: &ActiveAdapters,
@@ -34,6 +38,11 @@ impl CacheKey {
             "null".to_string()
         };
         Ok(CacheKey {
+            config_hash: if postprocess {
+                "a41e2e9".to_string()
+            } else {
+                "f1502a3".to_string()
+            }, // todo: when we add more config options that affect caching, create a struct and actually hash it
             adapter: adapter.metadata().name.clone(),
             adapter_version: adapter.metadata().version,
             file_path: filepath_hint.clean().to_string_lossy().to_string(),
@@ -63,6 +72,7 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
         db.pragma_update(None, "mmap_size", "2000000000")?;
         db.execute("
             create table if not exists preproc_cache (
+                config_hash text not null,
                 adapter text not null,
                 adapter_version integer not null,
                 created_unix_ms integer not null default (unixepoch() * 1000),
@@ -73,7 +83,7 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
             ) strict", []
         )?;
 
-        db.execute("create unique index if not exists preproc_cache_idx on preproc_cache (adapter, adapter_version, file_path, active_adapters)", [])?;
+        db.execute("create unique index if not exists preproc_cache_idx on preproc_cache (config_hash, adapter, adapter_version, file_path, active_adapters)", [])?;
 
         Ok(())
     })
@@ -83,26 +93,29 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
         .await?;
     if jm != 924716026 {
         // (probably) newly created db
-        create_pragmas(db).await.context("create_pragmas")?;
+        db.call(|db| Ok(db.pragma_update(None, "application_id", "924716026")?))
+            .await?;
     }
     Ok(())
 }
 
-async fn create_pragmas(db: &Connection) -> Result<()> {
-    db.call(|db| {
-        db.pragma_update(None, "application_id", "924716026")?;
-        db.pragma_update(None, "user_version", "2")?; // todo: on upgrade clear db if version is unexpected
-        Ok(())
-    })
-    .await?;
-    Ok(())
-}
 struct SqliteCache {
     db: Connection,
 }
 impl SqliteCache {
     async fn new(path: &Path) -> Result<SqliteCache> {
         let db = Connection::open(path.join("cache.sqlite3")).await?;
+        db.call(|db| {
+            let schema_version: i32 = db.pragma_query_value(None, "user_version", |r| r.get(0))?;
+            if schema_version != SCHEMA_VERSION {
+                warn!("Cache schema version mismatch, clearing cache");
+                db.execute("drop table if exists preproc_cache", [])?;
+                db.pragma_update(None, "user_version", format!("{SCHEMA_VERSION}"))?;
+            }
+            Ok(())
+        })
+        .await?;
+
         connect_pragmas(&db).await?;
 
         Ok(SqliteCache { db })
@@ -120,12 +133,14 @@ impl PreprocCache for SqliteCache {
                     .query_row(
                         "select text_content_zstd from preproc_cache where
                             adapter = :adapter
+                        and config_hash = :config_hash
                         and adapter_version = :adapter_version
                         and active_adapters = :active_adapters
                         and file_path = :file_path
                         and file_mtime_unix_ms = :file_mtime_unix_ms
                 ",
                         named_params! {
+                            ":config_hash": &key.config_hash,
                             ":adapter": &key.adapter,
                             ":adapter_version": &key.adapter_version,
                             ":active_adapters": &key.active_adapters,
@@ -152,13 +167,14 @@ impl PreprocCache for SqliteCache {
             .db
             .call(move |db| {
                 db.execute(
-                    "insert into preproc_cache (adapter, adapter_version, active_adapters, file_path, file_mtime_unix_ms, text_content_zstd) values
-                        (:adapter, :adapter_version, :active_adapters, :file_path, :file_mtime_unix_ms, :text_content_zstd)
-                    on conflict (adapter, adapter_version, active_adapters, file_path) do update set
+                    "insert into preproc_cache (config_hash, adapter, adapter_version, active_adapters, file_path, file_mtime_unix_ms, text_content_zstd) values
+                        (:config_hash, :adapter, :adapter_version, :active_adapters, :file_path, :file_mtime_unix_ms, :text_content_zstd)
+                    on conflict (config_hash, adapter, adapter_version, active_adapters, file_path) do update set
                         file_mtime_unix_ms = :file_mtime_unix_ms,
                         created_unix_ms = unixepoch() * 1000,
                         text_content_zstd = :text_content_zstd",
                     named_params! {
+                        ":config_hash": &key.config_hash,
                         ":adapter": &key.adapter,
                         ":adapter_version": &key.adapter_version,
                         ":active_adapters": &key.active_adapters,

@@ -144,6 +144,9 @@ pub struct RgaConfig {
     pub cache: CacheConfig,
 
     /// Maximum nestedness of archives to recurse into
+    ///
+    /// When searching in archives, rga will recurse into archives inside archives.
+    /// This option limits the depth.
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
@@ -152,6 +155,14 @@ pub struct RgaConfig {
         hidden_short_help = true
     )]
     pub max_archive_recursion: MaxArchiveRecursion,
+
+    /// Don't prefix lines of files within archive with the path inside the archive.
+    ///
+    /// Inside archives, by default rga prefixes the content of each file with the file path within the archive.
+    /// This is usually useful, but can cause problems because then the inner path is also searched for the pattern.
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(long = "--rga-no-prefix-filenames")]
+    pub no_prefix_filenames: bool,
 
     //////////////////////////////////////////
     //////////////////////////// Config file only

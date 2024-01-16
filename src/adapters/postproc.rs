@@ -183,7 +183,6 @@ impl FileAdapter for PostprocPageBreaks {
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
             inp: Box::pin(read),
-            postprocess: true,
             archive_recursion_depth: a.archive_recursion_depth + 1,
             filepath_hint: a
                 .filepath_hint

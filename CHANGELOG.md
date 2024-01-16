@@ -1,4 +1,8 @@
-# 0.10.3
+# 0.10.4 (2024-01-16)
+
+- add `--rga-no-prefix-filenames` flag (https://github.com/phiresky/ripgrep-all/issues/154)
+
+# 0.10.3 (2024-01-16)
 
 This was originally supposed to be version 1.0.0, but I don't feel confident enough in the stability to call it that.
 

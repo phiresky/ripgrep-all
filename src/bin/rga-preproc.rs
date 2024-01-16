@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
         is_real_file: true,
         line_prefix: "".to_string(),
         archive_recursion_depth: 0,
-        postprocess: true,
+        postprocess: !config.no_prefix_filenames,
         config,
     };
 
