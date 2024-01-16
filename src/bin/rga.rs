@@ -133,9 +133,12 @@ fn main() -> anyhow::Result<()> {
         .spawn()
         .map_err(|e| map_exe_error(e, "rg", "Please make sure you have ripgrep installed."))?;
 
-    child.wait()?;
+    let result = child.wait()?;
 
     log::debug!("running rg took {}", print_dur(before));
+    if !result.success() {
+        std::process::exit(result.code().unwrap_or(1));
+    }
     Ok(())
 }
 

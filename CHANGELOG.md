@@ -1,8 +1,12 @@
+# 0.10.5 (2024-01-16)
+
+- return the same exit status as rg
+
 # 0.10.4 (2024-01-16)
 
 - add `--rga-no-prefix-filenames` flag (https://github.com/phiresky/ripgrep-all/issues/154)
 
-# 0.10.3 (2024-01-16)
+# 0.10.3 (2024-01-15)
 
 This was originally supposed to be version 1.0.0, but I don't feel confident enough in the stability to call it that.
 
