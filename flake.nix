@@ -114,7 +114,7 @@
             hooks = {
               nixfmt.enable = true;
               rustfmt.enable = true;
-              typos.enable = false;
+              typos.enable = true;
             };
           };
         };
