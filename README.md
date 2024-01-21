@@ -89,6 +89,12 @@ To install the dependencies that are each not strictly necessary but very useful
 
 `brew install pandoc poppler ffmpeg`
 
+### MacPorts
+
+`rga` can also be installed on macOS via [MacPorts](https://ports.macports.org/port/ripgrep-all/):
+
+`sudo port install ripgrep-all`
+
 ### Compile from source
 
 rga should compile with stable Rust (v1.75.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
