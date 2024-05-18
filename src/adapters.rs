@@ -149,7 +149,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
     custom_adapters: Option<Vec<CustomAdapterConfig>>,
-    adapter_names: &Vec<T>,
+    adapter_names: &[T],
 ) -> Result<Vec<Arc<dyn FileAdapter>>> {
     let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
     let adapters = if !adapter_names.is_empty() {
