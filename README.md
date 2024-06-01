@@ -281,7 +281,7 @@ to debug the adapters.
 You can use the provided [`flake.nix`](./flake.nix) to setup all build- and
 run-time dependencies:
 
-1. Enable [Flakes](https://nixos.wiki/wiki/Flakes) in your Nix configuration.
+1. Enable [Flakes](https://wiki.nixos.org/wiki/Flakes) in your Nix configuration.
 1. Add [`direnv`](https://direnv.net/) to your profile:
    `nix profile install nixpkgs#direnv`
 1. `cd` into the directory where you have cloned this directory.
