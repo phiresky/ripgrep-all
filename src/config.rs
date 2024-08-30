@@ -170,6 +170,11 @@ pub struct RgaConfig {
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(skip)]
     pub custom_adapters: Option<Vec<CustomAdapterConfig>>,
+
+    /// List of additional extensions to be treated as zip archives
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(skip)]
+    pub additional_extensions_zip: Option<Vec<String>>,
     //////////////////////////////////////////
     //////////////////////////// CMD line only
     //////////////////////////////////////////

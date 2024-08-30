@@ -12,7 +12,8 @@ use std::process::Command;
 use std::time::Instant;
 
 fn list_adapters(args: RgaConfig) -> Result<()> {
-    let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters);
+    let (enabled_adapters, disabled_adapters) =
+        get_all_adapters(args.custom_adapters, args.additional_extensions_zip);
 
     println!("Adapters:\n");
     let print = |adapter: std::sync::Arc<dyn FileAdapter>| {
@@ -92,7 +93,11 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
+    let adapters = get_adapters_filtered(
+        config.custom_adapters.clone(),
+        &config.adapters,
+        config.additional_extensions_zip,
+    )?;
 
     let pre_glob = if !config.accurate {
         let extensions = adapters

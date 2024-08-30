@@ -109,7 +109,10 @@ pub struct AdaptInfo {
 /// (enabledAdapters, disabledAdapters)
 type AdaptersTuple = (Vec<Arc<dyn FileAdapter>>, Vec<Arc<dyn FileAdapter>>);
 
-pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
+pub fn get_all_adapters(
+    custom_adapters: Option<Vec<CustomAdapterConfig>>,
+    additional_extensions_zip: Option<Vec<String>>,
+) -> AdaptersTuple {
     // order in descending priority
     let mut adapters: Vec<Arc<dyn FileAdapter>> = vec![];
     if let Some(custom_adapters) = custom_adapters {
@@ -121,7 +124,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
     let internal_adapters: Vec<Arc<dyn FileAdapter>> = vec![
         Arc::new(PostprocPageBreaks::default()),
         Arc::new(ffmpeg::FFmpegAdapter::new()),
-        Arc::new(zip::ZipAdapter::new()),
+        Arc::new(zip::ZipAdapter::new(additional_extensions_zip)),
         Arc::new(decompress::DecompressAdapter::new()),
         Arc::new(mbox::MboxAdapter::new()),
         Arc::new(tar::TarAdapter::new()),
@@ -150,8 +153,10 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
 pub fn get_adapters_filtered<T: AsRef<str>>(
     custom_adapters: Option<Vec<CustomAdapterConfig>>,
     adapter_names: &[T],
+    additional_extensions_zip: Option<Vec<String>>,
 ) -> Result<Vec<Arc<dyn FileAdapter>>> {
-    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
+    let (def_enabled_adapters, def_disabled_adapters) =
+        get_all_adapters(custom_adapters, additional_extensions_zip);
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters
             .iter()

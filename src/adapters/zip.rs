@@ -2,39 +2,44 @@ use super::*;
 use crate::print_bytes;
 use anyhow::*;
 use async_stream::stream;
-use lazy_static::lazy_static;
+// use lazy_static::lazy_static;
 use log::*;
 
-// TODO: allow users to configure file extensions instead of hard coding the list
-// https://github.com/phiresky/ripgrep-all/pull/208#issuecomment-2173241243
 static EXTENSIONS: &[&str] = &["zip", "jar", "xpi", "kra", "snagx"];
 
-lazy_static! {
-    static ref METADATA: AdapterMeta = AdapterMeta {
-        name: "zip".to_owned(),
-        version: 1,
-        description: "Reads a zip file as a stream and recurses down into its contents".to_owned(),
-        recurses: true,
-        fast_matchers: EXTENSIONS
-            .iter()
-            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
-            .collect(),
-        slow_matchers: Some(vec![FileMatcher::MimeType("application/zip".to_owned())]),
-        keep_fast_matchers_if_accurate: false,
-        disabled_by_default: false
-    };
+// #[derive(Default, Clone)]
+pub struct ZipAdapter {
+    metadata: AdapterMeta,
 }
-#[derive(Default, Clone)]
-pub struct ZipAdapter;
 
 impl ZipAdapter {
-    pub fn new() -> ZipAdapter {
-        ZipAdapter
+    pub fn new(additional_extensions_zip: Option<Vec<String>>) -> ZipAdapter {
+        let mut extensions: Vec<String> = EXTENSIONS.iter().map(|&s| s.to_string()).collect();
+        if let Some(additional_extensions) = additional_extensions_zip {
+            extensions.extend(additional_extensions);
+        }
+
+        let metadata = AdapterMeta {
+            name: "zip".to_owned(),
+            version: 1,
+            description: "Reads a zip file as a stream and recurses down into its contents"
+                .to_owned(),
+            recurses: true,
+            fast_matchers: extensions
+                .iter()
+                .map(|s| FastFileMatcher::FileExtension(s.to_string()))
+                .collect(),
+            slow_matchers: Some(vec![FileMatcher::MimeType("application/zip".to_owned())]),
+            keep_fast_matchers_if_accurate: false,
+            disabled_by_default: false,
+        };
+
+        ZipAdapter { metadata }
     }
 }
 impl GetMetadata for ZipAdapter {
     fn metadata(&self) -> &AdapterMeta {
-        &METADATA
+        &self.metadata
     }
 }
 
@@ -225,7 +230,7 @@ mod test {
     async fn only_seek_zip_fs() -> Result<()> {
         let zip = test_data_dir().join("only-seek-zip.zip");
         let (a, d) = simple_fs_adapt_info(&zip).await?;
-        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a).await?).await?;
+        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(None), d, a).await?).await?;
         // assert_eq!(String::from_utf8(v)?, "");
 
         Ok(())
@@ -242,7 +247,7 @@ mod test {
     #[tokio::test]
     async fn recurse() -> Result<()> {
         let zipfile = create_zip("outer.txt", "outer text file", true).await?;
-        let adapter = ZipAdapter::new();
+        let adapter = ZipAdapter::new(None);
 
         let (a, d) = simple_adapt_info(
             &PathBuf::from("outer.zip"),
@@ -254,6 +259,18 @@ mod test {
             String::from_utf8(buf)?,
             "PREFIX:outer.txt: outer text file\nPREFIX:inner.zip: inner.txt: inner text file\n",
         );
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn search_xlsx_with_extension_config() -> Result<()> {
+        let zip = test_data_dir().join("test.xlsx");
+        let (a, d) = simple_fs_adapt_info(&zip).await?;
+        let v = adapted_to_vec(
+            loop_adapt(&ZipAdapter::new(Some(vec![String::from("xlsx")])), d, a).await?,
+        )
+        .await?;
+        assert_eq!(String::from_utf8(v[..18].to_vec())?, "PREFIX:_rels/.rels"); // first filename in the spreadsheet archive
 
         Ok(())
     }
