@@ -45,6 +45,7 @@ pub struct CustomAdapterConfig {
     /// - $input_file_extension: the file extension (without dot). e.g. foo.tar.gz -> gz
     /// - $input_file_stem, the file name without the last extension. e.g. foo.tar.gz -> foo.tar
     /// - $input_virtual_path: the full input file path. Note that this path may not actually exist on disk because it is the result of another adapter
+    ///
     /// stdin of the program will be connected to the input file, and stdout is assumed to be the converted file
     pub args: Vec<String>,
     /// The output path hint. The placeholders are the same as for `.args`
@@ -103,7 +104,7 @@ lazy_static! {
             extensions: strs(&["epub", "odt", "docx", "fb2", "ipynb", "html", "htm"]),
             binary: "pandoc".to_string(),
             mimetypes: None,
-            // simpler markown (with more information loss but plainer text)
+            // simpler markdown (with more information loss but plainer text)
             //.arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
             args: strs(&[
                 "--from=$input_file_extension",
