@@ -18,9 +18,9 @@ fn is_default<T: Default + PartialEq>(t: &T) -> bool {
 #[derive(JsonSchema, Debug, Serialize, Deserialize, Copy, Clone, PartialEq, FromStr)]
 pub struct CacheCompressionLevel(pub i32);
 
-impl ToString for CacheCompressionLevel {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl std::fmt::Display for CacheCompressionLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 impl Default for CacheCompressionLevel {
@@ -31,9 +31,9 @@ impl Default for CacheCompressionLevel {
 #[derive(JsonSchema, Debug, Serialize, Deserialize, Copy, Clone, PartialEq, FromStr)]
 pub struct MaxArchiveRecursion(pub i32);
 
-impl ToString for MaxArchiveRecursion {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl std::fmt::Display for MaxArchiveRecursion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 impl Default for MaxArchiveRecursion {
@@ -45,9 +45,9 @@ impl Default for MaxArchiveRecursion {
 #[derive(JsonSchema, Debug, Serialize, Deserialize, Clone, PartialEq, FromStr)]
 pub struct CachePath(pub String);
 
-impl ToString for CachePath {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl std::fmt::Display for CachePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 impl Default for CachePath {
@@ -61,9 +61,9 @@ impl Default for CachePath {
 #[derive(JsonSchema, Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 pub struct CacheMaxBlobLen(pub usize);
 
-impl ToString for CacheMaxBlobLen {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl std::fmt::Display for CacheMaxBlobLen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 impl Default for CacheMaxBlobLen {
