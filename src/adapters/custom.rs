@@ -103,7 +103,7 @@ lazy_static! {
             extensions: strs(&["epub", "odt", "docx", "fb2", "ipynb", "html", "htm"]),
             binary: "pandoc".to_string(),
             mimetypes: None,
-            // simpler markown (with more information loss but plainer text)
+            // simpler markdown (with more information loss but plainer text)
             //.arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
             args: strs(&[
                 "--from=$input_file_extension",
