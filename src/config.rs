@@ -1,9 +1,11 @@
-use crate::{adapters::custom::CustomAdapterConfig, project_dirs};
+use crate::adapters::custom;
+use crate::project_dirs;
 use anyhow::{Context, Result};
 use derive_more::FromStr;
 use log::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::Read;
 use std::{fs::File, io::Write, iter::IntoIterator, path::PathBuf, str::FromStr};
@@ -165,9 +167,17 @@ pub struct RgaConfig {
 
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(skip)] // config file only
-    pub custom_adapters: Option<Vec<CustomAdapterConfig>>,
+    pub custom_adapters: Option<Vec<custom::CustomAdapterConfig>>,
 
-    #[serde(skip)]
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(skip)] // config file only
+    pub custom_extensions: Option<HashMap<String, custom::Builtin>>,
+
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(skip)] // config file only
+    pub custom_mimetypes: Option<HashMap<String, custom::Builtin>>,
+
+    #[serde(skip)] // CLI only
     #[structopt(long = "--rga-config-file", require_equals = true)]
     pub config_file_path: Option<String>,
 

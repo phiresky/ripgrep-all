@@ -2,7 +2,6 @@ use super::*;
 use super::{custom::map_exe_error, writing::async_writeln};
 use anyhow::*;
 use async_trait::async_trait;
-use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
@@ -10,41 +9,45 @@ use tokio::io::AsyncWrite;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use writing::WritingFileAdapter;
-// todo:
+
 // maybe todo: read list of extensions from
 // ffmpeg -demuxers | tail -n+5 | awk '{print $2}' | while read demuxer; do echo MUX=$demuxer; ffmpeg -h demuxer=$demuxer | grep 'Common extensions'; done 2>/dev/null
 // but really, the probability of getting useful information from a .flv is low
-static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "mp3", "ogg", "flac", "webm"];
+pub const EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "mp3", "ogg", "flac", "webm"];
+pub const MIMETYPES: &[&str] = &[];
 
-lazy_static! {
-    static ref METADATA: AdapterMeta = AdapterMeta {
-        name: "ffmpeg".to_owned(),
-        version: 1,
-        description:
-            "Uses ffmpeg to extract video metadata/chapters, subtitles, lyrics, and other metadata"
-                .to_owned(),
-        recurses: false,
-        fast_matchers: EXTENSIONS
-            .iter()
-            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
-            .collect(),
-        slow_matchers: None,
-        disabled_by_default: false,
-        keep_fast_matchers_if_accurate: true
-    };
+#[derive(Clone)]
+pub struct FFmpegAdapter {
+    pub extensions: Vec<String>,
+    pub mimetypes: Vec<String>,
 }
 
-#[derive(Default, Clone)]
-pub struct FFmpegAdapter;
-
-impl FFmpegAdapter {
-    pub fn new() -> FFmpegAdapter {
-        FFmpegAdapter
+impl Adapter for FFmpegAdapter {
+    fn name(&self) -> String {
+        String::from("ffmpeg")
     }
-}
-impl GetMetadata for FFmpegAdapter {
-    fn metadata(&self) -> &AdapterMeta {
-        &METADATA
+    fn version(&self) -> i32 {
+        1
+    }
+    fn description(&self) -> String {
+        String::from(
+            "Uses ffmpeg to extract video metadata/chapters, subtitles, lyrics, and other metadata.",
+        )
+    }
+    fn recurses(&self) -> bool {
+        false
+    }
+    fn disabled_by_default(&self) -> bool {
+        false
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        true
+    }
+    fn extensions(&self) -> Vec<String> {
+        self.extensions.clone()
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        self.mimetypes.clone()
     }
 }
 

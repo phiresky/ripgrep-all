@@ -1,4 +1,4 @@
-//trait RunFnAdapter: GetMetadata {}
+//trait RunFnAdapter: Adapter {}
 
 //impl<T> FileAdapter for T where T: RunFnAdapter {}
 
@@ -19,30 +19,38 @@ use tokio_util::io::StreamReader;
 
 use crate::adapted_iter::one_file;
 use crate::adapted_iter::AdaptedFilesIterBox;
-use crate::matching::FastFileMatcher;
 
-use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
+use super::{AdaptInfo, Adapter, FileAdapter};
 
 fn add_newline(ar: impl AsyncRead + Send) -> impl AsyncRead + Send {
     ar.chain(Cursor::new(&[b'\n']))
 }
 
 pub struct PostprocPrefix {}
-impl GetMetadata for PostprocPrefix {
-    fn metadata(&self) -> &super::AdapterMeta {
-        lazy_static::lazy_static! {
-            static ref METADATA: AdapterMeta = AdapterMeta {
-                name: "postprocprefix".to_owned(),
-                version: 1,
-                description: "Adds the line prefix to each line (e.g. the filename within a zip)".to_owned(),
-                recurses: false,
-                fast_matchers: vec![],
-                slow_matchers: None,
-                keep_fast_matchers_if_accurate: false,
-                disabled_by_default: false
-            };
-        }
-        &METADATA
+impl Adapter for PostprocPrefix {
+    fn name(&self) -> String {
+        String::from("postprocprefix")
+    }
+    fn version(&self) -> i32 {
+        1
+    }
+    fn description(&self) -> String {
+        String::from("Adds the line prefix to each line (e.g. the filename within a zip)")
+    }
+    fn recurses(&self) -> bool {
+        false
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        [].into()
+    }
+    fn extensions(&self) -> Vec<String> {
+        [].into()
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        false
+    }
+    fn disabled_by_default(&self) -> bool {
+        false
     }
 }
 #[async_trait]
@@ -155,21 +163,30 @@ pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl As
 #[derive(Default)]
 pub struct PostprocPageBreaks {}
 
-impl GetMetadata for PostprocPageBreaks {
-    fn metadata(&self) -> &super::AdapterMeta {
-        lazy_static::lazy_static! {
-            static ref METADATA: AdapterMeta = AdapterMeta {
-                name: "postprocpagebreaks".to_owned(),
-                version: 1,
-                description: "Adds the page number to each line for an input file that specifies page breaks as ascii page break character.\nMainly to be used internally by the poppler adapter.".to_owned(),
-                recurses: false,
-                fast_matchers: vec![FastFileMatcher::FileExtension("asciipagebreaks".to_string())],
-                slow_matchers: None,
-                keep_fast_matchers_if_accurate: false,
-                disabled_by_default: false
-            };
-        }
-        &METADATA
+impl Adapter for PostprocPageBreaks {
+    fn name(&self) -> String {
+        String::from("postprocpagebreaks")
+    }
+    fn version(&self) -> i32 {
+        1
+    }
+    fn description(&self) -> String {
+        String::from("Adds the page number to each line for an input file that specifies page breaks as ascii page break character.\nMainly to be used internally by the poppler adapter.")
+    }
+    fn recurses(&self) -> bool {
+        false
+    }
+    fn extensions(&self) -> Vec<String> {
+        vec![String::from("asciipagebreaks")]
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        [].into()
+    }
+    fn disabled_by_default(&self) -> bool {
+        false
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        true
     }
 }
 #[async_trait]
