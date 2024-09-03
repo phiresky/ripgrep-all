@@ -1,7 +1,6 @@
 use super::{writing::WritingFileAdapter, *};
 use anyhow::Result;
 use async_trait::async_trait;
-use lazy_static::lazy_static;
 use log::*;
 use rusqlite::types::ValueRef;
 use rusqlite::*;
@@ -10,39 +9,50 @@ use tokio::io::AsyncWrite;
 
 use tokio_util::io::SyncIoBridge;
 
-static EXTENSIONS: &[&str] = &["db", "db3", "sqlite", "sqlite3"];
+pub const EXTENSIONS: &[&str] = &["db", "db3", "sqlite", "sqlite3"];
+pub const MIMETYPES: &[&str] = &["application/x-sqlite3"];
 
-lazy_static! {
-    static ref METADATA: AdapterMeta = AdapterMeta {
-        name: "sqlite".to_owned(),
-        version: 1,
-        description:
-            "Uses sqlite bindings to convert sqlite databases into a simple plain text format"
-                .to_owned(),
-        recurses: false, // set to true if we decide to make sqlite blobs searchable (gz blob in db is kinda common I think)
-        fast_matchers: EXTENSIONS
-            .iter()
-            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
-            .collect(),
-        slow_matchers: Some(vec![FileMatcher::MimeType(
-            "application/x-sqlite3".to_owned()
-        )]),
-        keep_fast_matchers_if_accurate: false,
-        disabled_by_default: false
-    };
+#[derive(Clone)]
+pub struct SqliteAdapter {
+    pub extensions: Vec<String>,
+    pub mimetypes: Vec<String>,
 }
 
-#[derive(Default, Clone)]
-pub struct SqliteAdapter;
-
-impl SqliteAdapter {
-    pub fn new() -> SqliteAdapter {
-        SqliteAdapter
+impl Default for SqliteAdapter {
+    fn default() -> SqliteAdapter {
+        SqliteAdapter {
+            extensions: EXTENSIONS.iter().map(|&s| s.to_string()).collect(),
+            mimetypes: MIMETYPES.iter().map(|&s| s.to_string()).collect(),
+        }
     }
 }
-impl GetMetadata for SqliteAdapter {
-    fn metadata(&self) -> &AdapterMeta {
-        &METADATA
+
+impl Adapter for SqliteAdapter {
+    fn name(&self) -> String {
+        String::from("sqlite")
+    }
+    fn version(&self) -> i32 {
+        1
+    }
+    fn description(&self) -> String {
+        String::from(
+            "Uses sqlite bindings to convert sqlite databases into a simple plain text format",
+        )
+    }
+    fn recurses(&self) -> bool {
+        false
+    }
+    fn disabled_by_default(&self) -> bool {
+        false
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        false
+    }
+    fn extensions(&self) -> Vec<String> {
+        self.extensions.clone()
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        self.mimetypes.clone()
     }
 }
 
