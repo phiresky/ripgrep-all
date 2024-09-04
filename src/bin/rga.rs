@@ -36,17 +36,12 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let mime_text = if slow_matchers.is_empty() {
-            "".to_owned()
-        } else {
-            format!("Mime Types: {slow_matchers}")
-        };
         print!(
-            " - **{name}**\n     {desc}  \n     Extensions: {matchers}  \n     {mime}  \n",
+            " - **{name}**\n     {desc}  \n     Extensions: {matchers}  \n     Mime Types: {mime}  \n",
             name = meta.name,
             desc = meta.description.replace('\n', "\n     "),
             matchers = matchers,
-            mime = mime_text
+            mime = slow_matchers,
         );
         println!();
     };
