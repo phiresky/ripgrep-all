@@ -268,4 +268,25 @@ mod test {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn search_xlsx_with_extension_config() -> Result<()> {
+        let zip = test_data_dir().join("excel.xlsx");
+        let (a, d) = simple_fs_adapt_info(&zip).await?;
+        let v = adapted_to_vec(
+            loop_adapt(
+                &ZipAdapter {
+                    extensions: vec![String::from("xlsx")],
+                    mimetypes: Vec::new(),
+                },
+                d,
+                a,
+            )
+            .await?,
+        )
+        .await?;
+        assert_eq!(String::from_utf8(v[..18].to_vec())?, "PREFIX:_rels/.rels"); // first filename in the spreadsheet archive
+
+        Ok(())
+    }
 }
