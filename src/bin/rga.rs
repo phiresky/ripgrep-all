@@ -12,7 +12,8 @@ use std::process::Command;
 use std::time::Instant;
 
 fn list_adapters(args: RgaConfig) -> Result<()> {
-    let (enabled_adapters, disabled_adapters) = get_all_adapters(args.custom_adapters);
+    let (enabled_adapters, disabled_adapters) =
+        get_all_adapters(args.custom_identifiers, args.custom_adapters);
 
     println!("Adapters:\n");
     let print = |adapter: std::sync::Arc<dyn FileAdapter>| {
@@ -27,8 +28,6 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
             .join(", ");
         let slow_matchers = meta
             .slow_matchers
-            .as_ref()
-            .unwrap_or(&vec![])
             .iter()
             .filter_map(|m| match m {
                 FileMatcher::MimeType(x) => Some(x.to_string()),
@@ -87,14 +86,18 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
+    let adapters = get_adapters_filtered(
+        config.custom_identifiers.clone(),
+        config.custom_adapters.clone(),
+        &config.adapters,
+    )?;
 
     let pre_glob = if !config.accurate {
         let extensions = adapters
             .iter()
-            .flat_map(|a| &a.metadata().fast_matchers)
-            .flat_map(|m| match m {
-                FastFileMatcher::FileExtension(ext) => vec![ext.clone(), ext.to_ascii_uppercase()],
+            .flat_map(|a| a.metadata().fast_matchers)
+            .map(|matcher| match matcher {
+                FastFileMatcher::FileExtension(_) => matcher.to_string(),
             })
             .collect::<Vec<_>>()
             .join(",");

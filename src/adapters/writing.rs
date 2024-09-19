@@ -2,13 +2,13 @@ use std::pin::Pin;
 
 use crate::{adapted_iter::one_file, join_handle_to_stream, to_io_err};
 
-use super::{AdaptInfo, FileAdapter, GetMetadata};
+use super::{AdaptInfo, Adapter, FileAdapter};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tokio::io::{AsyncReadExt, AsyncWrite};
 
 #[async_trait]
-pub trait WritingFileAdapter: GetMetadata + Send + Sync + Clone {
+pub trait WritingFileAdapter: Adapter + Send + Sync + Clone {
     async fn adapt_write(
         a: super::AdaptInfo,
         detection_reason: &crate::matching::FileMatcher,

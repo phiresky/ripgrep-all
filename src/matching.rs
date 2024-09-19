@@ -7,8 +7,8 @@ use anyhow::*;
 
 use regex::{Regex, RegexSet};
 
+use std::fmt;
 use std::iter::Iterator;
-
 use std::sync::Arc;
 
 // match only based on file path
@@ -22,6 +22,20 @@ pub enum FastFileMatcher {
     FileExtension(String),
     // todo: maybe add others, e.g. regex on whole filename or even paths
     // todo: maybe allow matching a directory (e.g. /var/lib/postgres)
+}
+
+impl std::fmt::Display for FastFileMatcher {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FastFileMatcher::FileExtension(val) => {
+                // Write strictly the first element into the supplied output
+                // stream: `f`. Returns `fmt::Result` which indicates whether the
+                // operation succeeded or failed. Note that `write!` uses syntax which
+                // is very similar to `println!`.
+                write!(f, "{}", val)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -40,12 +54,12 @@ impl From<FastFileMatcher> for FileMatcher {
     }
 }
 
-pub struct FileMeta {
+pub struct FileMeta<'a> {
     // filename is not actually a utf8 string, but since we can't do regex on OsStr and can't get a &[u8] from OsStr either,
     // and since we probably only want to do only matching on ascii stuff anyways, this is the filename as a string with non-valid bytes removed
     pub lossy_filename: String,
     // only given when slow matching is enabled
-    pub mimetype: Option<&'static str>,
+    pub mimetype: Option<&'a str>,
 }
 
 pub fn extension_to_regex(extension: &str) -> Regex {
