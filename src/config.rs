@@ -130,13 +130,26 @@ pub struct RgaConfig {
     /// - "foo,bar" means use only adapters foo and bar.
     /// - "-bar,baz" means use all default adapters except for bar and baz.
     /// - "+bar,baz" means use all default adapters and also bar and baz.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(skip)] // CLI only
     #[structopt(
         long = "--rga-adapters",
         require_equals = true,
         require_delimiter = true
     )]
     pub adapters: Vec<String>,
+
+    /// Additional adapters to enable in addition to any default adapters.
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(skip)] // config file only
+    pub adapters_enable: Vec<String>,
+
+    /// Adapters to explicitly disable.
+    ///
+    /// Entries in this list will overrule those in `adapters_enable`;
+    /// if the same adapter is present in both lists it will be disabled.
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(skip)] // config file only
+    pub adapters_disable: Vec<String>,
 
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(flatten)]
@@ -378,7 +391,7 @@ where
             )
         })?;
     {
-        // readd values with [serde(skip)]
+        // read values with [serde(skip)]
         res.fzf_path = arg_matches.fzf_path;
         res.list_adapters = arg_matches.list_adapters;
         res.print_config_schema = arg_matches.print_config_schema;
