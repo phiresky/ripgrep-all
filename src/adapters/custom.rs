@@ -25,32 +25,48 @@ use tokio_util::io::StreamReader;
 // mostly the same as AdapterMeta + SpawningFileAdapter
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
 pub struct CustomAdapterConfig {
-    /// the unique identifier and name of this adapter. Must only include a-z, 0-9, _
+    /// The unique identifier and name of this adapter.
+    ///
+    /// Must only include a-z, 0-9, _.
     pub name: String,
-    /// a description of this adapter. shown in help
+
+    /// The description of this adapter shown in help.
     pub description: String,
-    /// if true, the adapter will be disabled by default
+
+    /// If true, the adapter will be disabled by default.
     pub disabled_by_default: Option<bool>,
-    /// version identifier. used to key cache entries, change if the configuration or program changes
+
+    /// Version identifier used to key cache entries.
+    ///
+    /// Change this if the configuration or program changes.
     pub version: i32,
-    /// the file extensions this adapter supports. For example ["epub", "mobi"]
+
+    /// The file extensions this adapter supports, for example `["epub", "mobi"]`.
     pub extensions: Vec<String>,
-    /// if not null and --rga-accurate is enabled, mime type matching is used instead of file name matching
+
+    /// If not null and `--rga-accurate` is enabled, mimetype matching is used instead of file name matching.
     pub mimetypes: Option<Vec<String>>,
-    /// if --rga-accurate, only match by mime types, ignore extensions completely
+
+    /// If `--rga-accurate`, only match by mime types and ignore extensions completely.
     pub match_only_by_mime: Option<bool>,
-    /// the name or path of the binary to run
+
+    /// The name or path of the binary to run.
     pub binary: String,
-    /// The arguments to run the program with. Placeholders:
-    /// - $input_file_extension: the file extension (without dot). e.g. foo.tar.gz -> gz
-    /// - $input_file_stem, the file name without the last extension. e.g. foo.tar.gz -> foo.tar
-    /// - $input_virtual_path: the full input file path. Note that this path may not actually exist on disk because it is the result of another adapter
+
+    /// The arguments to run the program with.
+    /// Placeholders:
+    /// - `$input_file_extension`: the file extension (without dot). e.g. foo.tar.gz -> gz
+    /// - `$input_file_stem`: the file name without the last extension. e.g. foo.tar.gz -> foo.tar
+    /// - `$input_virtual_path`: the full input file path.
+    ///   Note that this path may not actually exist on disk because it is the result of another adapter.
     ///
     /// stdin of the program will be connected to the input file, and stdout is assumed to be the converted file
     pub args: Vec<String>,
-    /// The output path hint. The placeholders are the same as for `.args`
+
+    /// The output path hint.
+    /// The placeholders are the same as for `.args`
     ///
-    /// If not set, defaults to "${input_virtual_path}.txt"
+    /// If not set, defaults to `"${input_virtual_path}.txt"`.
     ///
     /// Setting this is useful if the output format is not plain text (.txt) but instead some other format that should be passed to another adapter
     pub output_path_hint: Option<String>,

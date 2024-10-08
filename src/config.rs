@@ -98,10 +98,11 @@ impl FromStr for CacheMaxBlobLen {
 
 /// # rga configuration
 ///
-/// this is kind of a "polyglot" struct, since it serves three functions
+/// This is kind of a "polyglot" struct serving multiple purposes:
 ///
-/// 1. describing the command line arguments using structopt+clap and for man page / readme generation
-/// 2. describing the config file format (output as JSON schema via schemars)
+/// 1. Declare the command line arguments using structopt+clap
+/// 1. Provide information for manpage / readme generation.
+/// 1. Describe the config file format (output as JSON schema via schemars).
 #[derive(StructOpt, Debug, Deserialize, Serialize, JsonSchema, Default, Clone)]
 #[structopt(
     name = "ripgrep-all",
@@ -114,23 +115,21 @@ impl FromStr for CacheMaxBlobLen {
     usage = "rga [RGA OPTIONS] [RG OPTIONS] PATTERN [PATH ...]"
 )]
 pub struct RgaConfig {
-    /// Use more accurate but slower matching by mime type
+    /// Use more accurate but slower matching by mime type.
     ///
     /// By default, rga will match files using file extensions.
-    /// Some programs, such as sqlite3, don't care about the file extension at all,
-    /// so users sometimes use any or no extension at all. With this flag, rga
-    /// will try to detect the mime type of input files using the magic bytes
-    /// (similar to the `file` utility), and use that to choose the adapter.
+    /// Some programs, such as sqlite3, don't care about the file extension at all, so users sometimes use any or no extension at all.
+    /// With this flag, rga will try to detect the mime type of input files using the magic bytes (similar to the `file` utility), and use that to choose the adapter.
     /// Detection is only done on the first 8KiB of the file, since we can't always seek on the input (in archives).
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(long = "--rga-accurate")]
     pub accurate: bool,
 
-    /// Change which adapters to use and in which priority order (descending)
+    /// Change which adapters to use and in which priority order (descending).
     ///
-    /// "foo,bar" means use only adapters foo and bar.
-    /// "-bar,baz" means use all default adapters except for bar and baz.
-    /// "+bar,baz" means use all default adapters and also bar and baz.
+    /// - "foo,bar" means use only adapters foo and bar.
+    /// - "-bar,baz" means use all default adapters except for bar and baz.
+    /// - "+bar,baz" means use all default adapters and also bar and baz.
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         long = "--rga-adapters",
@@ -143,7 +142,7 @@ pub struct RgaConfig {
     #[structopt(flatten)]
     pub cache: CacheConfig,
 
-    /// Maximum nestedness of archives to recurse into
+    /// Maximum depth of nested archives to recurse into.
     ///
     /// When searching in archives, rga will recurse into archives inside archives.
     /// This option limits the depth.
@@ -164,63 +163,62 @@ pub struct RgaConfig {
     #[structopt(long = "--rga-no-prefix-filenames")]
     pub no_prefix_filenames: bool,
 
-    //////////////////////////////////////////
-    //////////////////////////// Config file only
-    //////////////////////////////////////////
     #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(skip)]
+    #[structopt(skip)] // config file only
     pub custom_adapters: Option<Vec<CustomAdapterConfig>>,
-    //////////////////////////////////////////
-    //////////////////////////// CMD line only
-    //////////////////////////////////////////
+
     #[serde(skip)]
     #[structopt(long = "--rga-config-file", require_equals = true)]
     pub config_file_path: Option<String>,
 
-    /// same as passing path directly, except if argument is empty
-    /// kinda hacky, but if no file is found, fzf calls rga with empty string as path, which causes No such file or directory from rg. So filter those cases and return specially
-    #[serde(skip)]
+    /// Same as passing path directly, except if argument is empty.
+    ///
+    /// Kinda hacky, but if no file is found, `fzf` calls `rga` with empty string as path, which causes "No such file or directory from rg".
+    /// So filter those cases and return specially.
+    #[serde(skip)] // CLI only
     #[structopt(long = "--rga-fzf-path", require_equals = true, hidden = true)]
     pub fzf_path: Option<String>,
 
-    // these arguments are basically "subcommands" that stop the process, so don't serialize them
-    #[serde(skip)]
+    #[serde(skip)] // CLI only
     #[structopt(long = "--rga-list-adapters", help = "List all known adapters")]
     pub list_adapters: bool,
 
-    #[serde(skip)]
+    #[serde(skip)] // CLI only
     #[structopt(
         long = "--rga-print-config-schema",
         help = "Print the JSON Schema of the configuration file"
     )]
     pub print_config_schema: bool,
 
-    #[serde(skip)]
+    #[serde(skip)] // CLI only
     #[structopt(long, help = "Show help for ripgrep itself")]
     pub rg_help: bool,
 
-    #[serde(skip)]
+    #[serde(skip)] // CLI only
     #[structopt(long, help = "Show version of ripgrep itself")]
     pub rg_version: bool,
 }
 
 #[derive(StructOpt, Debug, Deserialize, Serialize, JsonSchema, Default, Clone, PartialEq)]
 pub struct CacheConfig {
-    /// Disable caching of results
+    /// Disable caching of results.
     ///
-    /// By default, rga caches the extracted text, if it is small enough,
-    /// to a database in ${XDG_CACHE_DIR-~/.cache}/ripgrep-all on Linux,
-    /// ~/Library/Caches/ripgrep-all on macOS,
-    /// or C:\Users\username\AppData\Local\ripgrep-all on Windows.
+    /// By default, rga caches the extracted text, if it is small enough, to a database.
     /// This way, repeated searches on the same set of files will be much faster.
+    /// The location of the DB varies by platform:
+    /// - `${XDG_CACHE_DIR-~/.cache}/ripgrep-all` on Linux
+    /// - `~/Library/Caches/ripgrep-all` on macOS
+    /// - `C:\Users\username\AppData\Local\ripgrep-all` on Windows
+    ///
     /// If you pass this flag, all caching will be disabled.
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(long = "--rga-no-cache")]
     pub disabled: bool,
 
-    /// Max compressed size to cache
+    /// Max compressed size to cache.
     ///
-    /// Longest byte length (after compression) to store in cache. Longer adapter outputs will not be cached and recomputed every time.
+    /// Longest byte length (after compression) to store in cache.
+    /// Longer adapter outputs will not be cached and recomputed every time.
     ///
     /// Allowed suffixes on command line: k M G
     #[serde(default, skip_serializing_if = "is_default")]
@@ -233,9 +231,9 @@ pub struct CacheConfig {
     )]
     pub max_blob_len: CacheMaxBlobLen,
 
-    /// ZSTD compression level to apply to adapter outputs before storing in cache db
+    /// ZSTD compression level to apply to adapter outputs before storing in cache DB.
     ///
-    ///  Ranges from 1 - 22
+    /// Ranges from 1 - 22.
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
@@ -246,7 +244,7 @@ pub struct CacheConfig {
     )]
     pub compression_level: CacheCompressionLevel,
 
-    /// Path to store cache db
+    /// Path to store cache DB.
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(
         default_value,
