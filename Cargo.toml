@@ -71,4 +71,5 @@ tokio-test = "0.4.2"
 
 [profile.release]
 debug = true
+lto = "thin"
 split-debuginfo = "packed"
