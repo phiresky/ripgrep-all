@@ -47,6 +47,10 @@ Linux x64, macOS and Windows binaries are available [in GitHub Releases][latestr
 
 `pacman -S ripgrep-all`
 
+#### Gentoo Linux
+
+`emerge sys-apps/ripgrep-all`
+
 #### Nix
 
 `nix-env -iA nixpkgs.ripgrep-all`
