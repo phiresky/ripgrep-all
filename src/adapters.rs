@@ -11,7 +11,9 @@ pub mod zip;
 use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
 use anyhow::{format_err, Context, Result};
 use async_trait::async_trait;
+use custom::strs;
 use custom::CustomAdapterConfig;
+use custom::CustomIdentifiers;
 use custom::BUILTIN_SPAWNING_ADAPTERS;
 use log::*;
 use tokio::io::AsyncRead;
@@ -38,7 +40,7 @@ pub struct AdapterMeta {
     pub fast_matchers: Vec<FastFileMatcher>,
     /// list of matchers when we have mime type detection active (interpreted as ORed)
     /// warning: this *overrides* the fast matchers
-    pub slow_matchers: Option<Vec<FileMatcher>>,
+    pub slow_matchers: Vec<FileMatcher>,
     /// if true, slow_matchers is merged with fast matchers if accurate is enabled
     /// for example, in sqlite you want this disabled since the db extension can mean other things and the mime type matching is very accurate for sqlite.
     /// but for tar you want it enabled, since the tar extension is very accurate but the tar mime matcher can have false negatives
@@ -48,39 +50,63 @@ pub struct AdapterMeta {
 }
 impl AdapterMeta {
     // todo: this is pretty ugly
-    pub fn get_matchers<'a>(
-        &'a self,
-        slow: bool,
-    ) -> Box<dyn Iterator<Item = Cow<FileMatcher>> + 'a> {
+    pub fn get_matchers(&self, slow: bool) -> Box<dyn Iterator<Item = Cow<FileMatcher>> + '_> {
         match (
             slow,
             self.keep_fast_matchers_if_accurate,
             &self.slow_matchers,
+            &self.fast_matchers,
         ) {
-            (true, false, Some(ref sm)) => Box::new(sm.iter().map(Cow::Borrowed)),
-            (true, true, Some(ref sm)) => Box::new(
+            (true, false, sm, _) => Box::new(sm.iter().map(Cow::Borrowed)),
+            (true, true, sm, fm) => Box::new(
                 sm.iter().map(Cow::Borrowed).chain(
-                    self.fast_matchers
-                        .iter()
-                        .map(|e| Cow::Owned(FileMatcher::Fast(e.clone()))),
+                    fm.iter()
+                        .map(|e| Cow::Owned(FileMatcher::Fast(e.clone())))
+                        .collect::<Vec<_>>(),
                 ),
             ),
-            // don't have slow matchers or slow matching disabled
-            (true, _, None) | (false, _, _) => Box::new(
-                self.fast_matchers
-                    .iter()
-                    .map(|e| Cow::Owned(FileMatcher::Fast(e.clone()))),
-            ),
+            // slow matching disabled
+            (false, _, _, fm) => {
+                Box::new(fm.iter().map(|e| Cow::Owned(FileMatcher::Fast(e.clone()))))
+            }
         }
     }
 }
 
-pub trait GetMetadata {
-    fn metadata(&self) -> &AdapterMeta;
+pub trait Adapter {
+    fn name(&self) -> String;
+    fn version(&self) -> i32;
+    fn description(&self) -> String;
+    fn recurses(&self) -> bool;
+    fn disabled_by_default(&self) -> bool;
+    fn keep_fast_matchers_if_accurate(&self) -> bool;
+    fn extensions(&self) -> Vec<String>;
+    fn mimetypes(&self) -> Vec<String>;
+
+    fn metadata(&self) -> AdapterMeta {
+        return AdapterMeta {
+            name: self.name(),
+            version: self.version(),
+            description: self.description(),
+            recurses: true,
+            fast_matchers: self
+                .extensions()
+                .iter()
+                .map(|s| FastFileMatcher::FileExtension(s.to_string()))
+                .collect(),
+            slow_matchers: self
+                .mimetypes()
+                .iter()
+                .map(|mimetype| FileMatcher::MimeType(mimetype.to_string()))
+                .collect(),
+            disabled_by_default: self.disabled_by_default(),
+            keep_fast_matchers_if_accurate: self.keep_fast_matchers_if_accurate(),
+        };
+    }
 }
 
 #[async_trait]
-pub trait FileAdapter: GetMetadata + Send + Sync {
+pub trait FileAdapter: Adapter + Send + Sync {
     /// adapt a file.
     ///
     /// detection_reason is the Matcher that was used to identify this file. Unless --rga-accurate was given, it is always a FastMatcher
@@ -109,7 +135,109 @@ pub struct AdaptInfo {
 /// (enabledAdapters, disabledAdapters)
 type AdaptersTuple = (Vec<Arc<dyn FileAdapter>>, Vec<Arc<dyn FileAdapter>>);
 
-pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
+pub fn get_all_adapters(
+    custom_identifiers: Option<CustomIdentifiers>,
+    custom_adapters: Option<Vec<CustomAdapterConfig>>,
+) -> AdaptersTuple {
+    let bz2_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.bz2.as_ref())
+        .and_then(|bz2| bz2.extensions.clone())
+        .unwrap_or_else(|| strs(decompress::EXTENSIONS_BZ2));
+    let bz2_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.bz2.as_ref())
+        .and_then(|bz2| bz2.mimetypes.clone())
+        .unwrap_or_else(|| strs(decompress::MIMETYPES_BZ2));
+
+    let gz_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.gz.as_ref())
+        .and_then(|gz| gz.extensions.clone())
+        .unwrap_or_else(|| strs(decompress::EXTENSIONS_GZ));
+    let gz_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.gz.as_ref())
+        .and_then(|gz| gz.mimetypes.clone())
+        .unwrap_or_else(|| strs(decompress::MIMETYPES_GZ));
+
+    let xz_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.xz.as_ref())
+        .and_then(|xz| xz.extensions.clone())
+        .unwrap_or_else(|| strs(decompress::EXTENSIONS_XZ));
+    let xz_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.xz.as_ref())
+        .and_then(|xz| xz.mimetypes.clone())
+        .unwrap_or_else(|| strs(decompress::MIMETYPES_XZ));
+
+    let zst_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.zst.as_ref())
+        .and_then(|zst| zst.extensions.clone())
+        .unwrap_or_else(|| strs(decompress::EXTENSIONS_ZST));
+    let zst_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.zst.as_ref())
+        .and_then(|zst| zst.mimetypes.clone())
+        .unwrap_or_else(|| strs(decompress::MIMETYPES_ZST));
+
+    let ffmpeg_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.ffmpeg.as_ref())
+        .and_then(|ffmpeg| ffmpeg.extensions.clone())
+        .unwrap_or_else(|| strs(ffmpeg::EXTENSIONS));
+    let ffmpeg_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.ffmpeg.as_ref())
+        .and_then(|ffmpeg| ffmpeg.mimetypes.clone())
+        .unwrap_or_else(|| strs(ffmpeg::MIMETYPES));
+
+    let mbox_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.mbox.as_ref())
+        .and_then(|mbox| mbox.extensions.clone())
+        .unwrap_or_else(|| strs(mbox::EXTENSIONS));
+    let mbox_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.mbox.as_ref())
+        .and_then(|mbox| mbox.mimetypes.clone())
+        .unwrap_or_else(|| strs(mbox::MIMETYPES));
+
+    let sqlite_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.sqlite.as_ref())
+        .and_then(|sqlite| sqlite.extensions.clone())
+        .unwrap_or_else(|| strs(sqlite::EXTENSIONS));
+    let sqlite_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.sqlite.as_ref())
+        .and_then(|sqlite| sqlite.mimetypes.clone())
+        .unwrap_or_else(|| strs(sqlite::MIMETYPES));
+
+    let tar_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.tar.as_ref())
+        .and_then(|tar| tar.extensions.clone())
+        .unwrap_or_else(|| strs(tar::EXTENSIONS));
+    let tar_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.tar.as_ref())
+        .and_then(|tar| tar.mimetypes.clone())
+        .unwrap_or_else(|| strs(tar::MIMETYPES));
+
+    let zip_extensions = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.zip.as_ref())
+        .and_then(|zip| zip.extensions.clone())
+        .unwrap_or_else(|| strs(zip::EXTENSIONS));
+    let zip_mimetypes = custom_identifiers
+        .as_ref()
+        .and_then(|ids| ids.zip.as_ref())
+        .and_then(|zip| zip.mimetypes.clone())
+        .unwrap_or_else(|| strs(zip::MIMETYPES));
+
     // order in descending priority
     let mut adapters: Vec<Arc<dyn FileAdapter>> = vec![];
     if let Some(custom_adapters) = custom_adapters {
@@ -120,12 +248,36 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
 
     let internal_adapters: Vec<Arc<dyn FileAdapter>> = vec![
         Arc::new(PostprocPageBreaks::default()),
-        Arc::new(ffmpeg::FFmpegAdapter::new()),
-        Arc::new(zip::ZipAdapter::new()),
-        Arc::new(decompress::DecompressAdapter::new()),
-        Arc::new(mbox::MboxAdapter::new()),
-        Arc::new(tar::TarAdapter::new()),
-        Arc::new(sqlite::SqliteAdapter::new()),
+        Arc::new(ffmpeg::FFmpegAdapter {
+            extensions: ffmpeg_extensions,
+            mimetypes: ffmpeg_mimetypes,
+        }),
+        Arc::new(zip::ZipAdapter {
+            extensions: zip_extensions,
+            mimetypes: zip_mimetypes,
+        }),
+        Arc::new(decompress::DecompressAdapter {
+            extensions_gz: gz_extensions,
+            extensions_bz2: bz2_extensions,
+            extensions_xz: xz_extensions,
+            extensions_zst: zst_extensions,
+            mimetypes_gz: gz_mimetypes,
+            mimetypes_bz2: bz2_mimetypes,
+            mimetypes_xz: xz_mimetypes,
+            mimetypes_zst: zst_mimetypes,
+        }),
+        Arc::new(mbox::MboxAdapter {
+            extensions: mbox_extensions,
+            mimetypes: mbox_mimetypes,
+        }),
+        Arc::new(sqlite::SqliteAdapter {
+            extensions: sqlite_extensions,
+            mimetypes: sqlite_mimetypes,
+        }),
+        Arc::new(tar::TarAdapter {
+            extensions: tar_extensions,
+            mimetypes: tar_mimetypes,
+        }),
     ];
     adapters.extend(
         BUILTIN_SPAWNING_ADAPTERS
@@ -148,10 +300,12 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
  *  - "+a,b" means use default list but also a and b (a,b will be prepended to the list so given higher priority)
  */
 pub fn get_adapters_filtered<T: AsRef<str>>(
+    custom_identifiers: Option<CustomIdentifiers>,
     custom_adapters: Option<Vec<CustomAdapterConfig>>,
     adapter_names: &[T],
 ) -> Result<Vec<Arc<dyn FileAdapter>>> {
-    let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
+    let (def_enabled_adapters, def_disabled_adapters) =
+        get_all_adapters(custom_identifiers, custom_adapters);
     let adapters = if !adapter_names.is_empty() {
         let adapters_map: HashMap<_, _> = def_enabled_adapters
             .iter()

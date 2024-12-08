@@ -32,7 +32,11 @@ async fn choose_adapter(
     archive_recursion_depth: i32,
     inp: &mut (impl AsyncBufRead + Unpin),
 ) -> Result<Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>> {
-    let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
+    let active_adapters = get_adapters_filtered(
+        config.custom_identifiers.clone(),
+        config.custom_adapters.clone(),
+        &config.adapters,
+    )?;
     let adapters = adapter_matcher(&active_adapters, config.accurate)?;
     let filename = filepath_hint
         .file_name()
@@ -255,7 +259,7 @@ pub async fn loop_adapt_inner(
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
                     );
-                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).await? {
+                    for await ifile in loop_adapt(adapter.clone().as_ref(), detection_reason, ai).await? {
                         yield ifile;
                     }
                 }

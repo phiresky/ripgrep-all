@@ -1,12 +1,8 @@
 use super::*;
-use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
+use super::{AdaptInfo, Adapter, FileAdapter};
 use crate::adapted_iter::one_file;
 
-use crate::{
-    adapted_iter::AdaptedFilesIterBox,
-    expand::expand_str_ez,
-    matching::{FastFileMatcher, FileMatcher},
-};
+use crate::{adapted_iter::AdaptedFilesIterBox, expand::expand_str_ez, matching::FileMatcher};
 use crate::{join_handle_to_stream, to_io_err};
 use anyhow::Result;
 use async_stream::stream;
@@ -23,6 +19,42 @@ use tokio::process::Command;
 
 use tokio_util::io::StreamReader;
 // mostly the same as AdapterMeta + SpawningFileAdapter
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
+pub struct CustomIdentifier {
+    /// The file extensions this adapter supports, for example `["gz", "tgz"]`.
+    pub extensions: Option<Vec<String>>,
+    /// If not null and --rga-accurate is enabled, mimetype matching is used instead of file name matching.
+    pub mimetypes: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema, PartialEq, Clone)]
+pub struct CustomIdentifiers {
+    /// The identifiers to process as bz2 archives.
+    pub bz2: Option<CustomIdentifier>,
+    /// The identifiers to process as gz archives.
+    pub gz: Option<CustomIdentifier>,
+    /// The identifiers to process as xz archives.
+    pub xz: Option<CustomIdentifier>,
+    /// The identifiers to process as zst archives.
+    pub zst: Option<CustomIdentifier>,
+
+    /// The identifiers to process via ffmpeg.
+    pub ffmpeg: Option<CustomIdentifier>,
+
+    /// The identifiers to process as mbox files.
+    pub mbox: Option<CustomIdentifier>,
+
+    /// The identifiers to process as SQLite files.
+    pub sqlite: Option<CustomIdentifier>,
+
+    /// The identifiers to process as tar files.
+    pub tar: Option<CustomIdentifier>,
+
+    /// The identifiers to process as zip archives.
+    pub zip: Option<CustomIdentifier>,
+}
+
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Default, PartialEq, Clone)]
 pub struct CustomAdapterConfig {
     /// The unique identifier and name of this adapter.
@@ -44,8 +76,8 @@ pub struct CustomAdapterConfig {
     /// The file extensions this adapter supports, for example `["epub", "mobi"]`.
     pub extensions: Vec<String>,
 
-    /// If not null and `--rga-accurate` is enabled, mimetype matching is used instead of file name matching.
-    pub mimetypes: Option<Vec<String>>,
+    /// If not empty `--rga-accurate` is enabled, mimetype matching is used instead of file name matching.
+    pub mimetypes: Vec<String>,
 
     /// If `--rga-accurate`, only match by mime types and ignore extensions completely.
     pub match_only_by_mime: Option<bool>,
@@ -72,7 +104,7 @@ pub struct CustomAdapterConfig {
     pub output_path_hint: Option<String>,
 }
 
-fn strs(arr: &[&str]) -> Vec<String> {
+pub fn strs(arr: &[&str]) -> Vec<String> {
     arr.iter().map(ToString::to_string).collect()
 }
 
@@ -119,7 +151,7 @@ lazy_static! {
             version: 3,
             extensions: strs(&["epub", "odt", "docx", "fb2", "ipynb", "html", "htm"]),
             binary: "pandoc".to_string(),
-            mimetypes: None,
+            mimetypes: Vec::new(),
             // simpler markdown (with more information loss but plainer text)
             //.arg("--to=commonmark-header_attributes-link_attributes-fenced_divs-markdown_in_html_blocks-raw_html-native_divs-native_spans-bracketed_spans")
             args: strs(&[
@@ -139,8 +171,7 @@ lazy_static! {
                 .to_owned(),
 
             extensions: strs(&["pdf"]),
-            mimetypes: Some(strs(&["application/pdf"])),
-
+            mimetypes: strs(&["application/pdf"]),
             binary: "pdftotext".to_string(),
             args: strs(&["-", "-"]),
             disabled_by_default: None,
@@ -199,16 +230,46 @@ pub fn pipe_output(
 }
 
 pub struct CustomSpawningFileAdapter {
+    name: String,
+    version: i32,
+    description: String,
+    recurses: bool,
+    disabled_by_default: bool,
+    keep_fast_matchers_if_accurate: bool,
+    extensions: Vec<String>,
+    mimetypes: Vec<String>,
     binary: String,
     args: Vec<String>,
-    meta: AdapterMeta,
     output_path_hint: Option<String>,
 }
-impl GetMetadata for CustomSpawningFileAdapter {
-    fn metadata(&self) -> &AdapterMeta {
-        &self.meta
+
+impl Adapter for CustomSpawningFileAdapter {
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+    fn version(&self) -> i32 {
+        self.version
+    }
+    fn description(&self) -> String {
+        self.description.clone()
+    }
+    fn recurses(&self) -> bool {
+        self.recurses
+    }
+    fn disabled_by_default(&self) -> bool {
+        self.disabled_by_default
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        self.keep_fast_matchers_if_accurate
+    }
+    fn extensions(&self) -> Vec<String> {
+        self.extensions.clone()
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        self.mimetypes.clone()
     }
 }
+
 fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
     expand_str_ez(arg, |s| match s {
         "input_virtual_path" => Ok(filepath_hint.to_string_lossy()),
@@ -281,33 +342,22 @@ impl FileAdapter for CustomSpawningFileAdapter {
 impl CustomAdapterConfig {
     pub fn to_adapter(&self) -> CustomSpawningFileAdapter {
         CustomSpawningFileAdapter {
+            name: self.name.clone(),
+            version: self.version,
+            description: format!(
+                "{}\nRuns: {} {}",
+                self.description,
+                self.binary,
+                self.args.join(" ")
+            ),
+            recurses: false,
+            disabled_by_default: self.disabled_by_default.unwrap_or(false),
+            keep_fast_matchers_if_accurate: !self.match_only_by_mime.unwrap_or(false),
+            extensions: self.extensions.clone(),
+            mimetypes: self.mimetypes.clone(),
             binary: self.binary.clone(),
             args: self.args.clone(),
             output_path_hint: self.output_path_hint.clone(),
-            meta: AdapterMeta {
-                name: self.name.clone(),
-                version: self.version,
-                description: format!(
-                    "{}\nRuns: {} {}",
-                    self.description,
-                    self.binary,
-                    self.args.join(" ")
-                ),
-                recurses: true,
-                fast_matchers: self
-                    .extensions
-                    .iter()
-                    .map(|s| FastFileMatcher::FileExtension(s.to_string()))
-                    .collect(),
-                slow_matchers: self.mimetypes.as_ref().map(|mimetypes| {
-                    mimetypes
-                        .iter()
-                        .map(|s| FileMatcher::MimeType(s.to_string()))
-                        .collect()
-                }),
-                keep_fast_matchers_if_accurate: !self.match_only_by_mime.unwrap_or(false),
-                disabled_by_default: self.disabled_by_default.unwrap_or(false),
-            },
         }
     }
 }
@@ -334,13 +384,9 @@ mod test {
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
-            "PREFIX:Page 1: hello world
-PREFIX:Page 1: this is just a test.
-PREFIX:Page 1: 
-PREFIX:Page 1: 1
-PREFIX:Page 1: 
-PREFIX:Page 1: 
-"
+            ["hello world", "this is just a test.", "", "1", "", "\n",]
+                .map(|s| format!("{}{}", "PREFIX:Page 1: ", s))
+                .join("\n")
         );
         Ok(())
     }
@@ -360,7 +406,7 @@ PREFIX:Page 1:
             disabled_by_default: None,
             version: 1,
             extensions: vec!["txt".to_string()],
-            mimetypes: None,
+            mimetypes: Vec::new(),
             match_only_by_mime: None,
             binary: "sed".to_string(),
             args: vec!["s/e/u/g".to_string()],

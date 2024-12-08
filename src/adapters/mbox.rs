@@ -9,42 +9,45 @@ use tokio::io::AsyncReadExt;
 
 use std::{collections::VecDeque, io::Cursor};
 
-static EXTENSIONS: &[&str] = &["mbox", "mbx", "eml"];
-static MIME_TYPES: &[&str] = &["application/mbox", "message/rfc822"];
+pub const EXTENSIONS: &[&str] = &["mbox", "mbx", "eml"];
+pub const MIMETYPES: &[&str] = &["application/mbox", "message/rfc822"];
+
 lazy_static! {
-    static ref METADATA: AdapterMeta = AdapterMeta {
-        name: "mail".to_owned(),
-        version: 1,
-        description:
-            "Reads mailbox/mail files and runs extractors on the contents and attachments."
-                .to_owned(),
-        recurses: true,
-        fast_matchers: EXTENSIONS
-            .iter()
-            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
-            .collect(),
-        slow_matchers: Some(
-            MIME_TYPES
-                .iter()
-                .map(|s| FileMatcher::MimeType(s.to_string()))
-                .collect()
-        ),
-        disabled_by_default: true,
-        keep_fast_matchers_if_accurate: true
-    };
     static ref FROM_REGEX: Regex = Regex::new("\r?\nFrom [^\n]+\n").unwrap();
 }
-#[derive(Default)]
-pub struct MboxAdapter;
 
-impl MboxAdapter {
-    pub fn new() -> MboxAdapter {
-        MboxAdapter
-    }
+#[derive(Default)]
+pub struct MboxAdapter {
+    pub extensions: Vec<String>,
+    pub mimetypes: Vec<String>,
 }
-impl GetMetadata for MboxAdapter {
-    fn metadata(&self) -> &AdapterMeta {
-        &METADATA
+
+impl Adapter for MboxAdapter {
+    fn name(&self) -> String {
+        String::from("mail")
+    }
+    fn version(&self) -> i32 {
+        1
+    }
+    fn description(&self) -> String {
+        String::from(
+            "Reads mailbox/mail files and runs extractors on the contents and attachments.",
+        )
+    }
+    fn recurses(&self) -> bool {
+        true
+    }
+    fn disabled_by_default(&self) -> bool {
+        false
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        true
+    }
+    fn extensions(&self) -> Vec<String> {
+        self.extensions.clone()
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        self.mimetypes.clone()
     }
 }
 
@@ -138,7 +141,7 @@ mod tests {
 
     #[tokio::test]
     async fn mail_simple() -> Result<()> {
-        let adapter = MboxAdapter;
+        let adapter = MboxAdapter::default();
 
         let filepath = test_data_dir().join("github_email.eml");
 
@@ -171,7 +174,7 @@ mod tests {
 
     #[tokio::test]
     async fn mbox_simple() -> Result<()> {
-        let adapter = MboxAdapter;
+        let adapter = MboxAdapter::default();
 
         let filepath = test_data_dir().join("test.mbx");
 
@@ -197,7 +200,7 @@ mod tests {
     async fn mbox_attachment() -> Result<()> {
         init_logging();
 
-        let adapter = MboxAdapter;
+        let adapter = MboxAdapter::default();
 
         let filepath = test_data_dir().join("mail_with_attachment.mbox");
 

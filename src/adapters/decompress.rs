@@ -3,51 +3,133 @@ use crate::adapted_iter::one_file;
 use super::*;
 
 use anyhow::Result;
-use lazy_static::lazy_static;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use tokio::io::BufReader;
 
-use std::path::{Path, PathBuf};
+pub const EXTENSIONS_GZ: &[&str] = &["als", "gz", "tgz"];
+pub const EXTENSIONS_BZ2: &[&str] = &["bz2", "tbz", "tbz2"];
+pub const EXTENSIONS_XZ: &[&str] = &["xz"];
+pub const EXTENSIONS_ZST: &[&str] = &["zst"];
 
-static EXTENSIONS: &[&str] = &["als", "bz2", "gz", "tbz", "tbz2", "tgz", "xz", "zst"];
-static MIME_TYPES: &[&str] = &[
-    "application/gzip",
-    "application/x-bzip",
-    "application/x-xz",
-    "application/zstd",
-];
-lazy_static! {
-    static ref METADATA: AdapterMeta = AdapterMeta {
-        name: "decompress".to_owned(),
-        version: 1,
-        description:
-            "Reads compressed file as a stream and runs a different extractor on the contents."
-                .to_owned(),
-        recurses: true,
-        fast_matchers: EXTENSIONS
-            .iter()
-            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
-            .collect(),
-        slow_matchers: Some(
-            MIME_TYPES
-                .iter()
-                .map(|s| FileMatcher::MimeType(s.to_string()))
-                .collect()
-        ),
-        disabled_by_default: false,
-        keep_fast_matchers_if_accurate: true
-    };
+#[derive(Debug, PartialEq, Eq)]
+struct DecompressError;
+
+#[derive(Debug, PartialEq)]
+enum Extension {
+    Gz,
+    Bz2,
+    Xz,
+    Zst,
 }
-#[derive(Default)]
-pub struct DecompressAdapter;
+impl FromStr for Extension {
+    type Err = DecompressError;
 
-impl DecompressAdapter {
-    pub fn new() -> DecompressAdapter {
-        DecompressAdapter
+    fn from_str(ext: &str) -> Result<Self, Self::Err> {
+        if EXTENSIONS_GZ.contains(&ext) {
+            Ok(Extension::Gz)
+        } else if EXTENSIONS_BZ2.contains(&ext) {
+            Ok(Extension::Bz2)
+        } else if EXTENSIONS_XZ.contains(&ext) {
+            Ok(Extension::Xz)
+        } else if EXTENSIONS_ZST.contains(&ext) {
+            Ok(Extension::Zst)
+        } else {
+            Err(DecompressError)
+        }
     }
 }
-impl GetMetadata for DecompressAdapter {
-    fn metadata(&self) -> &AdapterMeta {
-        &METADATA
+
+pub const MIMETYPES_GZ: &[&str] = &["application/gzip"];
+pub const MIMETYPES_BZ2: &[&str] = &["application/x-bzip"];
+pub const MIMETYPES_XZ: &[&str] = &["application/x-xz"];
+pub const MIMETYPES_ZST: &[&str] = &["application/zstd"];
+
+#[derive(Debug, PartialEq)]
+enum Mime {
+    Gz,
+    Bz2,
+    Xz,
+    Zst,
+}
+impl FromStr for Mime {
+    type Err = DecompressError;
+
+    fn from_str(ext: &str) -> Result<Self, Self::Err> {
+        if MIMETYPES_GZ.contains(&ext) {
+            Ok(Mime::Gz)
+        } else if MIMETYPES_BZ2.contains(&ext) {
+            Ok(Mime::Bz2)
+        } else if MIMETYPES_XZ.contains(&ext) {
+            Ok(Mime::Xz)
+        } else if MIMETYPES_ZST.contains(&ext) {
+            Ok(Mime::Zst)
+        } else {
+            Err(DecompressError)
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct DecompressAdapter {
+    pub extensions_gz: Vec<String>,
+    pub extensions_bz2: Vec<String>,
+    pub extensions_xz: Vec<String>,
+    pub extensions_zst: Vec<String>,
+    pub mimetypes_gz: Vec<String>,
+    pub mimetypes_bz2: Vec<String>,
+    pub mimetypes_xz: Vec<String>,
+    pub mimetypes_zst: Vec<String>,
+}
+
+impl Adapter for DecompressAdapter {
+    fn name(&self) -> String {
+        String::from("decompress")
+    }
+    fn version(&self) -> i32 {
+        1
+    }
+    fn description(&self) -> String {
+        String::from(
+            "Reads compressed file as a stream and runs a different extractor on the contents.",
+        )
+    }
+    fn recurses(&self) -> bool {
+        true
+    }
+    fn disabled_by_default(&self) -> bool {
+        false
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        true
+    }
+    fn extensions(&self) -> Vec<String> {
+        let mut extensions: Vec<String> = Vec::new();
+        for exts in [
+            &self.extensions_gz,
+            &self.extensions_bz2,
+            &self.extensions_xz,
+            &self.extensions_zst,
+        ] {
+            for ext in exts {
+                extensions.push(ext.to_string())
+            }
+        }
+        extensions
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        let mut mimetypes: Vec<String> = Vec::new();
+        for mimes in [
+            &self.mimetypes_gz,
+            &self.mimetypes_bz2,
+            &self.mimetypes_xz,
+            &self.mimetypes_zst,
+        ] {
+            for mime in mimes {
+                mimetypes.push(mime.to_string())
+            }
+        }
+        mimetypes
     }
 }
 
@@ -61,19 +143,19 @@ fn decompress_any(reason: &FileMatcher, inp: ReadBox) -> Result<ReadBox> {
     let zst = |inp: ReadBox| Box::pin(bufread::ZstdDecoder::new(BufReader::new(inp)));
 
     Ok(match reason {
-        Fast(FileExtension(ext)) => match ext.as_ref() {
-            "als" | "gz" | "tgz" => gz(inp),
-            "bz2" | "tbz" | "tbz2" => bz2(inp),
-            "zst" => zst(inp),
-            "xz" => xz(inp),
-            ext => Err(format_err!("don't know how to decompress {}", ext))?,
+        Fast(FileExtension(ext)) => match Extension::from_str(ext) {
+            Ok(Extension::Gz) => gz(inp),
+            Ok(Extension::Bz2) => bz2(inp),
+            Ok(Extension::Zst) => xz(inp),
+            Ok(Extension::Xz) => zst(inp),
+            Err(_) => Err(format_err!("don't know how to decompress {}", ext))?,
         },
-        MimeType(mime) => match mime.as_ref() {
-            "application/gzip" => gz(inp),
-            "application/x-bzip" => bz2(inp),
-            "application/x-xz" => xz(inp),
-            "application/zstd" => zst(inp),
-            mime => Err(format_err!("don't know how to decompress mime {}", mime))?,
+        MimeType(mime) => match Mime::from_str(mime) {
+            Ok(Mime::Gz) => gz(inp),
+            Ok(Mime::Bz2) => bz2(inp),
+            Ok(Mime::Xz) => xz(inp),
+            Ok(Mime::Zst) => zst(inp),
+            Err(_) => Err(format_err!("don't know how to decompress mime {}", mime))?,
         },
     })
 }
@@ -137,7 +219,7 @@ mod tests {
 
     #[tokio::test]
     async fn gz() -> Result<()> {
-        let adapter = DecompressAdapter;
+        let adapter = DecompressAdapter::default();
 
         let filepath = test_data_dir().join("hello.gz");
 
@@ -150,7 +232,7 @@ mod tests {
 
     #[tokio::test]
     async fn pdf_gz() -> Result<()> {
-        let adapter = DecompressAdapter;
+        let adapter = DecompressAdapter::default();
 
         let filepath = test_data_dir().join("short.pdf.gz");
 

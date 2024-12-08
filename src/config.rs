@@ -1,4 +1,7 @@
-use crate::{adapters::custom::CustomAdapterConfig, project_dirs};
+use crate::{
+    adapters::custom::{CustomAdapterConfig, CustomIdentifiers},
+    project_dirs,
+};
 use anyhow::{Context, Result};
 use derive_more::FromStr;
 use log::*;
@@ -167,7 +170,11 @@ pub struct RgaConfig {
     #[structopt(skip)] // config file only
     pub custom_adapters: Option<Vec<CustomAdapterConfig>>,
 
-    #[serde(skip)]
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(skip)] // config file only
+    pub custom_identifiers: Option<CustomIdentifiers>,
+
+    #[serde(skip)] // CLI only
     #[structopt(long = "--rga-config-file", require_equals = true)]
     pub config_file_path: Option<String>,
 
