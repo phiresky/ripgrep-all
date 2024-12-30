@@ -7,6 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ffi::OsString;
+use std::io::Error;
 use std::io::Read;
 use std::{fs::File, io::Write, iter::IntoIterator, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
@@ -98,6 +99,22 @@ impl FromStr for CacheMaxBlobLen {
     }
 }
 
+fn parse_custom_identifiers(s: &str) -> Result<HashMap<String, custom::Builtin>, Error> {
+    let identifiers: &mut HashMap<String, custom::Builtin> = &mut HashMap::new();
+    for pair in s.split(",") {
+        match pair.split_once("=") {
+            Some((k, v)) => match custom::Builtin::from_str(v) {
+                Ok(v_parsed) => {
+                    identifiers.insert(k.to_string(), v_parsed);
+                }
+                Err(_) => return Err(Error::other(format!("No known adapter {}", v))),
+            },
+            None => return Err(std::io::Error::other("Must be in form {id}={adapter}")),
+        }
+    }
+    Ok(identifiers.to_owned())
+}
+
 /// # rga configuration
 ///
 /// This is kind of a "polyglot" struct serving multiple purposes:
@@ -169,12 +186,26 @@ pub struct RgaConfig {
     #[structopt(skip)] // config file only
     pub custom_adapters: Option<Vec<custom::CustomAdapterConfig>>,
 
+    /// Map extensions to built-in adapters.
+    ///
+    /// The syntax is "{extension}={adapter}", e.g. "xlsx=zip" to process files ending with ".xlsx" using the zip adapter.
     #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(skip)] // config file only
+    #[structopt(
+        long = "--rga-custom-extensions",
+        require_equals = true,
+        parse(try_from_str = parse_custom_identifiers),
+    )]
     pub custom_extensions: Option<HashMap<String, custom::Builtin>>,
 
+    /// Map mimetypes to built-in adapters.
+    ///
+    /// The syntax is "{mimetype}={adapter}", e.g. "application/vnd.ms-excel=zip" to process Microsoft Excel files using the zip adapter.
     #[serde(default, skip_serializing_if = "is_default")]
-    #[structopt(skip)] // config file only
+    #[structopt(
+        long = "--rga-custom-mimetypes",
+        require_equals = true,
+        parse(try_from_str = parse_custom_identifiers),
+    )]
     pub custom_mimetypes: Option<HashMap<String, custom::Builtin>>,
 
     #[serde(skip)] // CLI only

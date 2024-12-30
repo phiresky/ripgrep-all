@@ -13,6 +13,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Stdio;
+use strum::EnumString;
 use tokio::io::AsyncReadExt;
 use tokio::process::Child;
 use tokio::process::Command;
@@ -20,7 +21,10 @@ use tokio::process::Command;
 use tokio_util::io::StreamReader;
 // mostly the same as AdapterMeta + SpawningFileAdapter
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, EnumString, Eq, Hash, JsonSchema, PartialEq, Serialize,
+)]
+#[strum(serialize_all = "lowercase")]
 pub enum Builtin {
     BZ2,
     GZ,
