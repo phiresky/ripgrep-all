@@ -1,13 +1,12 @@
 use crate::adapters::custom;
 use crate::project_dirs;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use derive_more::FromStr;
 use log::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::io::Error;
 use std::io::Read;
 use std::{fs::File, io::Write, iter::IntoIterator, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
@@ -99,17 +98,16 @@ impl FromStr for CacheMaxBlobLen {
     }
 }
 
-fn parse_custom_identifiers(s: &str) -> Result<HashMap<String, custom::Builtin>, Error> {
+fn parse_custom_identifiers(s: &str) -> Result<HashMap<String, custom::Builtin>> {
     let identifiers: &mut HashMap<String, custom::Builtin> = &mut HashMap::new();
     for pair in s.split(",") {
         match pair.split_once("=") {
-            Some((k, v)) => match custom::Builtin::from_str(v) {
-                Ok(v_parsed) => {
-                    identifiers.insert(k.to_string(), v_parsed);
-                }
-                Err(_) => return Err(Error::other(format!("No known adapter {}", v))),
-            },
-            None => return Err(std::io::Error::other("Must be in form {id}={adapter}")),
+            Some((k, v)) => {
+                let v_parsed = custom::Builtin::from_str(v)
+                    .with_context(|| format!("No known built-in adapter {}", v))?;
+                identifiers.insert(k.to_string(), v_parsed);
+            }
+            None => return Err(anyhow!("Must be in form {{id}}={{adapter}}")),
         }
     }
     Ok(identifiers.to_owned())
