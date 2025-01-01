@@ -1,48 +1,56 @@
-use crate::{
-    adapted_iter::AdaptedFilesIterBox,
-    adapters::AdapterMeta,
-    matching::{FastFileMatcher, FileMatcher},
-    print_bytes,
-};
+use crate::{adapted_iter::AdaptedFilesIterBox, matching::FileMatcher, print_bytes};
 use anyhow::*;
 use async_stream::stream;
 use async_trait::async_trait;
-use lazy_static::lazy_static;
 use log::*;
 use std::path::PathBuf;
 
 use tokio_stream::StreamExt;
 
-use super::{AdaptInfo, FileAdapter, GetMetadata};
+use super::{AdaptInfo, Adapter, FileAdapter};
 
-static EXTENSIONS: &[&str] = &["tar"];
+pub const EXTENSIONS: &[&str] = &["tar"];
+pub const MIMETYPES: &[&str] = &[];
 
-lazy_static! {
-    static ref METADATA: AdapterMeta = AdapterMeta {
-        name: "tar".to_owned(),
-        version: 1,
-        description: "Reads a tar file as a stream and recurses down into its contents".to_owned(),
-        recurses: true,
-        fast_matchers: EXTENSIONS
-            .iter()
-            .map(|s| FastFileMatcher::FileExtension(s.to_string()))
-            .collect(),
-        slow_matchers: None,
-        keep_fast_matchers_if_accurate: true,
-        disabled_by_default: false
-    };
+#[derive(Clone)]
+pub struct TarAdapter {
+    pub extensions: Vec<String>,
+    pub mimetypes: Vec<String>,
 }
-#[derive(Default, Clone)]
-pub struct TarAdapter;
 
-impl TarAdapter {
-    pub fn new() -> TarAdapter {
-        TarAdapter
+impl Default for TarAdapter {
+    fn default() -> TarAdapter {
+        TarAdapter {
+            extensions: EXTENSIONS.iter().map(|&s| s.to_string()).collect(),
+            mimetypes: MIMETYPES.iter().map(|&s| s.to_string()).collect(),
+        }
     }
 }
-impl GetMetadata for TarAdapter {
-    fn metadata(&self) -> &AdapterMeta {
-        &METADATA
+
+impl Adapter for TarAdapter {
+    fn name(&self) -> String {
+        String::from("tar")
+    }
+    fn version(&self) -> i32 {
+        1
+    }
+    fn description(&self) -> String {
+        String::from("Reads a tar file as a stream and recurses down into its contents")
+    }
+    fn recurses(&self) -> bool {
+        true
+    }
+    fn disabled_by_default(&self) -> bool {
+        false
+    }
+    fn keep_fast_matchers_if_accurate(&self) -> bool {
+        true
+    }
+    fn extensions(&self) -> Vec<String> {
+        self.extensions.clone()
+    }
+    fn mimetypes(&self) -> Vec<String> {
+        self.mimetypes.clone()
     }
 }
 
@@ -108,7 +116,7 @@ mod tests {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
 
-        let adapter = TarAdapter::new();
+        let adapter = TarAdapter::default();
         let r = loop_adapt(&adapter, d, a).await.context("adapt")?;
         let o = adapted_to_vec(r).await.context("adapted_to_vec")?;
         assert_eq!(

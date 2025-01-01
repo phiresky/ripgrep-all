@@ -1,9 +1,11 @@
-use crate::{adapters::custom::CustomAdapterConfig, project_dirs};
-use anyhow::{Context, Result};
+use crate::adapters::custom;
+use crate::project_dirs;
+use anyhow::{anyhow, Context, Result};
 use derive_more::FromStr;
 use log::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::Read;
 use std::{fs::File, io::Write, iter::IntoIterator, path::PathBuf, str::FromStr};
@@ -96,6 +98,21 @@ impl FromStr for CacheMaxBlobLen {
     }
 }
 
+fn parse_custom_identifiers(s: &str) -> Result<HashMap<String, custom::Builtin>> {
+    let identifiers: &mut HashMap<String, custom::Builtin> = &mut HashMap::new();
+    for pair in s.split(",") {
+        match pair.split_once("=") {
+            Some((k, v)) => {
+                let v_parsed = custom::Builtin::from_str(v)
+                    .with_context(|| format!("No known built-in adapter {}", v))?;
+                identifiers.insert(k.to_string(), v_parsed);
+            }
+            None => return Err(anyhow!("Must be in form {{id}}={{adapter}}")),
+        }
+    }
+    Ok(identifiers.to_owned())
+}
+
 /// # rga configuration
 ///
 /// This is kind of a "polyglot" struct serving multiple purposes:
@@ -165,9 +182,31 @@ pub struct RgaConfig {
 
     #[serde(default, skip_serializing_if = "is_default")]
     #[structopt(skip)] // config file only
-    pub custom_adapters: Option<Vec<CustomAdapterConfig>>,
+    pub custom_adapters: Option<Vec<custom::CustomAdapterConfig>>,
 
-    #[serde(skip)]
+    /// Map extensions to built-in adapters.
+    ///
+    /// The syntax is "{extension}={adapter}", e.g. "xlsx=zip" to process files ending with ".xlsx" using the zip adapter.
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(
+        long = "--rga-custom-extensions",
+        require_equals = true,
+        parse(try_from_str = parse_custom_identifiers),
+    )]
+    pub custom_extensions: Option<HashMap<String, custom::Builtin>>,
+
+    /// Map mimetypes to built-in adapters.
+    ///
+    /// The syntax is "{mimetype}={adapter}", e.g. "application/vnd.ms-excel=zip" to process Microsoft Excel files using the zip adapter.
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(
+        long = "--rga-custom-mimetypes",
+        require_equals = true,
+        parse(try_from_str = parse_custom_identifiers),
+    )]
+    pub custom_mimetypes: Option<HashMap<String, custom::Builtin>>,
+
+    #[serde(skip)] // CLI only
     #[structopt(long = "--rga-config-file", require_equals = true)]
     pub config_file_path: Option<String>,
 
