@@ -41,7 +41,16 @@
         overlays = [(import rust-overlay)];
       };
 
-      craneLib = crane.mkLib nixpkgs.legacyPackages.${system};
+      craneLib =
+        (crane.mkLib pkgs).overrideToolchain
+        (p:
+          (p.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
+            extensions = [
+              "rust-analyzer"
+              "rust-src"
+              "rustfmt"
+            ];
+          });
 
       src = pkgs.lib.cleanSourceWith {
         src = craneLib.path ./.;
@@ -94,9 +103,6 @@
 
         rga-doc = craneLib.cargoDoc {inherit cargoArtifacts src;};
 
-        # Check formatting
-        rga-fmt = craneLib.cargoFmt {inherit src;};
-
         # Audit dependencies
         rga-audit = craneLib.cargoAudit {inherit src advisory-db;};
 
@@ -112,7 +118,11 @@
           src = ./.;
           hooks = {
             alejandra.enable = true;
-            rustfmt.enable = true;
+            rustfmt = {
+              enable = true;
+              packageOverrides.cargo = craneLib.cargo;
+              packageOverrides.rustfmt = craneLib.rustfmt;
+            };
             typos = {
               enable = true;
               settings = {
@@ -134,9 +144,11 @@
 
       # `nix develop`
       devShells.default = craneLib.devShell {
+        inherit nativeBuildInputs;
         inherit (self.checks.${system}.pre-commit) shellHook;
         inputsFrom = builtins.attrValues self.checks;
-        packages = runtimeInputs ++ nativeBuildInputs;
+        buildInputs = self.checks.${system}.pre-commit.enabledPackages;
+        packages = runtimeInputs;
       };
     });
 }
