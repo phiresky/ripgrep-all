@@ -139,6 +139,7 @@ impl WritingFileAdapter for FFmpegAdapter {
             }
         }
         if !subtitle_streams.is_empty() {
+            let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
             for probe_stream in subtitle_streams.iter() {
                 // extract subtitles
                 let mut cmd = Command::new("ffmpeg");
@@ -154,7 +155,6 @@ impl WritingFileAdapter for FFmpegAdapter {
                     .arg("-");
                 let mut cmd = cmd.stdout(Stdio::piped()).spawn().map_err(spawn_fail)?;
                 let stdo = cmd.stdout.as_mut().expect("is piped");
-                let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
                 let mut time: String = "".to_owned();
                 // rewrite subtitle times so they are shown as a prefix in every line
                 let mut lines = BufReader::new(stdo).lines();

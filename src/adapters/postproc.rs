@@ -24,7 +24,7 @@ use crate::matching::FastFileMatcher;
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
 
 fn add_newline(ar: impl AsyncRead + Send) -> impl AsyncRead + Send {
-    ar.chain(Cursor::new(&[b'\n']))
+    ar.chain(Cursor::new(b"\n"))
 }
 
 pub struct PostprocPrefix {}
