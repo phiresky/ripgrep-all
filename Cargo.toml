@@ -48,18 +48,18 @@ paste = "1.0.12"
 path-clean = "1.0.1"
 pretty-bytes = "0.2.2"
 regex = "1.8.2"
-rusqlite = {version = "0.30.0", features = ["vtab", "bundled"]}
+rusqlite = {version = "0.32.0", features = ["vtab", "bundled"]}
 schemars = {version = "0.8.12", features = ["preserve_order"]}
 serde = {version = "1.0.163", features = ["derive"]}
 serde_json = "1.0.96"
 size_format = "1.0.2"
 structopt = "0.3.26"
 tempfile = "3.5.0"
-tokio = {version = "1.28.1", features = ["full"]}
-tokio-rusqlite = "0.5.0"
+tokio = {version = "1.43.0", features = ["full"]}
+tokio-rusqlite = "0.6.0"
 tokio-stream = {version = "0.1.14", features = ["io-util", "tokio-util"]}
-astral-tokio-tar =  "0.5.1" 
-tokio-util = {version = "0.7.8", features = ["io", "full"]}
+astral-tokio-tar =  "0.5.1"
+tokio-util = {version = "0.7.13", features = ["io", "full"]}
 tree_magic = {package = "tree_magic_mini", version = "3.0.3"}
 
 [dev-dependencies]
