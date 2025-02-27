@@ -53,6 +53,7 @@ pub fn extension_to_regex(extension: &str) -> Regex {
         .expect("we know this regex compiles")
 }
 
+#[allow(clippy::type_complexity)]
 pub fn adapter_matcher(
     adapters: &[Arc<dyn FileAdapter>],
     slow: bool,
