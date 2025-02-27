@@ -51,7 +51,7 @@ impl AdapterMeta {
     pub fn get_matchers<'a>(
         &'a self,
         slow: bool,
-    ) -> Box<dyn Iterator<Item = Cow<FileMatcher>> + 'a> {
+    ) -> Box<dyn Iterator<Item = Cow<'a, FileMatcher>> + 'a> {
         match (
             slow,
             self.keep_fast_matchers_if_accurate,
