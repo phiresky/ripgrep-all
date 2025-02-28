@@ -74,3 +74,12 @@ tokio-test = "0.4.2"
 debug = true
 lto = "thin"
 split-debuginfo = "packed"
+
+# The following metadata is used by `cargo-binstall`, and should be synchronized
+# with `.github/workflows/release.yml`.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ version }-{ target }.{ archive-format }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
