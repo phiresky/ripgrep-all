@@ -59,7 +59,7 @@ tempfile = "3.5.0"
 tokio = {version = "1.28.1", features = ["full"]}
 tokio-rusqlite = "0.5.0"
 tokio-stream = {version = "0.1.14", features = ["io-util", "tokio-util"]}
-tokio-tar = { git = "https://github.com/vorot93/tokio-tar", version = "0.3.0" }
+astral-tokio-tar =  "0.5.1" 
 tokio-util = {version = "0.7.8", features = ["io", "full"]}
 tree_magic = {package = "tree_magic_mini", version = "3.0.3"}
 
