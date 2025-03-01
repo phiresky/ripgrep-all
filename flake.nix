@@ -41,7 +41,12 @@
         overlays = [(import rust-overlay)];
       };
 
-      craneLib = crane.mkLib nixpkgs.legacyPackages.${system};
+      craneLib =
+        (crane.mkLib pkgs).overrideToolchain
+        (p:
+          (p.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
+            extensions = ["rust-analyzer" "rust-src"];
+          });
 
       src = pkgs.lib.cleanSourceWith {
         src = craneLib.path ./.;
@@ -134,9 +139,10 @@
 
       # `nix develop`
       devShells.default = craneLib.devShell {
+        inherit nativeBuildInputs runtimeInputs;
         inherit (self.checks.${system}.pre-commit) shellHook;
         inputsFrom = builtins.attrValues self.checks;
-        packages = runtimeInputs ++ nativeBuildInputs;
+        buildInputs = self.checks.${system}.pre-commit.enabledPackages;
       };
     });
 }
