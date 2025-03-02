@@ -52,9 +52,9 @@ impl GetMetadata for DecompressAdapter {
 }
 
 fn decompress_any(reason: &FileMatcher, inp: ReadBox) -> Result<ReadBox> {
-    use async_compression::tokio::bufread;
     use FastFileMatcher::*;
     use FileMatcher::*;
+    use async_compression::tokio::bufread;
     let gz = |inp: ReadBox| Box::pin(bufread::GzipDecoder::new(BufReader::new(inp)));
     let bz2 = |inp: ReadBox| Box::pin(bufread::BzDecoder::new(BufReader::new(inp)));
     let xz = |inp: ReadBox| Box::pin(bufread::XzDecoder::new(BufReader::new(inp)));

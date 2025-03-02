@@ -9,10 +9,10 @@ pub mod tar;
 pub mod writing;
 pub mod zip;
 use crate::{adapted_iter::AdaptedFilesIterBox, config::RgaConfig, matching::*};
-use anyhow::{format_err, Context, Result};
+use anyhow::{Context, Result, format_err};
 use async_trait::async_trait;
-use custom::CustomAdapterConfig;
 use custom::BUILTIN_SPAWNING_ADAPTERS;
+use custom::CustomAdapterConfig;
 use log::*;
 use tokio::io::AsyncRead;
 

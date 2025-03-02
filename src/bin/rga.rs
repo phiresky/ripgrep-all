@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rga::adapters::custom::map_exe_error;
 use rga::adapters::*;
-use rga::config::{split_args, RgaConfig};
+use rga::config::{RgaConfig, split_args};
 use rga::matching::*;
 use rga::print_dur;
 use ripgrep_all as rga;
@@ -48,7 +48,9 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
     for adapter in enabled_adapters {
         print(adapter)
     }
-    println!("The following adapters are disabled by default, and can be enabled using '--rga-adapters=+foo,bar':\n");
+    println!(
+        "The following adapters are disabled by default, and can be enabled using '--rga-adapters=+foo,bar':\n"
+    );
     for adapter in disabled_adapters {
         print(adapter)
     }

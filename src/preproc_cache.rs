@@ -2,7 +2,7 @@ use crate::{adapters::FileAdapter, preproc::ActiveAdapters};
 use anyhow::{Context, Result};
 use log::warn;
 use path_clean::PathClean;
-use rusqlite::{named_params, OptionalExtension};
+use rusqlite::{OptionalExtension, named_params};
 use std::{path::Path, time::UNIX_EPOCH};
 use tokio_rusqlite::Connection;
 
