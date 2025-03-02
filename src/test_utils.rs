@@ -1,8 +1,8 @@
 use crate::{
     adapted_iter::AdaptedFilesIterBox,
     adapters::{
-        custom::{CustomSpawningFileAdapter, BUILTIN_SPAWNING_ADAPTERS},
         AdaptInfo, ReadBox,
+        custom::{BUILTIN_SPAWNING_ADAPTERS, CustomSpawningFileAdapter},
     },
     config::RgaConfig,
     matching::{FastFileMatcher, FileMatcher},

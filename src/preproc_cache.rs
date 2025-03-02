@@ -2,7 +2,7 @@ use crate::{adapters::FileAdapter, preproc::ActiveAdapters};
 use anyhow::{Context, Result};
 use log::warn;
 use path_clean::PathClean;
-use rusqlite::{named_params, OptionalExtension};
+use rusqlite::{OptionalExtension, named_params};
 use std::{path::Path, time::UNIX_EPOCH};
 use tokio_rusqlite::Connection;
 
@@ -188,7 +188,7 @@ impl PreprocCache for SqliteCache {
     }
 }
 /// opens a default cache
-pub async fn open_cache_db(path: &Path) -> Result<impl PreprocCache> {
+pub async fn open_cache_db(path: &Path) -> Result<impl PreprocCache + use<>> {
     std::fs::create_dir_all(path)?;
     SqliteCache::new(path).await
 }

@@ -57,7 +57,7 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 pub fn adapter_matcher(
     adapters: &[Arc<dyn FileAdapter>],
     slow: bool,
-) -> Result<impl Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)>> {
+) -> Result<impl Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)> + use<>> {
     // need order later
     let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
     let mut fname_regexes = vec![];

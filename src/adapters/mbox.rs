@@ -186,7 +186,10 @@ mod tests {
             );
             let mut buf = Vec::new();
             file.inp.read_to_end(&mut buf).await?;
-            assert_eq!("<html>\r\n  <head>\r\n    <meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\r\n  </head>\r\n  <body>\r\n    <p>&gt;From</p>\r\n    <p>Another word &gt;From<br>\r\n    </p>\r\n  </body>\r\n</html>", String::from_utf8(buf)?.trim());
+            assert_eq!(
+                "<html>\r\n  <head>\r\n    <meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\r\n  </head>\r\n  <body>\r\n    <p>&gt;From</p>\r\n    <p>Another word &gt;From<br>\r\n    </p>\r\n  </body>\r\n</html>",
+                String::from_utf8(buf)?.trim()
+            );
             count += 1;
         }
         assert_eq!(3, count);
@@ -224,7 +227,10 @@ mod tests {
                     );
                 }
                 "short.pdf.txt" => {
-                    assert_eq!("PREFIX:Page 1: hello world\nPREFIX:Page 1: this is just a test.\nPREFIX:Page 1: \nPREFIX:Page 1: 1\nPREFIX:Page 1: \nPREFIX:Page 1: \n", String::from_utf8(buf).unwrap_or("err".to_owned()));
+                    assert_eq!(
+                        "PREFIX:Page 1: hello world\nPREFIX:Page 1: this is just a test.\nPREFIX:Page 1: \nPREFIX:Page 1: 1\nPREFIX:Page 1: \nPREFIX:Page 1: \n",
+                        String::from_utf8(buf).unwrap_or("err".to_owned())
+                    );
                 }
                 _ => {
                     panic!("unrelated {path:?}");

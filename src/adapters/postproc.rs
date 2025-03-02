@@ -17,8 +17,8 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio_util::io::ReaderStream;
 use tokio_util::io::StreamReader;
 
-use crate::adapted_iter::one_file;
 use crate::adapted_iter::AdaptedFilesIterBox;
+use crate::adapted_iter::one_file;
 use crate::matching::FastFileMatcher;
 
 use super::{AdaptInfo, AdapterMeta, FileAdapter, GetMetadata};
@@ -129,7 +129,10 @@ async fn postproc_encoding(
 }
 
 /// Adds the given prefix to each line in an `AsyncRead`.
-pub fn postproc_prefix(line_prefix: &str, inp: impl AsyncRead + Send) -> impl AsyncRead + Send {
+pub fn postproc_prefix<T: AsyncRead + Send>(
+    line_prefix: &str,
+    inp: T,
+) -> impl AsyncRead + Send + use<T> {
     let line_prefix_n = format!("\n{line_prefix}"); // clone since we need it later
     let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
     let regex = regex::bytes::Regex::new("\n").unwrap();

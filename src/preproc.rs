@@ -6,7 +6,7 @@ use crate::matching::*;
 use crate::preproc_cache::CacheKey;
 use crate::recurse::concat_read_streams;
 use crate::{
-    preproc_cache::{open_cache_db, PreprocCache},
+    preproc_cache::{PreprocCache, open_cache_db},
     print_bytes,
 };
 use anyhow::*;

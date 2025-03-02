@@ -361,7 +361,8 @@ where
                 serde_json::to_string_pretty(&merged_config)?
             );
             // pass to child processes
-            std::env::set_var(RGA_CONFIG, merged_config.to_string());
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var(RGA_CONFIG, merged_config.to_string()) };
             merged_config
         }
     };
