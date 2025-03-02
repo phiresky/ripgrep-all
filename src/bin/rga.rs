@@ -57,7 +57,8 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
 fn main() -> anyhow::Result<()> {
     // set debugging as early as possible
     if std::env::args().any(|e| e == "--debug") {
-        std::env::set_var("RUST_LOG", "debug");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "debug") };
     }
 
     env_logger::init();
@@ -151,6 +152,7 @@ fn add_exe_to_path() -> Result<()> {
     // may be somewhat of a security issue if rga binary is in installed in unprivileged locations
     let paths = [&[exe.to_owned(), exe.join("lib")], &paths[..]].concat();
     let new_path = env::join_paths(paths)?;
-    env::set_var("PATH", new_path);
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", new_path) };
     Ok(())
 }

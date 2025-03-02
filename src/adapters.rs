@@ -57,8 +57,8 @@ impl AdapterMeta {
             self.keep_fast_matchers_if_accurate,
             &self.slow_matchers,
         ) {
-            (true, false, Some(ref sm)) => Box::new(sm.iter().map(Cow::Borrowed)),
-            (true, true, Some(ref sm)) => Box::new(
+            (true, false, Some(sm)) => Box::new(sm.iter().map(Cow::Borrowed)),
+            (true, true, Some(sm)) => Box::new(
                 sm.iter().map(Cow::Borrowed).chain(
                     self.fast_matchers
                         .iter()

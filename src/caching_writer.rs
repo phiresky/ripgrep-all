@@ -52,7 +52,7 @@ pub fn async_read_and_write_to_cache<'a>(
         trace!("eof");
         // EOF, call on_finish
         let finish = {
-            if let Some(mut writer) = zstd_writer.take() {
+            match zstd_writer.take() { Some(mut writer) => {
                 writer.shutdown().await?;
                 let res = writer.into_inner();
                 trace!("EOF");
@@ -63,9 +63,9 @@ pub fn async_read_and_write_to_cache<'a>(
                     trace!("cache longer than max, dropping");
                     (bytes_written, None)
                 }
-            } else {
+            } _ => {
                 (bytes_written, None)
-            }
+            }}
         };
 
         // EOF, finish!

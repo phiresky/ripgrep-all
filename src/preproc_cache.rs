@@ -188,7 +188,7 @@ impl PreprocCache for SqliteCache {
     }
 }
 /// opens a default cache
-pub async fn open_cache_db(path: &Path) -> Result<impl PreprocCache> {
+pub async fn open_cache_db(path: &Path) -> Result<impl PreprocCache + use<>> {
     std::fs::create_dir_all(path)?;
     SqliteCache::new(path).await
 }

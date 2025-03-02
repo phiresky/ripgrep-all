@@ -17,12 +17,12 @@ pub trait WritingFileAdapter: GetMetadata + Send + Sync + Clone {
 }
 
 macro_rules! async_writeln {
-    ($dst: expr) => {
+    ($dst: expr_2021) => {
         {
             tokio::io::AsyncWriteExt::write_all(&mut $dst, b"\n").await
         }
     };
-    ($dst: expr, $fmt: expr) => {
+    ($dst: expr_2021, $fmt: expr_2021) => {
         {
             use std::io::Write;
             let mut buf = Vec::<u8>::new();
@@ -30,7 +30,7 @@ macro_rules! async_writeln {
             tokio::io::AsyncWriteExt::write_all(&mut $dst, &buf).await
         }
     };
-    ($dst: expr, $fmt: expr, $($arg: tt)*) => {
+    ($dst: expr_2021, $fmt: expr_2021, $($arg: tt)*) => {
         {
             use std::io::Write;
             let mut buf = Vec::<u8>::new();
