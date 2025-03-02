@@ -23,7 +23,7 @@ anyhow = {version = "1.0.71", features = ["backtrace"]}
 async-compression = { version = "0.4.0", features = ["all", "all-algorithms", "tokio"] }
 async-stream = "0.3.5"
 async-trait = "0.1.68"
-async_zip = {version = "0.0.12", features = ["full"]}
+async_zip = {version = "0.0.17", features = ["full"]}
 bincode = "1.3.3"
 bytes = "1.4.0"
 clap = {version = "4.3.0", features = ["wrap_help"]}
