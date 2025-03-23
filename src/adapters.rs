@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use custom::BUILTIN_SPAWNING_ADAPTERS;
 use custom::CustomAdapterConfig;
 use log::*;
-use tokio::io::AsyncRead;
+use tokio::io::AsyncBufRead;
 
 use core::fmt::Debug;
 use std::borrow::Cow;
@@ -25,7 +25,7 @@ use std::pin::Pin;
 
 use self::postproc::PostprocPageBreaks;
 
-pub type ReadBox = Pin<Box<dyn AsyncRead + Send>>;
+pub type ReadBox = Pin<Box<dyn AsyncBufRead + Send>>;
 pub struct AdapterMeta {
     /// unique short name of this adapter (a-z0-9 only)
     pub name: String,
