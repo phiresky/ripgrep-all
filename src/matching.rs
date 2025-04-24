@@ -36,7 +36,7 @@ pub enum FileMatcher {
 
 impl From<FastFileMatcher> for FileMatcher {
     fn from(t: FastFileMatcher) -> Self {
-        FileMatcher::Fast(t)
+        Self::Fast(t)
     }
 }
 

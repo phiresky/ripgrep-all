@@ -25,7 +25,7 @@ impl std::fmt::Display for CacheCompressionLevel {
 }
 impl Default for CacheCompressionLevel {
     fn default() -> Self {
-        CacheCompressionLevel(12)
+        Self(12)
     }
 }
 #[derive(JsonSchema, Debug, Serialize, Deserialize, Copy, Clone, PartialEq, FromStr)]
@@ -38,7 +38,7 @@ impl std::fmt::Display for MaxArchiveRecursion {
 }
 impl Default for MaxArchiveRecursion {
     fn default() -> Self {
-        MaxArchiveRecursion(5)
+        Self(5)
     }
 }
 
@@ -54,7 +54,7 @@ impl Default for CachePath {
     fn default() -> Self {
         let pd = project_dirs().expect("could not get cache path");
         let app_cache = pd.cache_dir();
-        CachePath(app_cache.to_str().expect("cache path not utf8").to_owned())
+        Self(app_cache.to_str().expect("cache path not utf8").to_owned())
     }
 }
 
@@ -68,7 +68,7 @@ impl std::fmt::Display for CacheMaxBlobLen {
 }
 impl Default for CacheMaxBlobLen {
     fn default() -> Self {
-        CacheMaxBlobLen(2000000)
+        Self(2000000)
     }
 }
 
@@ -77,7 +77,7 @@ impl FromStr for CacheMaxBlobLen {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let suffix = s.chars().last();
         if let Some(suffix) = suffix {
-            Ok(CacheMaxBlobLen(match suffix {
+            Ok(Self(match suffix {
                 'k' | 'M' | 'G' => usize::from_str(s.trim_end_matches(suffix))
                     .with_context(|| "Could not parse int".to_string())
                     .map(|e| {
