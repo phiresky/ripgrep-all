@@ -38,8 +38,8 @@ lazy_static! {
 pub struct FFmpegAdapter;
 
 impl FFmpegAdapter {
-    pub fn new() -> FFmpegAdapter {
-        FFmpegAdapter
+    pub fn new() -> Self {
+        Self
     }
 }
 impl GetMetadata for FFmpegAdapter {

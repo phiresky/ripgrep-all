@@ -36,8 +36,8 @@ lazy_static! {
 pub struct SqliteAdapter;
 
 impl SqliteAdapter {
-    pub fn new() -> SqliteAdapter {
-        SqliteAdapter
+    pub fn new() -> Self {
+        Self
     }
 }
 impl GetMetadata for SqliteAdapter {

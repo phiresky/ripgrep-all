@@ -38,8 +38,8 @@ lazy_static! {
 pub struct MboxAdapter;
 
 impl MboxAdapter {
-    pub fn new() -> MboxAdapter {
-        MboxAdapter
+    pub fn new() -> Self {
+        Self
     }
 }
 impl GetMetadata for MboxAdapter {

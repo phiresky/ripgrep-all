@@ -28,8 +28,8 @@ lazy_static! {
 pub struct ZipAdapter;
 
 impl ZipAdapter {
-    pub fn new() -> ZipAdapter {
-        ZipAdapter
+    pub fn new() -> Self {
+        Self
     }
 }
 impl GetMetadata for ZipAdapter {

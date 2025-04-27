@@ -36,8 +36,8 @@ lazy_static! {
 pub struct TarAdapter;
 
 impl TarAdapter {
-    pub fn new() -> TarAdapter {
-        TarAdapter
+    pub fn new() -> Self {
+        Self
     }
 }
 impl GetMetadata for TarAdapter {

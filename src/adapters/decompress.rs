@@ -41,8 +41,8 @@ lazy_static! {
 pub struct DecompressAdapter;
 
 impl DecompressAdapter {
-    pub fn new() -> DecompressAdapter {
-        DecompressAdapter
+    pub fn new() -> Self {
+        Self
     }
 }
 impl GetMetadata for DecompressAdapter {

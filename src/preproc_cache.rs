@@ -22,7 +22,7 @@ impl CacheKey {
         filepath_hint: &Path,
         adapter: &dyn FileAdapter,
         active_adapters: &ActiveAdapters,
-    ) -> Result<CacheKey> {
+    ) -> Result<Self> {
         let meta = std::fs::metadata(filepath_hint)
             .with_context(|| format!("reading metadata for {}", filepath_hint.to_string_lossy()))?;
         let modified = meta.modified().expect("weird OS that can't into mtime");
@@ -37,7 +37,7 @@ impl CacheKey {
         } else {
             "null".to_string()
         };
-        Ok(CacheKey {
+        Ok(Self {
             config_hash: if postprocess {
                 "a41e2e9".to_string()
             } else {
@@ -103,7 +103,7 @@ struct SqliteCache {
     db: Connection,
 }
 impl SqliteCache {
-    async fn new(path: &Path) -> Result<SqliteCache> {
+    async fn new(path: &Path) -> Result<Self> {
         let db = Connection::open(path.join("cache.sqlite3")).await?;
         db.call(|db| {
             let schema_version: i32 = db.pragma_query_value(None, "user_version", |r| r.get(0))?;
@@ -118,7 +118,7 @@ impl SqliteCache {
 
         connect_pragmas(&db).await?;
 
-        Ok(SqliteCache { db })
+        Ok(Self { db })
     }
 }
 
