@@ -17,7 +17,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Stdio;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 use tokio::process::Child;
 use tokio::process::Command;
 
@@ -160,7 +160,7 @@ pub fn map_exe_error(err: std::io::Error, exe_name: &str, help: &str) -> anyhow:
     }
 }
 
-fn proc_wait(mut child: Child, context: impl FnOnce() -> String) -> impl AsyncRead {
+fn proc_wait(mut child: Child, context: impl FnOnce() -> String) -> impl AsyncBufRead {
     let s = stream! {
         let res = child.wait().await?;
         if res.success() {

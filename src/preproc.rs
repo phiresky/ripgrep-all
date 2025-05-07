@@ -23,6 +23,8 @@ use std::sync::Arc;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::io::{AsyncBufRead, AsyncReadExt};
+use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
 
@@ -162,7 +164,9 @@ async fn adapt_caching(
     // let dbg_ctx = format!("adapter {}", &adapter.metadata().name);
     let cached = cache.get(&cache_key).await.context("cache.get")?;
     match cached {
-        Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
+        Some(cached) => Ok(Box::pin(ZstdDecoder::new(TokioAsyncReadCompatExt::compat(
+            BufReader::new(Cursor::new(cached)),
+        )))),
         None => {
             debug!("cache MISS, running adapter with caching...");
             let inp = loop_adapt(adapter.as_ref(), detection_reason, ai).await?;
@@ -188,8 +192,9 @@ async fn adapt_caching(
                     })
                 }),
             )?;
+            let buffered_inp = BufReader::new(TokioAsyncReadCompatExt::compat(inp.compat()));
 
-            Ok(Box::pin(inp))
+            Ok(Box::pin(buffered_inp))
         }
     }
 }
