@@ -160,7 +160,8 @@ jobs:
         run: |
           strip "target/${{ matrix.target }}/release/rga" \
             "target/${{ matrix.target }}/release/rga-preproc" \
-            "target/${{ matrix.target }}/release/rga-fzf"
+            "target/${{ matrix.target }}/release/rga-fzf" \
+            "target/${{ matrix.target }}/release/rga-fzf-open"
 
       - name: Strip release binary (arm)
         if: matrix.build == 'linux-arm'
@@ -171,7 +172,8 @@ jobs:
             arm-linux-gnueabihf-strip \
             /target/arm-unknown-linux-gnueabihf/release/rga \
             /target/arm-unknown-linux-gnueabihf/release/rga-preproc \
-            /target/arm-unknown-linux-gnueabihf/release/rga-fzf
+            /target/arm-unknown-linux-gnueabihf/release/rga-fzf \
+            /target/arm-unknown-linux-gnueabihf/release/rga-fzf-open
 
       - name: Build archive
         shell: bash
@@ -186,12 +188,14 @@ jobs:
             cp "target/${{ matrix.target }}/release/rga.exe" "$staging/"
             cp "target/${{ matrix.target }}/release/rga-preproc.exe" "$staging/"
             cp "target/${{ matrix.target }}/release/rga-fzf.exe" "$staging/"
+            cp "target/${{ matrix.target }}/release/rga-fzf-open.exe" "$staging/"
             7z a "$staging.zip" "$staging"
             echo "ASSET=$staging.zip" >> $GITHUB_ENV
           else
             cp "target/${{ matrix.target }}/release/rga" "$staging/"
             cp "target/${{ matrix.target }}/release/rga-preproc" "$staging/"
             cp "target/${{ matrix.target }}/release/rga-fzf" "$staging/"
+            cp "target/${{ matrix.target }}/release/rga-fzf-open" "$staging/"
             tar czf "$staging.tar.gz" "$staging"
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
           fi
