@@ -10,7 +10,7 @@ license = "AGPL-3.0-or-later"
 name = "ripgrep_all"
 readme = "README.md"
 repository = "https://github.com/phiresky/ripgrep-all"
-version = "0.10.7"
+version = "0.10.8"
 
 [features]
 default = ["perf-literal"]
