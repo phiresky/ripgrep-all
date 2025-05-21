@@ -93,6 +93,12 @@ To install the dependencies that are each not strictly necessary but very useful
 
 `brew install pandoc poppler ffmpeg`
 
+### X-CMD
+
+If you are a user of [x-cmd](https://x-cmd.com/install/rga), you can run:
+
+`x install rga`
+
 ### MacPorts
 
 `rga` can also be installed on macOS via [MacPorts](https://ports.macports.org/port/ripgrep-all/):
