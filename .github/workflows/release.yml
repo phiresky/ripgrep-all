@@ -70,35 +70,45 @@ jobs:
       # systems.
       CARGO: cargo
       # When CARGO is set to CROSS, this is set to `--target matrix.target`.
-      TARGET_FLAGS:
+      TARGET_FLAGS: ""
       # When CARGO is set to CROSS, TARGET_DIR includes matrix.target.
       TARGET_DIR: ./target
       # Emit backtraces on panics.
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        build: [linux, linux-arm, macos, win-msvc]
         include:
           - build: linux
             os: ubuntu-22.04
             rust: nightly
             target: x86_64-unknown-linux-musl
-          - build: linux-arm
+            strip: x86_64-linux-musl-strip
+          - build: linux
             os: ubuntu-22.04
             rust: nightly
             target: arm-unknown-linux-gnueabihf
+            strip: arm-linux-gnueabihf-strip
+          - build: linux
+            os: ubuntu-22.04
+            rust: nightly
+            target: aarch64-unknown-linux-gnu
+            strip: aarch64-linux-gnu-strip
           - build: macos
             os: macos-latest
             rust: nightly
             target: x86_64-apple-darwin
-          - build: win-msvc
+          - build: macos
+            os: macos-latest
+            rust: nightly
+            target: aarch64-apple-darwin
+          - build: win
             os: windows-2019
             rust: nightly
             target: x86_64-pc-windows-msvc
-        #- build: win-gnu
-        #  os: windows-2019
-        #  rust: nightly-x86_64-gnu
-        #  target: x86_64-pc-windows-gnu
+          #- build: win
+          #  os: windows-2019
+          #  rust: nightly-x86_64-gnu
+          #  target: x86_64-pc-windows-gnu
 
     steps:
       - name: Checkout repository
@@ -107,12 +117,12 @@ jobs:
           fetch-depth: 1
 
       - name: Install packages (Ubuntu)
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.build == 'linux'
         run: |
           ci/ubuntu-install-packages
 
       - name: Install packages (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.build == 'macos'
         run: |
           ci/macos-install-packages
 
@@ -155,25 +165,25 @@ jobs:
       - name: Build release binary
         run: ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
 
-      - name: Strip release binary (linux and macos)
-        if: matrix.build == 'linux' || matrix.build == 'macos'
+      - name: Strip release binary (macos)
+        if: matrix.build == 'macos'
         run: |
           strip "target/${{ matrix.target }}/release/rga" \
             "target/${{ matrix.target }}/release/rga-preproc" \
             "target/${{ matrix.target }}/release/rga-fzf" \
             "target/${{ matrix.target }}/release/rga-fzf-open"
 
-      - name: Strip release binary (arm)
-        if: matrix.build == 'linux-arm'
+      - name: Strip release binary (linux)
+        if: matrix.build == 'linux'
         run: |
           docker run --rm -v \
             "$PWD/target:/target:Z" \
-            rustembedded/cross:arm-unknown-linux-gnueabihf \
-            arm-linux-gnueabihf-strip \
-            /target/arm-unknown-linux-gnueabihf/release/rga \
-            /target/arm-unknown-linux-gnueabihf/release/rga-preproc \
-            /target/arm-unknown-linux-gnueabihf/release/rga-fzf \
-            /target/arm-unknown-linux-gnueabihf/release/rga-fzf-open
+            "rustembedded/cross:${{ matrix.target }}" \
+            "${{ matrix.strip }}" \
+            "/target/${{ matrix.target }}/release/rga" \
+            "/target/${{ matrix.target }}/release/rga-preproc" \
+            "/target/${{ matrix.target }}/release/rga-fzf" \
+            "/target/${{ matrix.target }}/release/rga-fzf-open"
 
       - name: Build archive
         shell: bash
@@ -184,7 +194,7 @@ jobs:
           cp {README.md,LICENSE.md} "$staging/"
           cp CHANGELOG.md "$staging/doc/"
 
-          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+          if [ "${{ matrix.build }}" = "win" ]; then
             cp "target/${{ matrix.target }}/release/rga.exe" "$staging/"
             cp "target/${{ matrix.target }}/release/rga-preproc.exe" "$staging/"
             cp "target/${{ matrix.target }}/release/rga-fzf.exe" "$staging/"
