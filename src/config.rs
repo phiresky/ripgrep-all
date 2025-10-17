@@ -9,9 +9,6 @@ use std::io::Read;
 use std::{fs::File, io::Write, iter::IntoIterator, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 
-#[derive(Debug, Deserialize, Serialize)]
-struct ReadableBytesCount(i64);
-
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {
     t == &T::default()
 }

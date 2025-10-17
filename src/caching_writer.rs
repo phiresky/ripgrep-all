@@ -34,17 +34,15 @@ pub fn async_read_and_write_to_cache<'a>(
         let mut stream = ReaderStream::new(inp);
         while let Some(bytes) = stream.next().await {
             trace!("read bytes: {:?}", bytes);
-            if let Ok(bytes) = &bytes {
-                if let Some(writer) = zstd_writer.as_mut() {
-                    writer.write_all(bytes).await?;
-                    bytes_written += bytes.len() as u64;
-                    let compressed_len = writer.get_ref().len();
-                    trace!("wrote {} to zstd, len now {}", bytes.len(), compressed_len);
-                    if compressed_len > max_cache_size {
-                        debug!("cache longer than max, dropping");
-                        //writer.finish();
-                        zstd_writer.take();
-                    }
+            if let (Ok(bytes), Some(writer)) = (&bytes, zstd_writer.as_mut()) {
+                writer.write_all(bytes).await?;
+                bytes_written += bytes.len() as u64;
+                let compressed_len = writer.get_ref().len();
+                trace!("wrote {} to zstd, len now {}", bytes.len(), compressed_len);
+                if compressed_len > max_cache_size {
+                    debug!("cache longer than max, dropping");
+                    //writer.finish();
+                    zstd_writer.take();
                 }
             }
             yield bytes;

@@ -77,7 +77,7 @@ struct CaptureRef<'a> {
 /// starting at the beginning of `replacement`.
 ///
 /// If no such valid reference could be found, None is returned.
-fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef> {
+fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef<'_>> {
     let mut i = 0;
     let rep: &[u8] = replacement;
     if rep.len() <= 1 || rep[0] != b'$' {
@@ -101,7 +101,7 @@ fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef> {
     Some(CaptureRef { cap, end: cap_end })
 }
 
-fn find_cap_ref_braced(rep: &[u8], mut i: usize) -> Option<CaptureRef> {
+fn find_cap_ref_braced(rep: &[u8], mut i: usize) -> Option<CaptureRef<'_>> {
     let start = i;
     while rep.get(i).is_some_and(|&b| b != b'}') {
         i += 1;

@@ -47,13 +47,13 @@ impl GetMetadata for SqliteAdapter {
 }
 
 fn format_blob(b: ValueRef) -> String {
-    use ValueRef::*;
+    use ValueRef;
     match b {
-        Null => "NULL".to_owned(),
-        Integer(i) => format!("{}", i),
-        Real(i) => format!("{}", i),
-        Text(i) => format!("'{}'", String::from_utf8_lossy(i).replace('\'', "''")),
-        Blob(b) => format!(
+        ValueRef::Null => "NULL".to_owned(),
+        ValueRef::Integer(i) => format!("{}", i),
+        ValueRef::Real(i) => format!("{}", i),
+        ValueRef::Text(i) => format!("'{}'", String::from_utf8_lossy(i).replace('\'', "''")),
+        ValueRef::Blob(b) => format!(
             "[blob {}B]",
             size_format::SizeFormatterSI::new(
                 // can't be larger than 2GB anyways
