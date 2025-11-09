@@ -64,7 +64,7 @@ pub fn print_bytes(bytes: impl Into<f64>) -> String {
 }
 
 pub fn to_io_err(e: anyhow::Error) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::Other, e)
+    std::io::Error::other(e)
 }
 
 #[cfg(test)]
@@ -76,7 +76,7 @@ fn init() {
 /** returns an AsyncRead that is empty but returns an io error if the given task had an io error or join error */
 pub fn join_handle_to_stream(join: JoinHandle<std::io::Result<()>>) -> impl AsyncRead {
     let st = stream! {
-        join.await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))??;
+        join.await.map_err(std::io::Error::other)??;
         yield std::io::Result::Ok(&b""[..])
     };
 

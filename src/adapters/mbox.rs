@@ -152,7 +152,7 @@ mod tests {
             match file
                 .filepath_hint
                 .components()
-                .last()
+                .next_back()
                 .unwrap()
                 .as_os_str()
                 .to_str()
@@ -182,7 +182,11 @@ mod tests {
             let mut file = file?;
             assert_eq!(
                 "data.html",
-                file.filepath_hint.components().last().unwrap().as_os_str()
+                file.filepath_hint
+                    .components()
+                    .next_back()
+                    .unwrap()
+                    .as_os_str()
             );
             let mut buf = Vec::new();
             file.inp.read_to_end(&mut buf).await?;
@@ -212,7 +216,7 @@ mod tests {
             let path = file
                 .filepath_hint
                 .components()
-                .last()
+                .next_back()
                 .unwrap()
                 .as_os_str()
                 .to_str()

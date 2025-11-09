@@ -82,7 +82,7 @@ impl FileAdapter for ZipAdapter {
                     // the issue is that ZipEntryReader borrows from ZipFileReader, but we need to yield it here into the stream
                     // but then it can't borrow from the ZipFile
                     let reader2 = unsafe {
-                        std::intrinsics::transmute::<
+                        std::mem::transmute::<
                             Pin<&mut (dyn AsyncRead + Send)>,
                             Pin<&'static mut (dyn AsyncRead + Send)>,
                         >(reader)
@@ -130,7 +130,7 @@ impl FileAdapter for ZipAdapter {
                         // the issue is that ZipEntryReader borrows from ZipFileReader, but we need to yield it here into the stream
                         // but then it can't borrow from the ZipFile
                         let reader2 = unsafe {
-                            std::intrinsics::transmute::<
+                            std::mem::transmute::<
                                 Pin<&mut (dyn AsyncRead + Send)>,
                                 Pin<&'static mut (dyn AsyncRead + Send)>,
                             >(reader)
