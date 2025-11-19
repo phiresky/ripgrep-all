@@ -5,7 +5,6 @@ use async_stream::stream;
 use lazy_static::lazy_static;
 use mime2ext::mime2ext;
 use regex::bytes::Regex;
-use tokio::io::AsyncReadExt;
 use tokio_util::io::ReaderStream;
 use tokio_stream::StreamExt;
 
@@ -73,7 +72,7 @@ impl FileAdapter for MboxAdapter {
             let mut scan_from: usize = 0;
             while let Some(chunk) = stream.next().await {
                 let chunk = chunk?;
-                let old_len = buffer.len();
+                let _old_len = buffer.len();
                 buffer.extend_from_slice(&chunk);
                 let data = &buffer[..];
                 let mut indices: Vec<usize> = Vec::new();
@@ -169,6 +168,7 @@ impl FileAdapter for MboxAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::AsyncReadExt;
     use crate::preproc::loop_adapt;
     use crate::test_utils::*;
     use pretty_assertions::assert_eq;
@@ -248,7 +248,8 @@ mod tests {
         let filepath = test_data_dir().join("mail_with_attachment.mbox");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let mut r = loop_adapt(&adapter, d, a).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let mut r = loop_adapt(engine, &adapter, d, a).await?;
         let mut count = 0;
         while let Some(file) = r.next().await {
             let mut file = file?;

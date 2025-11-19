@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
             let name = format!("dir/file-{i}.txt");
             let mut data = Vec::new();
             for j in 0..100 {
-                write!(data, "line {i}-{j}\n")?;
+                writeln!(data, "line {i}-{j}")?;
             }
             let mut header = tar::Header::new_gnu();
             header.set_size(data.len() as u64);
@@ -35,8 +35,7 @@ async fn main() -> anyhow::Result<()> {
         }
         b.finish()?;
     }
-    let mut cfg = rga::config::RgaConfig::default();
-    cfg.cache.disabled = true;
+    let cfg = rga::config::RgaConfig { cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),
@@ -59,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
             let mut f = std::fs::OpenOptions::new().create(true).append(true).open(csv)?;
             if !exists { writeln!(f, "bench,bytes,duration_ms,extra")?; }
             let ms = (std::time::Instant::now() - start).as_millis();
-            writeln!(f, "tar,{},{},entries:{}", copied, ms, "unknown")?;
+            writeln!(f, "tar,{},{},entries:unknown", copied, ms)?;
         }
     }
     Ok(())

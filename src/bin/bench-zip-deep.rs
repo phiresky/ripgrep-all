@@ -1,27 +1,40 @@
 use ripgrep_all as rga;
-use async_zip::{Compression, ZipEntryBuilder, write::ZipFileWriter};
+use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter, ZipString};
+use tokio_util::compat::TokioAsyncWriteCompatExt;
+use std::io::Write;
 use std::time::Instant;
 use tempfile::tempdir;
 use tokio::fs::File;
 use tokio::io::{copy, sink};
 
-fn create_zip(entries: usize, nested: bool) -> anyhow::Result<Vec<u8>> {
-    let v = Vec::new();
-    let mut cursor = std::io::Cursor::new(v);
-    let mut zip = ZipFileWriter::new(&mut cursor);
+async fn create_simple_zip_to_file(dir: &std::path::Path, file_name: &str, entries: usize) -> anyhow::Result<std::path::PathBuf> {
+    let out_path = dir.join(file_name);
+    let file = tokio::fs::File::create(&out_path).await?;
+    let mut zip = ZipFileWriter::new(file.compat_write());
     for i in 0..entries {
         let name = format!("file-{i}.txt");
         let content = format!("hello {i}\n");
-        let opts = ZipEntryBuilder::new(name, Compression::Stored);
-        futures::executor::block_on(zip.write_entry_whole(opts, content.as_bytes()))?;
+        let opts = ZipEntryBuilder::new(ZipString::from(name), Compression::Stored);
+        zip.write_entry_whole(opts, content.as_bytes()).await?;
     }
+    zip.close().await?;
+    Ok(out_path)
+}
+
+async fn create_zip(dir: &std::path::Path, entries: usize, nested: bool) -> anyhow::Result<Vec<u8>> {
+    let out_path = create_simple_zip_to_file(dir, "outer.zip", entries).await?;
+    let mut outer = tokio::fs::read(&out_path).await?;
     if nested {
-        let inner = create_zip(100, false)?;
-        let opts = ZipEntryBuilder::new("inner.zip".to_string(), Compression::Stored);
-        futures::executor::block_on(zip.write_entry_whole(opts, &inner))?;
+        let inner_path = create_simple_zip_to_file(dir, "inner.zip", 100).await?;
+        let inner = tokio::fs::read(&inner_path).await?;
+        let file = tokio::fs::File::create(dir.join("outer_with_inner.zip")).await?;
+        let mut zip = ZipFileWriter::new(file.compat_write());
+        let opts = ZipEntryBuilder::new(ZipString::from("inner.zip".to_string()), Compression::Stored);
+        zip.write_entry_whole(opts, &inner).await?;
+        zip.close().await?;
+        outer = tokio::fs::read(dir.join("outer_with_inner.zip")).await?;
     }
-    futures::executor::block_on(zip.close())?;
-    Ok(cursor.into_inner())
+    Ok(outer)
 }
 
 #[tokio::main]
@@ -34,10 +47,9 @@ async fn main() -> anyhow::Result<()> {
         if let Some(v) = arg.strip_prefix("--entries=") { entries = v.parse().unwrap_or(entries); }
         if let Some(v) = arg.strip_prefix("--nested=") { nested = v.parse::<bool>().unwrap_or(nested); }
     }
-    let data = create_zip(entries, nested)?;
+    let data = create_zip(dir.path(), entries, nested).await?;
     std::fs::write(&path, data)?;
-    let mut cfg = rga::config::RgaConfig::default();
-    cfg.cache.disabled = true;
+    let cfg = rga::config::RgaConfig { cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),

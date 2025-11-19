@@ -49,7 +49,7 @@ path-clean = "1.0.1"
 pretty-bytes = "0.2.2"
 regex = "1.10.4"
 zstd = "0.13"
-rusqlite = {version = "0.31.0", features = ["vtab", "bundled"]}
+rusqlite = {version = "0.32.0", features = ["vtab", "bundled"]}
 schemars = {version = "0.8.12", features = ["preserve_order"]}
 serde = {version = "1.0.163", features = ["derive"]}
 serde_json = "1.0.96"
@@ -59,9 +59,11 @@ tempfile = "3.5.0"
 tokio = {version = "1.39.2", features = ["full"]}
 tokio-rusqlite = "0.6.0"
 tokio-stream = {version = "0.1.15", features = ["io-util", "tokio-util"]}
-astral-tokio-tar =  "0.6.0" 
+astral-tokio-tar =  "0.5.6" 
+tar = "0.4.40"
 tokio-util = {version = "0.7.11", features = ["io", "full"]}
 tree_magic = {package = "tree_magic_mini", version = "3.1.0"}
+futures-lite = "2.6.1"
 
 [dev-dependencies]
 async-recursion = "1.0.4"

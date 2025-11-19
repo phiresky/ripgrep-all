@@ -12,8 +12,8 @@ use tokio_stream::StreamExt;
 use tokio_util::io::{ReaderStream, StreamReader};
 use std::sync::Mutex;
 use bytes::BytesMut;
-use tokio::io::{AsyncWrite, ReadBuf};
-use std::task::{Context, Poll};
+use tokio::io::AsyncWrite;
+use std::task::{Context as TaskContext, Poll};
 
 type FinishHandler =
     dyn FnOnce((u64, Option<Vec<u8>>)) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send;
@@ -112,10 +112,10 @@ pub fn async_read_and_write_to_cache<'a>(
             } else if let Some(buf) = small_buf.take() {
                 // compress small outputs once with level 1
                 // try dictionary if available, otherwise zstd level 1
-                if let Some(dict_bytes) = ZSTD_DICT_BYTES.lock().unwrap().clone() {
+                let dict_opt = { ZSTD_DICT_BYTES.lock().unwrap().clone() };
+                if let Some(dict_bytes) = dict_opt {
                     match (|| {
-                        let dict = zstd::dict::EncoderDictionary::new(&dict_bytes, 1);
-                        let mut enc = zstd::Encoder::with_dictionary(Vec::new(), 1, &dict)?;
+                        let mut enc = zstd::Encoder::with_dictionary(Vec::new(), 1, &dict_bytes)?;
                         std::io::Write::write_all(&mut enc, &buf)?;
                         let res = enc.finish()?;
                         Ok::<Vec<u8>, std::io::Error>(res)
@@ -163,11 +163,11 @@ impl BytesMutWriter {
     fn into_inner(self) -> BytesMut { self.inner }
 }
 impl AsyncWrite for BytesMutWriter {
-    fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
+    fn poll_write(self: Pin<&mut Self>, _cx: &mut TaskContext<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
         let me = unsafe { self.get_unchecked_mut() };
         me.inner.extend_from_slice(buf);
         Poll::Ready(Ok(buf.len()))
     }
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> { Poll::Ready(Ok(())) }
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> { Poll::Ready(Ok(())) }
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut TaskContext<'_>) -> Poll<std::io::Result<()>> { Poll::Ready(Ok(())) }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut TaskContext<'_>) -> Poll<std::io::Result<()>> { Poll::Ready(Ok(())) }
 }

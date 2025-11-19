@@ -1,4 +1,6 @@
+#![allow(unused_mut)]
 use ripgrep_all as rga;
+use std::io::Write;
 use std::time::Instant;
 use tempfile::tempdir;
 use tokio::fs::File;
@@ -29,9 +31,7 @@ async fn main() -> anyhow::Result<()> {
         if let Some(v) = arg.strip_prefix("--mb=") { mb = v.parse().unwrap_or(mb); }
     }
     write_utf16_le(&path, mb)?;
-    let mut cfg = rga::config::RgaConfig::default();
-    cfg.accurate = true;
-    cfg.cache.disabled = true;
+    let cfg = rga::config::RgaConfig { accurate: true, cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),

@@ -110,7 +110,7 @@ mod tests {
 
         let adapter = TarAdapter::new();
         let engine = crate::preproc::make_engine(&a.config)?;
-        let r = loop_adapt(&engine, &adapter, d, a).await.context("adapt")?;
+        let r = loop_adapt(engine, &adapter, d, a).await.context("adapt")?;
         let o = adapted_to_vec(r).await.context("adapted_to_vec")?;
         assert_eq!(
             String::from_utf8(o).context("parsing utf8")?,

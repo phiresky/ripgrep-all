@@ -9,25 +9,22 @@ use tokio::io::{copy, sink};
 async fn main() -> anyhow::Result<()> {
     let dir = tempdir()?;
     let path = dir.path().join("bench.mbox");
+    let mut n = 10000;
+    for arg in std::env::args().skip(1) {
+        if let Some(v) = arg.strip_prefix("--messages=") { n = v.parse().unwrap_or(n); }
+    }
     {
         let mut f = std::fs::File::create(&path)?;
         let mut msg = String::new();
         msg.push_str("Content-Type: text/plain; charset=UTF-8\n\n");
         msg.push_str("Hello world\n");
-        let mut n = 10000;
-        for arg in std::env::args().skip(1) {
-            if let Some(v) = arg.strip_prefix("--messages=") { n = v.parse().unwrap_or(n); }
-        }
         for i in 0..n {
-            write!(f, "From user@example.com\n")?;
-            write!(f, "Message {i}\n")?;
+            writeln!(f, "From user@example.com")?;
+            writeln!(f, "Message {i}")?;
             f.write_all(msg.as_bytes())?;
         }
     }
-    let mut cfg = rga::config::RgaConfig::default();
-    cfg.accurate = true;
-    cfg.cache.disabled = true;
-    cfg.adapters = vec!["+mail".to_string()];
+    let cfg = rga::config::RgaConfig { accurate: true, adapters: vec!["+mail".to_string()], cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),

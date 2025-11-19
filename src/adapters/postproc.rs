@@ -190,10 +190,10 @@ impl FileAdapter for PostprocPageBreaks {
         a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
-        let read = if a.config.disable_pagebreaks {
-            postproc_prefix(&a.line_prefix, postproc_encoding(&a.line_prefix, a.inp).await?)
+        let read: Pin<Box<dyn AsyncRead + Send>> = if a.config.disable_pagebreaks {
+            Box::pin(postproc_prefix(&a.line_prefix, postproc_encoding(&a.line_prefix, a.inp).await?))
         } else {
-            postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp).await?)
+            Box::pin(postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp).await?))
         };
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
@@ -314,7 +314,7 @@ mod tests {
         let rd = File::open(&fname).await?;
         let (a, d) = simple_adapt_info(&fname, Box::pin(rd));
         let engine = crate::preproc::make_engine(&a.config)?;
-        let res = loop_adapt(&engine, &adapter, d, a).await?;
+        let res = loop_adapt(engine, &adapter, d, a).await?;
 
         let buf = adapted_to_vec(res).await?;
 

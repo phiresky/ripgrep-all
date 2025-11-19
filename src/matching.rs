@@ -90,17 +90,11 @@ pub fn adapter_matcher(
             .and_then(|e| e.to_str())
             .map(|e| e.to_ascii_lowercase());
         let mut candidates: Vec<(Arc<dyn FileAdapter>, FileMatcher)> = vec![];
-        if let Some(ext) = ext {
-            if let Some(v) = ext_map.get(&ext) {
-                candidates.extend(v.iter().cloned());
-            }
+        if let Some(ext) = ext && let Some(v) = ext_map.get(&ext) {
+            candidates.extend(v.iter().cloned());
         }
-        if slow {
-            if let Some(mt) = meta.mimetype {
-                if let Some(v) = mime_map.get(mt) {
-                    candidates.extend(v.iter().cloned());
-                }
-            }
+        if slow && let Some(mt) = meta.mimetype && let Some(v) = mime_map.get(mt) {
+            candidates.extend(v.iter().cloned());
         }
         if candidates.is_empty() {
             return None;

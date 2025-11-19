@@ -27,9 +27,12 @@ use tokio::io::{AsyncBufRead, AsyncReadExt};
 
 pub type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
 
+type MatcherFn = dyn Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)> + Send + Sync;
+
+#[derive(Clone)]
 pub struct AdapterEngine {
     pub active_adapters: ActiveAdapters,
-    pub matcher: Box<dyn Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)> + Send + Sync>,
+    pub matcher: std::sync::Arc<MatcherFn>,
 }
 
 pub fn make_engine(config: &RgaConfig) -> Result<AdapterEngine> {
@@ -37,7 +40,8 @@ pub fn make_engine(config: &RgaConfig) -> Result<AdapterEngine> {
         let _ = load_zstd_dict_path(p);
     }
     let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
-    let matcher = adapter_matcher(&active_adapters, config.accurate)?;
+    let matcher_box = adapter_matcher(&active_adapters, config.accurate)?;
+    let matcher: std::sync::Arc<MatcherFn> = matcher_box.into();
     Ok(AdapterEngine { active_adapters, matcher })
 }
 
@@ -183,7 +187,7 @@ async fn adapt_caching(
         Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
         None => {
             debug!("cache MISS, running adapter with caching...");
-            let inp = loop_adapt(engine, adapter.as_ref(), detection_reason, ai).await?;
+            let inp = loop_adapt(engine.clone(), adapter.as_ref(), detection_reason, ai).await?;
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
                 inp,
@@ -224,7 +228,7 @@ async fn read_discard(mut x: ReadBox) -> Result<()> {
 }
 
 pub fn loop_adapt(
-    engine: &AdapterEngine,
+    engine: AdapterEngine,
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
@@ -232,7 +236,7 @@ pub fn loop_adapt(
     Box::pin(async move { loop_adapt_inner(engine, adapter, detection_reason, ai).await })
 }
 pub async fn loop_adapt_inner(
-    engine: &AdapterEngine,
+    engine: AdapterEngine,
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
@@ -254,7 +258,7 @@ pub async fn loop_adapt_inner(
     let s = stream! {
         for await file in inp {
             trace!("next file");
-            match buf_choose_adapter(engine, file?).await? {
+            match buf_choose_adapter(&engine, file?).await? {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
                     if ai.archive_recursion_depth >= ai.config.max_archive_recursion.0 {
                         // some adapters (esp. zip) assume that the entry is read fully and might hang otherwise
@@ -275,7 +279,8 @@ pub async fn loop_adapt_inner(
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
                     );
-                    for await ifile in loop_adapt(engine, adapter.as_ref(), detection_reason, ai).await? {
+                    let engine_c = engine.clone();
+                    for await ifile in loop_adapt(engine_c, adapter.as_ref(), detection_reason, ai).await? {
                         yield ifile;
                     }
                 }
