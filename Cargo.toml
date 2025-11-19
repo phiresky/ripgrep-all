@@ -64,6 +64,7 @@ tar = "0.4.40"
 tokio-util = {version = "0.7.11", features = ["io", "full"]}
 tree_magic = {package = "tree_magic_mini", version = "3.1.0"}
 futures-lite = "2.6.1"
+futures = "0.3.31"
 
 [dev-dependencies]
 async-recursion = "1.0.4"
