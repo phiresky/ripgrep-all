@@ -92,38 +92,39 @@ async fn postproc_encoding(
     let has_binary = fourk.contains(&0u8);
 
     let enc = Encoding::for_bom(&fourk);
-    let inp = Cursor::new(fourk).chain(beginning.into_inner());
+    let combined = Cursor::new(fourk).chain(beginning.into_inner());
     match enc {
         Some((enc, _)) if enc != encoding_rs::UTF_8 => {
-            // detected UTF16LE or UTF16BE, convert to UTF8 in separate thread
-            // TODO: parse these options from ripgrep's configuration
-            let encoding = None; // detect bom but usually assume utf8
+            let encoding = None;
             let bom_sniffing = true;
-            let mut decode_builder = DecodeReaderBytesBuilder::new();
-            // https://github.com/BurntSushi/ripgrep/blob/a7d26c8f144a4957b75f71087a66692d0b25759a/grep-searcher/src/searcher/mod.rs#L706
-            // this detects utf-16 BOMs and transcodes to utf-8 if they are present
-            // it does not detect any other char encodings. that would require https://github.com/hsivonen/chardetng or similar but then binary detection is hard (?)
-            let mut inp = decode_builder
+            let mut builder = DecodeReaderBytesBuilder::new();
+            let reader = builder
                 .encoding(encoding)
                 .utf8_passthru(true)
                 .strip_bom(bom_sniffing)
                 .bom_override(true)
                 .bom_sniffing(bom_sniffing)
-                .build(SyncIoBridge::new(inp));
-            let oup = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-                let mut oup = Vec::new();
-                std::io::Read::read_to_end(&mut inp, &mut oup)?;
-                Ok(oup)
-            })
-            .await??;
-            Ok(Box::pin(Cursor::new(oup)))
+                .build(SyncIoBridge::new(combined));
+            let (w, r) = tokio::io::duplex(64 * 1024);
+            let mut writer = SyncIoBridge::new(w);
+            tokio::task::spawn_blocking(move || -> Result<()> {
+                let mut buf = [0u8; 1 << 15];
+                let mut rdr = reader;
+                loop {
+                    let n = std::io::Read::read(&mut rdr, &mut buf)?;
+                    if n == 0 { break; }
+                    std::io::Write::write_all(&mut writer, &buf[..n])?;
+                }
+                Ok(())
+            }).await??;
+            Ok(Box::pin(r))
         }
         _ => {
             if has_binary {
                 log::debug!("detected binary");
                 return Ok(Box::pin(Cursor::new("[rga: binary data]")));
             }
-            Ok(Box::pin(inp))
+            Ok(Box::pin(combined))
         }
     }
 }
@@ -133,9 +134,8 @@ pub fn postproc_prefix<T: AsyncRead + Send>(
     line_prefix: &str,
     inp: T,
 ) -> impl AsyncRead + Send + use<T> {
-    let line_prefix_n = format!("\n{line_prefix}"); // clone since we need it later
+    let line_prefix_n = format!("\n{line_prefix}");
     let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
-    let regex = regex::bytes::Regex::new("\n").unwrap();
     let inp_stream = ReaderStream::new(inp);
     let oup_stream = stream! {
         yield Ok(line_prefix_o);
@@ -144,7 +144,15 @@ pub fn postproc_prefix<T: AsyncRead + Send>(
                 Err(e) => yield Err(e),
                 Ok(chunk) => {
                     if chunk.contains(&b'\n') {
-                        yield Ok(Bytes::copy_from_slice(&regex.replace_all(&chunk, line_prefix_n.as_bytes())));
+                        let mut out = Vec::with_capacity(chunk.len() + 16);
+                        let mut last = 0usize;
+                        for pos in memchr::memchr_iter(b'\n', &chunk) {
+                            out.extend_from_slice(&chunk[last..pos]);
+                            out.extend_from_slice(line_prefix_n.as_bytes());
+                            last = pos + 1;
+                        }
+                        out.extend_from_slice(&chunk[last..]);
+                        yield Ok(Bytes::from(out));
                     } else {
                         yield Ok(chunk);
                     }
@@ -182,7 +190,11 @@ impl FileAdapter for PostprocPageBreaks {
         a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
-        let read = postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp).await?);
+        let read = if a.config.disable_pagebreaks {
+            postproc_prefix(&a.line_prefix, postproc_encoding(&a.line_prefix, a.inp).await?)
+        } else {
+            postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp).await?)
+        };
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
             inp: Box::pin(read),
@@ -202,41 +214,49 @@ impl FileAdapter for PostprocPageBreaks {
 /// where N starts at one and is incremented for each ASCII Form Feed character in the input stream.
 /// ASCII form feeds are the page delimiters output by `pdftotext`.
 pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Send {
-    let regex_linefeed = regex::bytes::Regex::new(r"\x0c").unwrap();
-    let regex_newline = regex::bytes::Regex::new("\n").unwrap();
     let mut page_count: i32 = 1;
     let mut page_prefix: String = format!("\nPage {page_count}: ");
-
     let input_stream = ReaderStream::new(input);
     let output_stream = stream! {
         yield std::io::Result::Ok(Bytes::copy_from_slice(format!("Page {page_count}: ").as_bytes()));
-        // store Page X: line prefixes in pending and only write it to the output when there is more text to be written
-        // this is needed since pdftotext outputs a \x0c at the end of the last page
         let mut pending: Option<Bytes> = None;
-
         for await read_chunk in input_stream {
             let read_chunk = read_chunk?;
-            let page_chunks = regex_linefeed.split(&read_chunk);
-            for (chunk_idx, page_chunk) in page_chunks.enumerate() {
-                if chunk_idx != 0 {
-                    page_count += 1;
-                    page_prefix = format!("\nPage {page_count}: ");
-                    if let Some(p) = pending.take() {
-                        yield Ok(p);
-                    }
-                    pending = Some(Bytes::copy_from_slice(page_prefix.as_bytes()));
-                }
+            let mut start = 0usize;
+            while let Some(ff_pos) = memchr::memchr(0x0c, &read_chunk[start..]) {
+                let abs = start + ff_pos;
+                let page_chunk = &read_chunk[start..abs];
                 if !page_chunk.is_empty() {
-                    if let Some(p) = pending.take() {
-                        yield Ok(p);
+                    if let Some(p) = pending.take() { yield Ok(p); }
+                    let mut out = Vec::with_capacity(page_chunk.len() + 16);
+                    let mut last = 0usize;
+                    for nl in memchr::memchr_iter(b'\n', page_chunk) {
+                        out.extend_from_slice(&page_chunk[last..nl]);
+                        out.extend_from_slice(page_prefix.as_bytes());
+                        last = nl + 1;
                     }
-                    yield Ok(Bytes::copy_from_slice(&regex_newline.replace_all(page_chunk, page_prefix.as_bytes())));
+                    out.extend_from_slice(&page_chunk[last..]);
+                    yield Ok(Bytes::from(out));
                 }
-
+                page_count += 1;
+                page_prefix = format!("\nPage {page_count}: ");
+                pending = Some(Bytes::copy_from_slice(page_prefix.as_bytes()));
+                start = abs + 1;
+            }
+            let page_chunk = &read_chunk[start..];
+            if !page_chunk.is_empty() {
+                if let Some(p) = pending.take() { yield Ok(p); }
+                let mut out = Vec::with_capacity(page_chunk.len() + 16);
+                let mut last = 0usize;
+                for nl in memchr::memchr_iter(b'\n', page_chunk) {
+                    out.extend_from_slice(&page_chunk[last..nl]);
+                    out.extend_from_slice(page_prefix.as_bytes());
+                    last = nl + 1;
+                }
+                out.extend_from_slice(&page_chunk[last..]);
+                yield Ok(Bytes::from(out));
             }
         }
-
-
     };
     Box::pin(StreamReader::new(output_stream))
 }
@@ -293,7 +313,8 @@ mod tests {
         let fname = test_data_dir().join("twoblankpages.pdf");
         let rd = File::open(&fname).await?;
         let (a, d) = simple_adapt_info(&fname, Box::pin(rd));
-        let res = loop_adapt(&adapter, d, a).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let res = loop_adapt(&engine, &adapter, d, a).await?;
 
         let buf = adapted_to_vec(res).await?;
 

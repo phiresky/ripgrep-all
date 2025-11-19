@@ -1,6 +1,7 @@
 use crate::adapted_iter::AdaptedFilesIterBox;
 use crate::adapters::*;
 use crate::caching_writer::async_read_and_write_to_cache;
+use crate::caching_writer::load_zstd_dict_path;
 use crate::config::RgaConfig;
 use crate::matching::*;
 use crate::preproc_cache::CacheKey;
@@ -26,14 +27,27 @@ use tokio::io::{AsyncBufRead, AsyncReadExt};
 
 pub type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
 
+pub struct AdapterEngine {
+    pub active_adapters: ActiveAdapters,
+    pub matcher: Box<dyn Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)> + Send + Sync>,
+}
+
+pub fn make_engine(config: &RgaConfig) -> Result<AdapterEngine> {
+    if let Some(p) = &config.cache.dict_path {
+        let _ = load_zstd_dict_path(p);
+    }
+    let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
+    let matcher = adapter_matcher(&active_adapters, config.accurate)?;
+    Ok(AdapterEngine { active_adapters, matcher })
+}
+
 async fn choose_adapter(
+    engine: &AdapterEngine,
     config: &RgaConfig,
     filepath_hint: &Path,
     archive_recursion_depth: i32,
     inp: &mut (impl AsyncBufRead + Unpin),
 ) -> Result<Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>> {
-    let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
-    let adapters = adapter_matcher(&active_adapters, config.accurate)?;
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
@@ -41,30 +55,32 @@ async fn choose_adapter(
 
     let mimetype = if config.accurate {
         let buf = inp.fill_buf().await?; // fill but do not consume!
-        if buf.starts_with(b"From \x0d") || buf.starts_with(b"From -") {
+        let probe = &buf[..buf.len().min(8192)];
+        if probe.starts_with(b"From \x0d") || probe.starts_with(b"From -") {
             Some("application/mbox")
         } else {
-            let mimetype = tree_magic::from_u8(buf);
+            let mimetype = tree_magic::from_u8(probe);
             debug!("mimetype: {:?}", mimetype);
             Some(mimetype)
         }
     } else {
         None
     };
-    let adapter = adapters(FileMeta {
+    let adapter = (engine.matcher)(FileMeta {
         mimetype,
         lossy_filename: filename.to_string_lossy().to_string(),
     });
-    Ok(adapter.map(|e| (e.0, e.1, active_adapters)))
+    Ok(adapter.map(|e| (e.0, e.1, engine.active_adapters.clone())))
 }
 
 enum Ret {
     Recurse(AdaptInfo, Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters),
     Passthrough(AdaptInfo),
 }
-async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
+async fn buf_choose_adapter(engine: &AdapterEngine, ai: AdaptInfo) -> Result<Ret> {
     let mut inp = BufReader::with_capacity(1 << 16, ai.inp);
     let adapter = choose_adapter(
+        engine,
         &ai.config,
         &ai.filepath_hint,
         ai.archive_recursion_depth,
@@ -82,7 +98,7 @@ async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
             // otherwise it should have been filtered out by rg pre-glob since rg can handle those better than us
             let allow_cat = !ai.is_real_file || ai.config.accurate;
             if allow_cat {
-                if ai.postprocess {
+                if ai.postprocess && !ai.config.no_prefix_filenames && !ai.config.no_prefix_for_adapters.iter().any(|s| s == "default" || s == "*") {
                     (
                         Arc::new(PostprocPrefix {}) as Arc<dyn FileAdapter>,
                         FileMatcher::Fast(FastFileMatcher::FileExtension("default".to_string())),
@@ -112,22 +128,24 @@ async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
  */
 pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     debug!("path (hint) to preprocess: {:?}", ai.filepath_hint);
+    let engine = make_engine(&ai.config)?;
 
     // todo: figure out when using a bufreader is a good idea and when it is not
     // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
-    let (ai, adapter, detection_reason, active_adapters) = match buf_choose_adapter(ai).await? {
+    let (ai, adapter, detection_reason, active_adapters) = match buf_choose_adapter(&engine, ai).await? {
         Ret::Recurse(ai, a, b, c) => (ai, a, b, c),
         Ret::Passthrough(ai) => {
             return Ok(ai.inp);
         }
     };
     let path_hint_copy = ai.filepath_hint.clone();
-    adapt_caching(ai, adapter, detection_reason, active_adapters)
+    adapt_caching(&engine, ai, adapter, detection_reason, active_adapters)
         .await
         .with_context(|| format!("run_adapter({})", &path_hint_copy.to_string_lossy()))
 }
 
 async fn adapt_caching(
+    engine: &AdapterEngine,
     ai: AdaptInfo,
     adapter: Arc<dyn FileAdapter>,
     detection_reason: FileMatcher,
@@ -165,7 +183,7 @@ async fn adapt_caching(
         Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
         None => {
             debug!("cache MISS, running adapter with caching...");
-            let inp = loop_adapt(adapter.as_ref(), detection_reason, ai).await?;
+            let inp = loop_adapt(engine, adapter.as_ref(), detection_reason, ai).await?;
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
                 inp,
@@ -206,13 +224,15 @@ async fn read_discard(mut x: ReadBox) -> Result<()> {
 }
 
 pub fn loop_adapt(
+    engine: &AdapterEngine,
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
 ) -> Pin<Box<dyn Future<Output = anyhow::Result<AdaptedFilesIterBox>> + Send + '_>> {
-    Box::pin(async move { loop_adapt_inner(adapter, detection_reason, ai).await })
+    Box::pin(async move { loop_adapt_inner(engine, adapter, detection_reason, ai).await })
 }
 pub async fn loop_adapt_inner(
+    engine: &AdapterEngine,
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
@@ -234,7 +254,7 @@ pub async fn loop_adapt_inner(
     let s = stream! {
         for await file in inp {
             trace!("next file");
-            match buf_choose_adapter(file?).await? {
+            match buf_choose_adapter(engine, file?).await? {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
                     if ai.archive_recursion_depth >= ai.config.max_archive_recursion.0 {
                         // some adapters (esp. zip) assume that the entry is read fully and might hang otherwise
@@ -255,7 +275,7 @@ pub async fn loop_adapt_inner(
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
                     );
-                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).await? {
+                    for await ifile in loop_adapt(engine, adapter.as_ref(), detection_reason, ai).await? {
                         yield ifile;
                     }
                 }

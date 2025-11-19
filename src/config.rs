@@ -22,7 +22,7 @@ impl std::fmt::Display for CacheCompressionLevel {
 }
 impl Default for CacheCompressionLevel {
     fn default() -> Self {
-        Self(12)
+        Self(8)
     }
 }
 #[derive(JsonSchema, Debug, Serialize, Deserialize, Copy, Clone, PartialEq, FromStr)]
@@ -194,6 +194,16 @@ pub struct RgaConfig {
     #[serde(skip)] // CLI only
     #[structopt(long, help = "Show version of ripgrep itself")]
     pub rg_version: bool,
+
+    /// Disable page break postprocessing (removes "Page N:" prefixes)
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(long = "--rga-disable-pagebreaks")]
+    pub disable_pagebreaks: bool,
+
+    /// Disable line prefixing for specific adapters (comma-delimited names)
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(long = "--rga-no-prefix-for", require_equals = true, require_delimiter = true)]
+    pub no_prefix_for_adapters: Vec<String>,
 }
 
 #[derive(StructOpt, Debug, Deserialize, Serialize, JsonSchema, Default, Clone, PartialEq)]
@@ -250,6 +260,11 @@ pub struct CacheConfig {
         require_equals = true
     )]
     pub path: CachePath,
+
+    /// Zstd dictionary path for cache compression warm start
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[structopt(long = "--rga-cache-dict-path", require_equals = true)]
+    pub dict_path: Option<String>,
 }
 
 static RGA_CONFIG: &str = "RGA_CONFIG";

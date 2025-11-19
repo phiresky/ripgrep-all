@@ -113,6 +113,9 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .args(vec![
                     "-v",
                     "error",
+                    "-threads",
+                    "0",
+                    "-nostdin",
                     "-show_format",
                     "-show_streams",
                     "-of",
@@ -146,6 +149,9 @@ impl WritingFileAdapter for FFmpegAdapter {
                 cmd.arg("-hide_banner")
                     .arg("-loglevel")
                     .arg("panic")
+                    .arg("-nostdin")
+                    .arg("-threads")
+                    .arg("0")
                     .arg("-i")
                     .arg(&inp_fname)
                     .arg("-map")

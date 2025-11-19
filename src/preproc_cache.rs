@@ -60,9 +60,11 @@ pub trait PreprocCache {
 
 async fn connect_pragmas(db: &Connection) -> Result<()> {
     // https://phiresky.github.io/blog/2020/sqlite-performance-tuning/
-    //let want_page_size = 32768;
-    //db.execute(&format!("pragma page_size = {};", want_page_size))
-    //    .context("setup pragma 1")?;
+    // On Windows, smaller page size can reduce I/O jitter; set to 4096 early.
+    db.call(|db| {
+        db.execute("pragma page_size = 4096;", [])?;
+        Ok(())
+    }).await?;
     db.call(|db| {
         // db.busy_timeout(Duration::from_secs(10))?;
         db.pragma_update(None, "journal_mode", "wal")?;
@@ -70,6 +72,7 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
         db.pragma_update(None, "temp_store", "memory")?;
         db.pragma_update(None, "synchronous", "off")?; // integrity isn't very important here
         db.pragma_update(None, "mmap_size", "2000000000")?;
+        db.pragma_update(None, "cache_size", "-20000")?; // ~20MB cache
         db.execute("
             create table if not exists preproc_cache (
                 config_hash text not null,

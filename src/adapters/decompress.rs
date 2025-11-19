@@ -55,10 +55,11 @@ fn decompress_any(reason: &FileMatcher, inp: ReadBox) -> Result<ReadBox> {
     use FastFileMatcher::*;
     use FileMatcher::*;
     use async_compression::tokio::bufread;
-    let gz = |inp: ReadBox| Box::pin(bufread::GzipDecoder::new(BufReader::new(inp)));
-    let bz2 = |inp: ReadBox| Box::pin(bufread::BzDecoder::new(BufReader::new(inp)));
-    let xz = |inp: ReadBox| Box::pin(bufread::XzDecoder::new(BufReader::new(inp)));
-    let zst = |inp: ReadBox| Box::pin(bufread::ZstdDecoder::new(BufReader::new(inp)));
+    // tune per algorithm: gzip tends to benefit from larger buffers, bzip2/xz moderate, zstd larger
+    let gz = |inp: ReadBox| Box::pin(bufread::GzipDecoder::new(BufReader::with_capacity(1<<17, inp))); // 128 KiB
+    let bz2 = |inp: ReadBox| Box::pin(bufread::BzDecoder::new(BufReader::with_capacity(1<<16, inp))); // 64 KiB
+    let xz = |inp: ReadBox| Box::pin(bufread::XzDecoder::new(BufReader::with_capacity(1<<16, inp)));  // 64 KiB
+    let zst = |inp: ReadBox| Box::pin(bufread::ZstdDecoder::new(BufReader::with_capacity(1<<18, inp))); // 256 KiB
 
     Ok(match reason {
         Fast(FileExtension(ext)) => match ext.as_ref() {
@@ -155,7 +156,8 @@ mod tests {
         let filepath = test_data_dir().join("short.pdf.gz");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let r = loop_adapt(&adapter, d, a).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let r = loop_adapt(&engine, &adapter, d, a).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,

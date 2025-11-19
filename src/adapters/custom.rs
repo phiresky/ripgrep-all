@@ -229,12 +229,12 @@ impl CustomSpawningFileAdapter {
         filepath_hint: &std::path::Path,
         mut command: tokio::process::Command,
     ) -> Result<tokio::process::Command> {
-        command.args(
-            self.args
-                .iter()
-                .map(|arg| arg_replacer(arg, filepath_hint))
-                .collect::<Result<Vec<_>>>()?,
-        );
+        let mut resolved = self
+            .args
+            .iter()
+            .map(|arg| arg_replacer(arg, filepath_hint))
+            .collect::<Result<Vec<_>>>()?;
+        command.args(&resolved);
         log::debug!("running command {:?}", command);
         Ok(command)
     }
@@ -256,10 +256,21 @@ impl FileAdapter for CustomSpawningFileAdapter {
             ..
         } = ai;
 
-        let cmd = Command::new(&self.binary);
-        let cmd = self
-            .command(&filepath_hint, cmd)
-            .with_context(|| format!("Could not set cmd arguments for {}", self.binary))?;
+        let mut cmd = Command::new(&self.binary);
+        // Prefer file path invocation when is_real_file to allow faster random access
+        let mut args = self
+            .args
+            .iter()
+            .map(|arg| arg_replacer(arg, &filepath_hint))
+            .collect::<Result<Vec<_>>>()?;
+        if config.accurate && !args.iter().any(|a| a.contains(&filepath_hint.to_string_lossy())) {
+            if self.binary == "pdftotext" && args.get(0).map(|s| s == "-").unwrap_or(false) {
+                args[0] = filepath_hint.to_string_lossy().to_string();
+            } else if self.binary == "pandoc" && ai.is_real_file {
+                args.push(filepath_hint.to_string_lossy().to_string());
+            }
+        }
+        cmd.args(&args);
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, &self.binary, "")?;
         Ok(one_file(AdaptInfo {
@@ -330,7 +341,8 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         // let r = adapter.adapt(a, &d)?;
-        let r = loop_adapt(&adapter, d, a).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let r = loop_adapt(&engine, &adapter, d, a).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,

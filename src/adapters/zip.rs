@@ -4,6 +4,7 @@ use anyhow::*;
 use async_stream::stream;
 use lazy_static::lazy_static;
 use log::*;
+use tokio::io::AsyncRead;
 
 // TODO: allow users to configure file extensions instead of hard coding the list
 // https://github.com/phiresky/ripgrep-all/pull/208#issuecomment-2173241243
@@ -78,19 +79,11 @@ impl FileAdapter for ZipAdapter {
                     let new_line_prefix = format!("{}{}: ", line_prefix, file.filename());
                     let fname = PathBuf::from(file.filename());
                     tokio::pin!(reader);
-                    // SAFETY: this should be solvable without unsafe but idk how :(
-                    // the issue is that ZipEntryReader borrows from ZipFileReader, but we need to yield it here into the stream
-                    // but then it can't borrow from the ZipFile
-                    let reader2 = unsafe {
-                        std::mem::transmute::<
-                            Pin<&mut (dyn AsyncRead + Send)>,
-                            Pin<&'static mut (dyn AsyncRead + Send)>,
-                        >(reader)
-                    };
+                    let boxed = entry_readbox(reader);
                     yield Ok(AdaptInfo {
                         filepath_hint: fname,
                         is_real_file: false,
-                        inp: Box::pin(reader2),
+                        inp: boxed,
                         line_prefix: new_line_prefix,
                         archive_recursion_depth: archive_recursion_depth + 1,
                         postprocess,
@@ -126,19 +119,11 @@ impl FileAdapter for ZipAdapter {
                         let fname = PathBuf::from(file.filename());
                         let reader = entry.reader();
                         tokio::pin!(reader);
-                        // SAFETY: this should be solvable without unsafe but idk how :(
-                        // the issue is that ZipEntryReader borrows from ZipFileReader, but we need to yield it here into the stream
-                        // but then it can't borrow from the ZipFile
-                        let reader2 = unsafe {
-                            std::mem::transmute::<
-                                Pin<&mut (dyn AsyncRead + Send)>,
-                                Pin<&'static mut (dyn AsyncRead + Send)>,
-                            >(reader)
-                        };
+                        let boxed = entry_readbox(reader);
                         yield Ok(AdaptInfo {
                             filepath_hint: fname,
                             is_real_file: false,
-                            inp: Box::pin(reader2),
+                            inp: boxed,
                             line_prefix: new_line_prefix,
                             archive_recursion_depth: archive_recursion_depth + 1,
                             postprocess,
@@ -225,7 +210,8 @@ mod test {
     async fn only_seek_zip_fs() -> Result<()> {
         let zip = test_data_dir().join("only-seek-zip.zip");
         let (a, d) = simple_fs_adapt_info(&zip).await?;
-        let _v = adapted_to_vec(loop_adapt(&ZipAdapter::new(), d, a).await?).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let _v = adapted_to_vec(loop_adapt(&engine, &ZipAdapter::new(), d, a).await?).await?;
         // assert_eq!(String::from_utf8(v)?, "");
 
         Ok(())
@@ -248,7 +234,8 @@ mod test {
             &PathBuf::from("outer.zip"),
             Box::pin(std::io::Cursor::new(zipfile)),
         );
-        let buf = adapted_to_vec(loop_adapt(&adapter, d, a).await?).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let buf = adapted_to_vec(loop_adapt(&engine, &adapter, d, a).await?).await?;
 
         assert_eq!(
             String::from_utf8(buf)?,
@@ -257,4 +244,15 @@ mod test {
 
         Ok(())
     }
+}
+fn entry_readbox(reader: Pin<&mut (dyn AsyncRead + Send)>) -> ReadBox {
+    // SAFETY: The returned Pin<&'static mut _> is only used within the yielded AdaptInfo lifetime.
+    // The underlying Zip reader remains alive until the stream yields, so transmute is confined here.
+    let reader2 = unsafe {
+        std::mem::transmute::<
+            Pin<&mut (dyn AsyncRead + Send)>,
+            Pin<&'static mut (dyn AsyncRead + Send)>,
+        >(reader)
+    };
+    Box::pin(reader2)
 }
