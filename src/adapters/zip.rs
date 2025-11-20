@@ -2,7 +2,6 @@ use super::*;
 use crate::print_bytes;
 use anyhow::*;
 use async_stream::stream;
-use tokio::io::{duplex, AsyncWriteExt};
 use futures_lite::io::AsyncReadExt;
 //
 use lazy_static::lazy_static;
@@ -205,80 +204,46 @@ impl FileAdapter for ZipAdapter {
     }
 }
 
-#[allow(dead_code)]
-pub async fn owned_zip_iter_fs(
-    ai: AdaptInfo,
-) -> Result<AdaptedFilesIterBox> {
-    use async_zip::tokio::read::fs::ZipFileReader;
-    let AdaptInfo {
-        filepath_hint,
-        inp,
-        line_prefix,
-        archive_recursion_depth,
-        postprocess,
-        config,
-        is_real_file,
-    } = ai;
-
-    let zip_path = if is_real_file {
-        filepath_hint.clone()
-    } else {
-        let tmp = tempfile::NamedTempFile::new()?;
-        let tmp_path = tmp.path().to_path_buf();
-        let mut f = tokio::fs::File::create(&tmp_path).await?;
-        let mut r = inp;
-        tokio::io::copy(&mut r, &mut f).await?;
-        drop(f);
-        tmp_path
-    };
-
-    let reader = ZipFileReader::new(&zip_path).await?;
-    let metas: Vec<_> = reader.file().entries().to_vec();
-    let s = stream! {
-        for (i, meta) in metas.into_iter().enumerate() {
-            let name_str = String::from_utf8_lossy(meta.filename().as_bytes()).into_owned();
-            if name_str.ends_with('/') { continue; }
-            debug!(
-                "{}{}|{}: {} ({} packed)",
-                line_prefix,
-                filepath_hint.display(),
-                &name_str,
-                print_bytes(meta.uncompressed_size() as f64),
-                print_bytes(meta.compressed_size() as f64)
-            );
-            let new_line_prefix = format!("{}{}: ", line_prefix, &name_str);
-            let fname = PathBuf::from(name_str.clone());
-            let reader2 = ZipFileReader::new(&zip_path).await?;
-            let entry_reader = reader2.reader_with_entry(i).await?;
-            let mut fut_reader = entry_reader.boxed_reader();
-            let mut buf = Vec::new();
-            fut_reader.read_to_end(&mut buf).await?;
-            let (mut w, r) = duplex(64 * 1024);
-            let data = buf;
-            tokio::spawn(async move {
-                let _ = w.write_all(&data).await;
-            });
-            yield Ok(AdaptInfo {
-                filepath_hint: fname,
-                is_real_file: false,
-                inp: Box::pin(r),
-                line_prefix: new_line_prefix,
-                archive_recursion_depth: archive_recursion_depth + 1,
-                postprocess,
-                config: config.clone(),
-            });
-        }
-    };
-    Ok(Box::pin(s))
+/*struct ZipAdaptIter {
+    inp: AdaptInfo,
 }
-
+impl<'a> AdaptedFilesIter for ZipAdaptIter<'a> {
+    fn next<'b>(&'b mut self) -> Option<AdaptInfo<'b>> {
+        let line_prefix = &self.inp.line_prefix;
+        let filepath_hint = &self.inp.filepath_hint;
+        let archive_recursion_depth = &self.inp.archive_recursion_depth;
+        let postprocess = self.inp.postprocess;
+        ::zip::read::read_zipfile_from_stream(&mut self.inp.inp)
+            .unwrap()
+            .and_then(|file| {
+                if file.is_dir() {
+                    return None;
+                }
+                debug!(
+                    "{}{}|{}: {} ({} packed)",
+                    line_prefix,
+                    filepath_hint.to_string_lossy(),
+                    file.name(),
+                    print_bytes(file.size() as f64),
+                    print_bytes(file.compressed_size() as f64)
+                );
+                let line_prefix = format!("{}{}: ", line_prefix, file.name());
+                Some(AdaptInfo {
+                    filepath_hint: PathBuf::from(file.name()),
+                    is_real_file: false,
+                    inp: Box::new(file),
+                    line_prefix,
+                    archive_recursion_depth: archive_recursion_depth + 1,
+                    postprocess,
+                    config: RgaConfig::default(), //config.clone(),
+                })
+            })
+    }
+}*/
 
 #[cfg(test)]
 mod test {
-    use async_zip::{Compression, ZipEntryBuilder, ZipString};
-    use async_zip::base::write::ZipFileWriter;
-    use tokio_util::compat::TokioAsyncWriteCompatExt;
-    use tokio::io::AsyncReadExt;
+    use async_zip::{Compression, ZipEntryBuilder, write::ZipFileWriter};
 
     use super::*;
     use crate::{preproc::loop_adapt, test_utils::*};
@@ -286,14 +251,15 @@ mod test {
 
     #[async_recursion::async_recursion]
     async fn create_zip(fname: &str, content: &str, add_inner: bool) -> Result<Vec<u8>> {
-        let (w, mut r) = tokio::io::duplex(512 * 1024);
-        let mut zip = ZipFileWriter::new(w.compat_write());
+        let v = Vec::new();
+        let mut cursor = std::io::Cursor::new(v);
+        let mut zip = ZipFileWriter::new(&mut cursor);
 
-        let options = ZipEntryBuilder::new(ZipString::from(fname.to_string()), Compression::Stored);
+        let options = ZipEntryBuilder::new(fname.to_string(), Compression::Stored);
         zip.write_entry_whole(options, content.as_bytes()).await?;
 
         if add_inner {
-            let opts = ZipEntryBuilder::new(ZipString::from("inner.zip".to_string()), Compression::Stored);
+            let opts = ZipEntryBuilder::new("inner.zip".to_string(), Compression::Stored);
             zip.write_entry_whole(
                 opts,
                 &create_zip("inner.txt", "inner text file", false).await?,
@@ -301,9 +267,7 @@ mod test {
             .await?;
         }
         zip.close().await?;
-        let mut buf = Vec::new();
-        r.read_to_end(&mut buf).await?;
-        Ok(buf)
+        Ok(cursor.into_inner())
     }
 
     #[tokio::test]
