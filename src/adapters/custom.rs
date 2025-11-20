@@ -117,7 +117,7 @@ lazy_static! {
             name: "pandoc".to_string(),
             description: "Uses pandoc to convert binary/unreadable text documents to plain markdown-like text".to_string(),
             version: 3,
-            extensions: strs(&["epub", "odt", "docx", "fb2", "ipynb", "html", "htm"]),
+            extensions: strs(&["epub", "odt", "docx", "fb2", "html", "htm"]),
             binary: "pandoc".to_string(),
             mimetypes: None,
             // simpler markdown (with more information loss but plainer text)
@@ -146,6 +146,106 @@ lazy_static! {
             disabled_by_default: None,
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt.asciipagebreaks".into())
+        }
+        ,
+        CustomAdapterConfig {
+            name: "djvutxt".to_string(),
+            description: "Uses djvutxt to extract plain text from DjVu files".to_string(),
+            version: 1,
+            extensions: strs(&["djvu", "djv"]),
+            mimetypes: Some(strs(&["image/vnd.djvu", "image/x-djvu"])),
+            binary: "djvutxt".to_string(),
+            args: strs(&["$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "hdf5".to_string(),
+            description: "Uses h5dump to print HDF5 headers and attributes".to_string(),
+            version: 1,
+            extensions: strs(&["h5", "hdf5", "hdf"]),
+            mimetypes: Some(strs(&["application/x-hdf5", "application/x-hdf"])),
+            binary: "h5dump".to_string(),
+            args: strs(&["-H", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "netcdf".to_string(),
+            description: "Uses ncdump to print NetCDF dataset metadata".to_string(),
+            version: 1,
+            extensions: strs(&["nc", "cdf", "netcdf"]),
+            mimetypes: Some(strs(&["application/x-netcdf"])),
+            binary: "ncdump".to_string(),
+            args: strs(&["-h", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "fitsdump".to_string(),
+            description: "Uses fitsdump to print FITS headers".to_string(),
+            version: 1,
+            extensions: strs(&["fits", "fit", "fts"]),
+            mimetypes: Some(strs(&["application/fits"])),
+            binary: "fitsdump".to_string(),
+            args: strs(&["-h", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "dcmdump".to_string(),
+            description: "Uses dcmdump to print DICOM metadata and tags".to_string(),
+            version: 1,
+            extensions: strs(&["dcm"]),
+            mimetypes: Some(strs(&["application/dicom", "application/dicom+binary"])),
+            binary: "dcmdump".to_string(),
+            args: strs(&["+L", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "7zlist".to_string(),
+            description: "Uses 7z to list archive contents for 7z/RAR".to_string(),
+            version: 1,
+            extensions: strs(&["7z", "rar"]),
+            mimetypes: Some(strs(&["application/x-7z-compressed", "application/x-rar-compressed", "application/vnd.rar"])),
+            binary: "7z".to_string(),
+            args: strs(&["l", "-slt", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "exiftool".to_string(),
+            description: "Uses exiftool to extract rich metadata tags from images, video, audio, and PDFs".to_string(),
+            version: 1,
+            extensions: strs(&[
+                "jpg","jpeg","png","tif","tiff","gif","webp","heic","heif",
+                "mp4","mov","mkv","avi","webm","m4a","mp3","flac","wav","ogg","opus",
+                "pdf"
+            ]),
+            mimetypes: Some(strs(&[
+                "image/jpeg","image/png","image/tiff","image/gif","image/webp","image/heif",
+                "video/mp4","video/quicktime","video/x-matroska","video/x-msvideo","video/webm",
+                "audio/mpeg","audio/mp4","audio/flac","audio/wav","audio/ogg","audio/opus",
+                "application/pdf"
+            ])),
+            binary: "exiftool".to_string(),
+            args: strs(&["$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
         }
     ];
 }
@@ -223,22 +323,7 @@ fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
         e => Err(anyhow::format_err!("unknown replacer ${{{e}}}")),
     })
 }
-impl CustomSpawningFileAdapter {
-    fn command(
-        &self,
-        filepath_hint: &std::path::Path,
-        mut command: tokio::process::Command,
-    ) -> Result<tokio::process::Command> {
-        command.args(
-            self.args
-                .iter()
-                .map(|arg| arg_replacer(arg, filepath_hint))
-                .collect::<Result<Vec<_>>>()?,
-        );
-        log::debug!("running command {:?}", command);
-        Ok(command)
-    }
-}
+impl CustomSpawningFileAdapter {}
 #[async_trait]
 impl FileAdapter for CustomSpawningFileAdapter {
     async fn adapt(
@@ -256,10 +341,29 @@ impl FileAdapter for CustomSpawningFileAdapter {
             ..
         } = ai;
 
-        let cmd = Command::new(&self.binary);
-        let cmd = self
-            .command(&filepath_hint, cmd)
-            .with_context(|| format!("Could not set cmd arguments for {}", self.binary))?;
+        let mut cmd = Command::new(&self.binary);
+        // Prefer file path invocation when is_real_file to allow faster random access
+        let args = self
+            .args
+            .iter()
+            .map(|arg| arg_replacer(arg, &filepath_hint))
+            .collect::<Result<Vec<_>>>()?;
+        let fh = filepath_hint.to_string_lossy();
+        if config.accurate && !args.iter().any(|a| a.contains(&*fh)) {
+            if self.binary == "pdftotext" && args.first().map(|s| s == "-").unwrap_or(false) {
+                let mut args2 = args.clone();
+                args2[0] = fh.to_string();
+                cmd.args(&args2);
+            } else if self.binary == "pandoc" && ai.is_real_file {
+                let mut args2 = args.clone();
+                args2.push(fh.to_string());
+                cmd.args(&args2);
+            } else {
+                cmd.args(&args);
+            }
+        } else {
+            cmd.args(&args);
+        }
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, &self.binary, "")?;
         Ok(one_file(AdaptInfo {
@@ -330,7 +434,8 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         // let r = adapter.adapt(a, &d)?;
-        let r = loop_adapt(&adapter, d, a).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let r = loop_adapt(engine, &adapter, d, a).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
