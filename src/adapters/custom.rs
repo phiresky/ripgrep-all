@@ -147,6 +147,19 @@ lazy_static! {
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt.asciipagebreaks".into())
         }
+        ,
+        CustomAdapterConfig {
+            name: "djvutxt".to_string(),
+            description: "Uses djvutxt to extract plain text from DjVu files".to_string(),
+            version: 1,
+            extensions: strs(&["djvu", "djv"]),
+            mimetypes: Some(strs(&["image/vnd.djvu", "image/x-djvu"])),
+            binary: "djvutxt".to_string(),
+            args: strs(&["$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
     ];
 }
 
