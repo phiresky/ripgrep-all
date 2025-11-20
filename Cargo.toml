@@ -59,8 +59,18 @@ tokio = {version = "1.28.1", features = ["full"]}
 tokio-rusqlite = "0.5.0"
 tokio-stream = {version = "0.1.14", features = ["io-util", "tokio-util"]}
 astral-tokio-tar =  "0.5.6" 
+<<<<<<< HEAD
 tokio-util = {version = "0.7.8", features = ["io", "full"]}
 tree_magic = {package = "tree_magic_mini", version = "3.0.3"}
+=======
+tar = "0.4.44"
+tokio-util = {version = "0.7.13", features = ["io", "full"]}
+tree_magic = {package = "tree_magic_mini", version = "3.1.6"}
+sysinfo = "0.30.13"
+toml = "0.9.8"
+futures-lite = "2.6.1"
+futures = "0.3.31"
+>>>>>>> cca03a8 (chore(deps): bump async_zip to 0.0.17)
 
 [dev-dependencies]
 async-recursion = "1.0.4"
