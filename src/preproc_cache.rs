@@ -60,16 +60,19 @@ pub trait PreprocCache {
 
 async fn connect_pragmas(db: &Connection) -> Result<()> {
     // https://phiresky.github.io/blog/2020/sqlite-performance-tuning/
-    //let want_page_size = 32768;
-    //db.execute(&format!("pragma page_size = {};", want_page_size))
-    //    .context("setup pragma 1")?;
-    db.call(|db| {
+    // On Windows, smaller page size can reduce I/O jitter; set to 4096 early.
+    db.call(|db| -> std::result::Result<(), rusqlite::Error> {
+        db.execute("pragma page_size = 4096;", [])?;
+        Ok(())
+    }).await?;
+    db.call(|db| -> std::result::Result<(), rusqlite::Error> {
         // db.busy_timeout(Duration::from_secs(10))?;
         db.pragma_update(None, "journal_mode", "wal")?;
         db.pragma_update(None, "foreign_keys", "on")?;
         db.pragma_update(None, "temp_store", "memory")?;
         db.pragma_update(None, "synchronous", "off")?; // integrity isn't very important here
         db.pragma_update(None, "mmap_size", "2000000000")?;
+        db.pragma_update(None, "cache_size", "-20000")?; // ~20MB cache
         db.execute("
             create table if not exists preproc_cache (
                 config_hash text not null,
@@ -89,11 +92,11 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
     })
     .await.context("connect_pragmas")?;
     let jm: i64 = db
-        .call(|db| Ok(db.pragma_query_value(None, "application_id", |r| r.get(0))?))
+        .call(|db| -> std::result::Result<i64, rusqlite::Error> { db.pragma_query_value(None, "application_id", |r| r.get(0)) })
         .await?;
     if jm != 924716026 {
         // (probably) newly created db
-        db.call(|db| Ok(db.pragma_update(None, "application_id", "924716026")?))
+        db.call(|db| -> std::result::Result<(), rusqlite::Error> { db.pragma_update(None, "application_id", "924716026") })
             .await?;
     }
     Ok(())
@@ -105,14 +108,14 @@ struct SqliteCache {
 impl SqliteCache {
     async fn new(path: &Path) -> Result<Self> {
         let db = Connection::open(path.join("cache.sqlite3")).await?;
-        db.call(|db| {
+        db.call(|db| -> std::result::Result<(), rusqlite::Error> {
             let schema_version: i32 = db.pragma_query_value(None, "user_version", |r| r.get(0))?;
             if schema_version != SCHEMA_VERSION {
                 warn!("Cache schema version mismatch, clearing cache");
                 db.execute("drop table if exists preproc_cache", [])?;
                 db.pragma_update(None, "user_version", format!("{SCHEMA_VERSION}"))?;
             }
-            Ok(())
+            Ok::<(), rusqlite::Error>(())
         })
         .await?;
 
@@ -128,8 +131,8 @@ impl PreprocCache for SqliteCache {
         let key = (*key).clone(); // todo: without cloning
         Ok(self
             .db
-            .call(move |db| {
-                Ok(db
+            .call(move |db| -> std::result::Result<Option<Vec<u8>>, rusqlite::Error> {
+                db
                     .query_row(
                         "select text_content_zstd from preproc_cache where
                             adapter = :adapter
@@ -149,7 +152,7 @@ impl PreprocCache for SqliteCache {
                         },
                         |r| r.get::<_, Vec<u8>>(0),
                     )
-                    .optional()?)
+                    .optional()
             })
             .await
             .context("reading from cache")?)
@@ -165,7 +168,7 @@ impl PreprocCache for SqliteCache {
         );
         Ok(self
             .db
-            .call(move |db| {
+            .call(move |db| -> std::result::Result<(), rusqlite::Error> {
                 db.execute(
                     "insert into preproc_cache (config_hash, adapter, adapter_version, active_adapters, file_path, file_mtime_unix_ms, text_content_zstd) values
                         (:config_hash, :adapter, :adapter_version, :active_adapters, :file_path, :file_mtime_unix_ms, :text_content_zstd)

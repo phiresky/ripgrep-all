@@ -4,8 +4,8 @@ use anyhow::Result;
 use async_stream::stream;
 use lazy_static::lazy_static;
 use mime2ext::mime2ext;
-use regex::bytes::Regex;
-use tokio::io::AsyncReadExt;
+use tokio_util::io::ReaderStream;
+use tokio_stream::StreamExt;
 
 use std::{collections::VecDeque, io::Cursor};
 
@@ -32,7 +32,6 @@ lazy_static! {
         disabled_by_default: true,
         keep_fast_matchers_if_accurate: true
     };
-    static ref FROM_REGEX: Regex = Regex::new("\r?\nFrom [^\n]+\n").unwrap();
 }
 #[derive(Default)]
 pub struct MboxAdapter;
@@ -57,7 +56,7 @@ impl FileAdapter for MboxAdapter {
     ) -> Result<AdaptedFilesIterBox> {
         let AdaptInfo {
             filepath_hint,
-            mut inp,
+            inp,
             line_prefix,
             archive_recursion_depth,
             config,
@@ -65,62 +64,99 @@ impl FileAdapter for MboxAdapter {
             ..
         } = ai;
 
-        let mut content = Vec::new();
         let s = stream! {
-            inp.read_to_end(&mut content).await?;
-
-            let mut ais = vec![];
-            for mail_bytes in FROM_REGEX.splitn(&content, usize::MAX) {
-                let mail_content = mail_bytes.splitn(2, |x| *x == b'\n').nth(1).unwrap();
-                let mail = mailparse::parse_mail(mail_content);
-                if mail.is_err() {
-                    continue;
+            let mut buffer: Vec<u8> = Vec::new();
+            let mut stream = ReaderStream::new(inp);
+            let mut scan_from: usize = 0;
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk?;
+                let _old_len = buffer.len();
+                buffer.extend_from_slice(&chunk);
+                let data = &buffer[..];
+                let mut indices: Vec<usize> = Vec::new();
+                let mut pos = scan_from.saturating_sub(6);
+                while let Some(nl_off) = memchr::memchr(b'\n', &data[pos..]) {
+                    let i = pos + nl_off;
+                    let end = i + 6;
+                    if end <= data.len() && &data[i+1..end] == b"From " { indices.push(i+1); }
+                    pos = i + 1;
                 }
-                let mail = mail.unwrap();
-
-                let mut todos = VecDeque::new();
-                todos.push_back(mail);
-
-                while let Some(mail) = todos.pop_front() {
-                let mut path = filepath_hint.clone();
-                let filename = mail.get_content_disposition().params.get("filename").cloned();
-                match &*mail.ctype.mimetype {
-                    x if x.starts_with("multipart/") => {
-                        todos.extend(mail.subparts);
-                        continue;
+                scan_from = buffer.len();
+                if !indices.is_empty() {
+                    for w in indices.windows(2) {
+                        let a = w[0];
+                        let b = w[1];
+                        let mut msg = &data[a..b];
+                        if let Some(p) = memchr::memchr(b'\n', msg) { msg = &msg[p+1..]; }
+                        if msg.is_empty() { continue; }
+                        if let Ok(mail) = mailparse::parse_mail(msg) {
+                            let mut todos = VecDeque::new();
+                            todos.push_back(mail);
+                            while let Some(mail) = todos.pop_front() {
+                                let mut path = filepath_hint.clone();
+                                let filename = mail.get_content_disposition().params.get("filename").cloned();
+                                match &*mail.ctype.mimetype {
+                                    x if x.starts_with("multipart/") => { todos.extend(mail.subparts); continue; }
+                                    mime => {
+                                        if let Some(name) = filename { path.push(name); }
+                                        else if let Some(extension) = mime2ext(mime) { path.push(format!("data.{extension}")); }
+                                        else { path.push("data"); }
+                                    }
+                                }
+                                let mut cfg = config.clone();
+                                cfg.accurate = true;
+                                if let Ok(body) = mail.get_body_raw() {
+                                    let ai2 = AdaptInfo {
+                                        filepath_hint: path,
+                                        is_real_file: false,
+                                        archive_recursion_depth: archive_recursion_depth + 1,
+                                        inp: Box::pin(Cursor::new(body)),
+                                        line_prefix: line_prefix.to_string(),
+                                        config: cfg,
+                                        postprocess,
+                                    };
+                                    yield Ok(ai2);
+                                }
+                            }
+                        }
                     }
-                    mime => {
-                        if let Some(name) = filename {
-                            path.push(name);
-                        } else if let Some(extension) = mime2ext(mime) {
-                            path.push(format!("data.{extension}"));
-                        } else {
-                            path.push("data");
+                    let last = *indices.last().unwrap();
+                    buffer = buffer.split_off(last);
+                    scan_from = buffer.len();
+                }
+            }
+            if !buffer.is_empty() {
+                let msg = &buffer[..];
+                if let Ok(mail) = mailparse::parse_mail(msg) {
+                    let mut todos = VecDeque::new();
+                    todos.push_back(mail);
+                    while let Some(mail) = todos.pop_front() {
+                        let mut path = filepath_hint.clone();
+                        let filename = mail.get_content_disposition().params.get("filename").cloned();
+                        match &*mail.ctype.mimetype {
+                            x if x.starts_with("multipart/") => { todos.extend(mail.subparts); continue; }
+                            mime => {
+                                if let Some(name) = filename { path.push(name); }
+                                else if let Some(extension) = mime2ext(mime) { path.push(format!("data.{extension}")); }
+                                else { path.push("data"); }
+                            }
+                        }
+                        let mut cfg = config.clone();
+                        cfg.accurate = true;
+                        if let Ok(body) = mail.get_body_raw() {
+                            let ai2 = AdaptInfo {
+                                filepath_hint: path,
+                                is_real_file: false,
+                                archive_recursion_depth: archive_recursion_depth + 1,
+                                inp: Box::pin(Cursor::new(body)),
+                                line_prefix: line_prefix.to_string(),
+                                config: cfg,
+                                postprocess,
+                            };
+                            yield Ok(ai2);
                         }
                     }
                 }
-
-                let mut config = config.clone();
-                config.accurate = true;
-
-                let raw_body = mail.get_body_raw();
-                if raw_body.is_err() {
-                    continue;
-                }
-                let ai2: AdaptInfo = AdaptInfo {
-                    filepath_hint: path,
-                    is_real_file: false,
-                    archive_recursion_depth: archive_recursion_depth + 1,
-                    inp: Box::pin(Cursor::new(raw_body.unwrap())),
-                    line_prefix: line_prefix.to_string(),
-                    config,
-                    postprocess,
-                };
-                ais.push(ai2);
-                }
-            }
-            for a in ais {
-                yield(Ok(a));
             }
         };
         Ok(Box::pin(s))
@@ -130,6 +166,7 @@ impl FileAdapter for MboxAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::AsyncReadExt;
     use crate::preproc::loop_adapt;
     use crate::test_utils::*;
     use pretty_assertions::assert_eq;
@@ -209,7 +246,8 @@ mod tests {
         let filepath = test_data_dir().join("mail_with_attachment.mbox");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let mut r = loop_adapt(&adapter, d, a).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let mut r = loop_adapt(engine, &adapter, d, a).await?;
         let mut count = 0;
         while let Some(file) = r.next().await {
             let mut file = file?;
