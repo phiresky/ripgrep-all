@@ -225,6 +225,28 @@ lazy_static! {
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt".into()),
         }
+        ,
+        CustomAdapterConfig {
+            name: "exiftool".to_string(),
+            description: "Uses exiftool to extract rich metadata tags from images, video, audio, and PDFs".to_string(),
+            version: 1,
+            extensions: strs(&[
+                "jpg","jpeg","png","tif","tiff","gif","webp","heic","heif",
+                "mp4","mov","mkv","avi","webm","m4a","mp3","flac","wav","ogg","opus",
+                "pdf"
+            ]),
+            mimetypes: Some(strs(&[
+                "image/jpeg","image/png","image/tiff","image/gif","image/webp","image/heif",
+                "video/mp4","video/quicktime","video/x-matroska","video/x-msvideo","video/webm",
+                "audio/mpeg","audio/mp4","audio/flac","audio/wav","audio/ogg","audio/opus",
+                "application/pdf"
+            ])),
+            binary: "exiftool".to_string(),
+            args: strs(&["$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
     ];
 }
 
