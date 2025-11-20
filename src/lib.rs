@@ -9,6 +9,7 @@ pub mod matching;
 pub mod preproc;
 pub mod preproc_cache;
 pub mod recurse;
+pub mod shell;
 #[cfg(test)]
 pub mod test_utils;
 use anyhow::Context;
