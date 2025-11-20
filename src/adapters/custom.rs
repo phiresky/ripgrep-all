@@ -117,7 +117,7 @@ lazy_static! {
             name: "pandoc".to_string(),
             description: "Uses pandoc to convert binary/unreadable text documents to plain markdown-like text".to_string(),
             version: 3,
-            extensions: strs(&["epub", "odt", "docx", "fb2", "ipynb", "html", "htm"]),
+            extensions: strs(&["epub", "odt", "docx", "fb2", "html", "htm"]),
             binary: "pandoc".to_string(),
             mimetypes: None,
             // simpler markdown (with more information loss but plainer text)

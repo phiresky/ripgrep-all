@@ -467,6 +467,10 @@ pub struct RgaConfig {
     #[arg(long = "rga-disable-pagebreaks")]
     pub disable_pagebreaks: bool,
 
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[arg(long = "rga-ipynb-include-outputs")]
+    pub ipynb_include_outputs: bool,
+
     /// Disable line prefixing for specific adapters (comma-delimited names)
     #[serde(default, skip_serializing_if = "is_default")]
     #[arg(long = "rga-no-prefix-for", require_equals = true, value_delimiter = ',')]
