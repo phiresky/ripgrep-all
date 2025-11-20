@@ -32,6 +32,7 @@ lazy_static! {
         disabled_by_default: false,
         keep_fast_matchers_if_accurate: true
     };
+    static ref TIME_RE: Regex = Regex::new(r".*\d.*-->.*\d.*").unwrap();
 }
 
 #[derive(Default, Clone)]
@@ -142,7 +143,6 @@ impl WritingFileAdapter for FFmpegAdapter {
             }
         }
         if !subtitle_streams.is_empty() {
-            let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
             for probe_stream in subtitle_streams.iter() {
                 // extract subtitles
                 let mut cmd = Command::new("ffmpeg");
@@ -166,7 +166,7 @@ impl WritingFileAdapter for FFmpegAdapter {
                 let mut lines = BufReader::new(stdo).lines();
                 while let Some(line) = lines.next_line().await? {
                     // 09:55.195 --> 09:56.730
-                    if time_re.is_match(&line) {
+                    if TIME_RE.is_match(&line) {
                         time = line.to_owned();
                     } else if line.is_empty() {
                         async_writeln!(oup)?;

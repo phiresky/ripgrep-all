@@ -35,7 +35,13 @@ async fn main() -> anyhow::Result<()> {
         }
         b.finish()?;
     }
-    let cfg = rga::config::RgaConfig { cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
+    let mut cfg = rga::config::RgaConfig { cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
+    for arg in std::env::args().skip(1) {
+        if let Some(v) = arg.strip_prefix("--rga-decompress-gzip-buf-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.decompress_gzip_buf_bytes = rga::config::DecompressGzipBufBytes(u); }
+        if let Some(v) = arg.strip_prefix("--rga-decompress-bzip2-buf-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.decompress_bzip2_buf_bytes = rga::config::DecompressBzip2BufBytes(u); }
+        if let Some(v) = arg.strip_prefix("--rga-decompress-xz-buf-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.decompress_xz_buf_bytes = rga::config::DecompressXzBufBytes(u); }
+        if let Some(v) = arg.strip_prefix("--rga-decompress-zstd-buf-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.decompress_zstd_buf_bytes = rga::config::DecompressZstdBufBytes(u); }
+    }
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),

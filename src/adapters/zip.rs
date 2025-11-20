@@ -2,8 +2,11 @@ use super::*;
 use crate::print_bytes;
 use anyhow::*;
 use async_stream::stream;
-use tokio::io::{duplex, AsyncWriteExt};
+use tokio::io::duplex;
 use futures_lite::io::AsyncReadExt;
+use tokio::sync::Semaphore;
+use tokio::sync::{mpsc, Mutex};
+use std::time::Instant;
 //
 use lazy_static::lazy_static;
 use log::*;
@@ -25,7 +28,7 @@ lazy_static! {
             .map(|s| FastFileMatcher::FileExtension(s.to_string()))
             .collect(),
         slow_matchers: Some(vec![FileMatcher::MimeType("application/zip".to_owned())]),
-        keep_fast_matchers_if_accurate: false,
+        keep_fast_matchers_if_accurate: true,
         disabled_by_default: false
     };
 }
@@ -50,6 +53,12 @@ impl FileAdapter for ZipAdapter {
         ai: AdaptInfo,
         _detection_reason: &FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
+        if ai.config.zip_owned_iter {
+            return owned_zip_iter_fs(ai).await;
+        }
+        if !ai.is_real_file {
+            return owned_zip_iter_fs(ai).await;
+        }
         // let (s, r) = mpsc::channel(1);
         let AdaptInfo {
             inp: _,
@@ -66,6 +75,37 @@ impl FileAdapter for ZipAdapter {
             use tokio_util::compat::FuturesAsyncReadCompatExt;
             use tokio::io::{copy, duplex};
             let zip = ZipFileReader::new(&filepath_hint).await?;
+            let sem = std::sync::Arc::new(Semaphore::new(config.zip_max_concurrency.0));
+            let held = std::sync::Arc::new(Mutex::new(Vec::<tokio::sync::OwnedSemaphorePermit>::new()));
+            let (tx, mut rx) = mpsc::unbounded_channel::<(usize, f64)>();
+            {
+                let sem2 = sem.clone();
+                let held2 = held.clone();
+                let maxc = config.zip_max_concurrency.0;
+                tokio::spawn(async move {
+                    let mut samples: Vec<(usize, f64)> = Vec::new();
+                    let mut target = maxc;
+                    while let Some(s) = rx.recv().await {
+                        samples.push(s);
+                        if samples.len() >= 8 {
+                            let mut sum = 0.0f64;
+                            for (_, secs) in samples.iter() { sum += *secs; }
+                            let avg = sum / (samples.len() as f64);
+                            if avg > 0.2 && target > 2 {
+                                target -= 1;
+                                let mut h = held2.lock().await;
+                                let p = sem2.clone().acquire_owned().await.unwrap();
+                                h.push(p);
+                            } else if avg < 0.05 && target < maxc {
+                                target += 1;
+                                let mut h = held2.lock().await;
+                                if let Some(p) = h.pop() { drop(p); }
+                            }
+                            samples.clear();
+                        }
+                    }
+                });
+            }
             let s = stream! {
                 for i in 0..zip.file().entries().len() {
                     let entry_meta = zip.file().entries()[i].clone();
@@ -81,15 +121,21 @@ impl FileAdapter for ZipAdapter {
                     );
                     let new_line_prefix = format!("{}{}: ", line_prefix, &fname_str);
                     let fname = PathBuf::from(fname_str.clone());
-                    let (w, r) = duplex(64 * 1024);
+                    let (w, r) = duplex(config.zip_pipe_bytes.0);
                     let path_for_task = filepath_hint.clone();
+                    let tx2 = tx.clone();
+                    let sem_c = sem.clone();
                     tokio::spawn(async move {
+                        let _permit = sem_c.acquire_owned().await.unwrap();
                         let zip2 = ZipFileReader::new(&path_for_task).await?;
                         let reader_with_entry = zip2.reader_with_entry(i).await?;
                         let fut_reader = reader_with_entry.boxed_reader();
                         let mut src = FuturesAsyncReadCompatExt::compat(fut_reader);
                         let mut dst = w;
-                        let _ = copy(&mut src, &mut dst).await;
+                        let start = Instant::now();
+                        let n = copy(&mut src, &mut dst).await?;
+                        let secs = (Instant::now() - start).as_secs_f64();
+                        let _ = tx2.send((n as usize, secs));
                         Ok(())
                     });
                     yield Ok(AdaptInfo {
@@ -113,6 +159,7 @@ pub async fn owned_zip_iter_fs(
     ai: AdaptInfo,
 ) -> Result<AdaptedFilesIterBox> {
     use async_zip::tokio::read::fs::ZipFileReader;
+    // no compat needed in buffered path
     let AdaptInfo {
         filepath_hint,
         inp,
@@ -126,8 +173,11 @@ pub async fn owned_zip_iter_fs(
     let zip_path = if is_real_file {
         filepath_hint.clone()
     } else {
-        let tmp = tempfile::NamedTempFile::new()?;
-        let tmp_path = tmp.path().to_path_buf();
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let tmp_path = std::env::temp_dir().join(format!("rga_zip_{}.zip", ts));
         let mut f = tokio::fs::File::create(&tmp_path).await?;
         let mut r = inp;
         tokio::io::copy(&mut r, &mut f).await?;
@@ -156,11 +206,10 @@ pub async fn owned_zip_iter_fs(
             let mut fut_reader = entry_reader.boxed_reader();
             let mut buf = Vec::new();
             fut_reader.read_to_end(&mut buf).await?;
-            let (mut w, r) = duplex(64 * 1024);
+            let (mut w, r) = duplex(config.zip_pipe_bytes.0);
             let data = buf;
-            tokio::spawn(async move {
-                let _ = w.write_all(&data).await;
-            });
+            use tokio::io::AsyncWriteExt;
+            tokio::spawn(async move { let _ = w.write_all(&data).await; });
             yield Ok(AdaptInfo {
                 filepath_hint: fname,
                 is_real_file: false,

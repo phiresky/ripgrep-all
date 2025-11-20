@@ -19,32 +19,40 @@ type FinishHandler =
     dyn FnOnce((u64, Option<Vec<u8>>)) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send;
 
 lazy_static! {
+    #[cfg(feature = "cache-dict-train")]
     static ref ZSTD_DICT_BYTES: Mutex<Option<Vec<u8>>> = Mutex::new(None);
+    #[cfg(feature = "cache-dict-train")]
     static ref ZSTD_TRAIN_SAMPLES: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
 }
 
 fn maybe_train_zstd_dict(sample: Vec<u8>) {
-    let mut dict_guard = ZSTD_DICT_BYTES.lock().unwrap();
-    if dict_guard.is_some() { return; }
-    let mut samples = ZSTD_TRAIN_SAMPLES.lock().unwrap();
-    samples.push(sample);
-    const MIN_SAMPLES: usize = 16;
-    const MAX_DICT_SIZE: usize = 1 << 14; // 16 KiB
-    if samples.len() >= MIN_SAMPLES {
-        let refs: Vec<&[u8]> = samples.iter().map(|v| v.as_slice()).collect();
-        match zstd::dict::from_samples(&refs, MAX_DICT_SIZE) {
-            Ok(dict) => { *dict_guard = Some(dict); }
-            Err(e) => { debug!("training zstd dict failed: {:?}", e); }
+    #[cfg(feature = "cache-dict-train")]
+    {
+        let mut dict_guard = ZSTD_DICT_BYTES.lock().unwrap();
+        if dict_guard.is_some() { return; }
+        let mut samples = ZSTD_TRAIN_SAMPLES.lock().unwrap();
+        samples.push(sample);
+        const MIN_SAMPLES: usize = 16;
+        const MAX_DICT_SIZE: usize = 1 << 14; // 16 KiB
+        if samples.len() >= MIN_SAMPLES {
+            let refs: Vec<&[u8]> = samples.iter().map(|v| v.as_slice()).collect();
+            match zstd::dict::from_samples(&refs, MAX_DICT_SIZE) {
+                Ok(dict) => { *dict_guard = Some(dict); }
+                Err(e) => { debug!("training zstd dict failed: {:?}", e); }
+            }
+            samples.clear();
         }
-        samples.clear();
     }
 }
 
 pub fn load_zstd_dict_path(path: &str) -> Result<()> {
-    let mut dict_guard = ZSTD_DICT_BYTES.lock().unwrap();
-    if dict_guard.is_some() { return Ok(()); }
-    let bytes = std::fs::read(path).with_context(|| format!("reading zstd dict {path}"))?;
-    *dict_guard = Some(bytes);
+    #[cfg(feature = "cache-dict-train")]
+    {
+        let mut dict_guard = ZSTD_DICT_BYTES.lock().unwrap();
+        if dict_guard.is_some() { return Ok(()); }
+        let bytes = std::fs::read(path).with_context(|| format!("reading zstd dict {path}"))?;
+        *dict_guard = Some(bytes);
+    }
     Ok(())
 }
 /**
@@ -56,6 +64,7 @@ pub fn async_read_and_write_to_cache<'a>(
     inp: impl AsyncRead + Send + 'a,
     max_cache_size: usize,
     compression_level: i32,
+    small_uncompressed_bytes: usize,
     on_finish: Box<FinishHandler>,
 ) -> Result<Pin<Box<dyn AsyncRead + Send + 'a>>> {
     let inp = Box::pin(inp);
@@ -110,9 +119,17 @@ pub fn async_read_and_write_to_cache<'a>(
                     (bytes_written, None)
                 }
             } else if let Some(buf) = small_buf.take() {
+                if bytes_written as usize <= small_uncompressed_bytes {
+                    (bytes_written, Some(buf))
+                } else {
                 // compress small outputs once with level 1
                 // try dictionary if available, otherwise zstd level 1
-                let dict_opt = { ZSTD_DICT_BYTES.lock().unwrap().clone() };
+                let dict_opt = {
+                    #[cfg(feature = "cache-dict-train")]
+                    { ZSTD_DICT_BYTES.lock().unwrap().clone() }
+                    #[cfg(not(feature = "cache-dict-train"))]
+                    { None }
+                };
                 if let Some(dict_bytes) = dict_opt {
                     match (|| {
                         let mut enc = zstd::Encoder::with_dictionary(Vec::new(), 1, &dict_bytes)?;
@@ -141,6 +158,7 @@ pub fn async_read_and_write_to_cache<'a>(
                     let res = writer.into_inner();
                     let ratio_bad = if bytes_written > 0 { (res.len() as f64) / (bytes_written as f64) > 0.9 } else { false };
                     if res.len() <= max_cache_size && !ratio_bad { (bytes_written, Some(res)) } else { (bytes_written, None) }
+                }
                 }
             } else {
                 (bytes_written, None)

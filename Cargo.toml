@@ -13,66 +13,60 @@ repository = "https://github.com/phiresky/ripgrep-all"
 version = "0.10.10"
 
 [features]
-default = ["perf-literal"]
+default = ["perf-literal", "cache-dict-train"]
 perf-literal = ["regex/perf-literal"]
+cache-dict-train = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = {version = "1.0.71", features = ["backtrace"]}
-async-compression = { version = "0.4.11", features = ["all", "all-algorithms", "tokio"] }
-async-stream = "0.3.5"
-async-trait = "0.1.68"
-async_zip = {version = "0.0.17", features = ["full"]}
-bincode = "1.3.3"
-bytes = "1.6.0"
-clap = {version = "4.3.0", features = ["wrap_help"]}
-crossbeam = "0.8.2"
-crossbeam-channel = "0.5.8"
-derive_more = "0.99.17"
+anyhow = {version = "1.0.96", features = ["backtrace"]}
+async-compression = { version = "0.4.20", features = ["all", "all-algorithms", "tokio"] }
+async-stream = "0.3.6"
+async-trait = "0.1.86"
+async_zip = {version = "0.0.18", features = ["full"]}
+bytes = "1.10.0"
+clap = {version = "4.5.53", features = ["derive"]}
+derive_more = "0.99.19"
 directories-next = "2.0.0"
-dyn-clonable = "0.9.0"
-dyn-clone = "1.0.11"
-encoding_rs = "0.8.32"
+encoding_rs = "0.8.35"
 encoding_rs_io = "0.1.7"
-env_logger = "0.10.0"
-glob = "0.3.1"
-json_comments = "0.2.1"
-lazy_static = "1.4.0"
-log = "0.4.17"
+env_logger = "0.11"
+json_comments = "0.2.2"
+lazy_static = "1.5.0"
+log = "0.4.26"
 mailparse = "0.15.0"
 memchr = "2.7.4"
-mime2ext = "0.1.52"
-open = "5"
-paste = "1.0.12"
+mime2ext = "0.1.53"
+open = "5.3.2"
 path-clean = "1.0.1"
 pretty-bytes = "0.2.2"
-regex = "1.10.4"
-zstd = "0.13"
-rusqlite = {version = "0.32.0", features = ["vtab", "bundled"]}
-schemars = {version = "0.8.12", features = ["preserve_order"]}
-serde = {version = "1.0.163", features = ["derive"]}
-serde_json = "1.0.96"
+regex = "1.11.1"
+zstd = "0.13.3"
+rusqlite = {version = "0.37.0", features = ["vtab", "bundled"]}
+schemars = {version = "0.9.0", features = ["preserve_order", "indexmap2"]}
+serde = {version = "1.0.218", features = ["derive"]}
+serde_json = "1.0.139"
 size_format = "1.0.2"
-structopt = "0.3.26"
-tempfile = "3.5.0"
-tokio = {version = "1.39.2", features = ["full"]}
-tokio-rusqlite = "0.6.0"
-tokio-stream = {version = "0.1.15", features = ["io-util", "tokio-util"]}
+tempfile = "3.17.1"
+tokio = {version = "1.48.0", features = ["full"]}
+tokio-rusqlite = "0.7.0"
+tokio-stream = {version = "0.1.17", features = ["io-util", "tokio-util"]}
 astral-tokio-tar =  "0.5.6" 
-tar = "0.4.40"
-tokio-util = {version = "0.7.11", features = ["io", "full"]}
-tree_magic = {package = "tree_magic_mini", version = "3.1.0"}
+tar = "0.4.44"
+tokio-util = {version = "0.7.13", features = ["io", "full"]}
+tree_magic = {package = "tree_magic_mini", version = "3.1.6"}
+sysinfo = "0.30.13"
+toml = "0.9.8"
 futures-lite = "2.6.1"
-futures = "0.3.31"
 
 [dev-dependencies]
-async-recursion = "1.0.4"
+async-recursion = "1.1.1"
 ctor = "0.2.0"
 pretty_assertions = "1.3.0"
-tempfile = "3.5.0"
-tokio-test = "0.4.2"
-tar = "0.4.40"
+tempfile = "3.17.1"
+tokio-test = "0.4.4"
+tar = "0.4.44"
 
 [profile.release]
 debug = true

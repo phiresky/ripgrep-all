@@ -5,7 +5,6 @@ use crate::adapters::*;
 
 use anyhow::*;
 
-use regex::Regex;
 
 use std::iter::Iterator;
 
@@ -48,10 +47,6 @@ pub struct FileMeta {
     pub mimetype: Option<&'static str>,
 }
 
-pub fn extension_to_regex(extension: &str) -> Regex {
-    Regex::new(&format!("(?i)\\.{}$", &regex::escape(extension)))
-        .expect("we know this regex compiles")
-}
 
 #[allow(clippy::type_complexity)]
 pub fn adapter_matcher(

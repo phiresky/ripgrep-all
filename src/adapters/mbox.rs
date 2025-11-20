@@ -4,7 +4,6 @@ use anyhow::Result;
 use async_stream::stream;
 use lazy_static::lazy_static;
 use mime2ext::mime2ext;
-use regex::bytes::Regex;
 use tokio_util::io::ReaderStream;
 use tokio_stream::StreamExt;
 
@@ -33,7 +32,6 @@ lazy_static! {
         disabled_by_default: true,
         keep_fast_matchers_if_accurate: true
     };
-    static ref FROM_REGEX: Regex = Regex::new("\r?\nFrom [^\n]+\n").unwrap();
 }
 #[derive(Default)]
 pub struct MboxAdapter;

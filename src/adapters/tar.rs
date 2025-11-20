@@ -12,6 +12,11 @@ use log::*;
 use std::path::PathBuf;
 
 use tokio_stream::StreamExt;
+use tokio::sync::Semaphore;
+use tokio::io::{duplex, copy};
+use tokio::sync::mpsc;
+use std::time::Instant;
+use std::sync::Mutex;
 
 use super::{AdaptInfo, FileAdapter, GetMetadata};
 
@@ -32,6 +37,12 @@ lazy_static! {
         disabled_by_default: false
     };
 }
+lazy_static! { static ref TAR_PIPE_TUNED: Mutex<Option<usize>> = Mutex::new(None); }
+fn get_tar_pipe_bytes(cfg: &crate::config::RgaConfig) -> usize {
+    let mut g = TAR_PIPE_TUNED.lock().unwrap();
+    if let Some(v) = *g { v } else { let v = cfg.tar_pipe_bytes.0; *g = Some(v); v }
+}
+fn set_tar_pipe_bytes(new: usize) { let mut g = TAR_PIPE_TUNED.lock().unwrap(); *g = Some(new); }
 #[derive(Default, Clone)]
 pub struct TarAdapter;
 
@@ -63,8 +74,31 @@ impl FileAdapter for TarAdapter {
             ..
         } = ai;
         let mut archive = ::tokio_tar::Archive::new(inp);
-
         let mut entries = archive.entries()?;
+        let sem = std::sync::Arc::new(Semaphore::new(config.tar_max_concurrency.0));
+        let (tx, mut rx) = mpsc::unbounded_channel::<(usize, f64)>();
+        {
+            let min_cap: usize = 1<<18; // 256 KiB
+            let max_cap: usize = 1<<20; // 1 MiB
+            let cfg = config.clone();
+            tokio::spawn(async move {
+                let mut samples: Vec<(usize, f64)> = Vec::new();
+                let mut cur = get_tar_pipe_bytes(&cfg);
+                while let Some(s) = rx.recv().await {
+                    samples.push(s);
+                    if samples.len() >= 8 {
+                        let mut sum = 0.0f64;
+                        for (_, secs) in samples.iter() { sum += *secs; }
+                        let avg = sum / (samples.len() as f64);
+                        let mut new = cur;
+                        if avg > 0.2 { new = (cur.saturating_mul(2)).min(max_cap); }
+                        else if avg < 0.05 { new = (cur.saturating_div(2)).max(min_cap); }
+                        if new != cur { set_tar_pipe_bytes(new); cur = new; }
+                        samples.clear();
+                    }
+                }
+            });
+        }
         let s = stream! {
             while let Some(entry) = entries.next().await {
                 let file = entry?;
@@ -77,16 +111,27 @@ impl FileAdapter for TarAdapter {
                         print_bytes(file.header().size().unwrap_or(0) as f64),
                     );
                     let line_prefix = &format!("{}{}: ", line_prefix, path.display());
-                    let ai2: AdaptInfo = AdaptInfo {
+                    let (w, r) = duplex(get_tar_pipe_bytes(&config));
+                    let sem2 = sem.clone();
+                    let tx2 = tx.clone();
+                    tokio::spawn(async move {
+                        let _p = sem2.acquire_owned().await.unwrap();
+                        let mut src = file;
+                        let mut dst = w;
+                        let start = Instant::now();
+                        let n = copy(&mut src, &mut dst).await.unwrap_or(0);
+                        let secs = (Instant::now() - start).as_secs_f64();
+                        let _ = tx2.send((n as usize, secs));
+                    });
+                    yield Ok(AdaptInfo {
                         filepath_hint: path,
                         is_real_file: false,
                         archive_recursion_depth: archive_recursion_depth + 1,
-                        inp: Box::pin(file),
+                        inp: Box::pin(r),
                         line_prefix: line_prefix.to_string(),
                         config: config.clone(),
                         postprocess,
-                    };
-                    yield Ok(ai2);
+                    });
                 }
             }
         };

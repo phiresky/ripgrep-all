@@ -5,26 +5,41 @@ use tempfile::tempdir;
 use tokio::fs::File;
 use tokio::io::{copy, sink};
 
+fn write_mbox(path: &std::path::Path, mb: usize) -> anyhow::Result<()> {
+    let mut f = std::fs::File::create(path)?;
+    // simple plain-text messages separated by mbox From lines
+    // message body ~4 KiB to scale
+    let body = {
+        let mut s = String::new();
+        for i in 0..128 { s.push_str(&format!("Line {i}: hello world lorem ipsum dolor sit amet\n")); }
+        s
+    };
+    let mut written = 0usize;
+    let target = mb * 1024 * 1024;
+    let mut idx = 0usize;
+    while written < target {
+        let msg = format!(
+            "From sender@example.com Sun Jan 01 00:00:00 2024\nSubject: Test {idx}\nContent-Type: text/plain; charset=utf-8\n\n{body}\n"
+        );
+        f.write_all(msg.as_bytes())?;
+        written = written.saturating_add(msg.len());
+        idx = idx.saturating_add(1);
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let dir = tempdir()?;
     let path = dir.path().join("bench.mbox");
-    let mut n = 10000;
+    let mut mb = 100usize;
+    let mut csv: Option<String> = None;
     for arg in std::env::args().skip(1) {
-        if let Some(v) = arg.strip_prefix("--messages=") { n = v.parse().unwrap_or(n); }
+        if let Some(v) = arg.strip_prefix("--mb=") { mb = v.parse().unwrap_or(mb); }
+        if let Some(v) = arg.strip_prefix("--csv=") { csv = Some(v.to_string()); }
     }
-    {
-        let mut f = std::fs::File::create(&path)?;
-        let mut msg = String::new();
-        msg.push_str("Content-Type: text/plain; charset=UTF-8\n\n");
-        msg.push_str("Hello world\n");
-        for i in 0..n {
-            writeln!(f, "From user@example.com")?;
-            writeln!(f, "Message {i}")?;
-            f.write_all(msg.as_bytes())?;
-        }
-    }
-    let cfg = rga::config::RgaConfig { accurate: true, adapters: vec!["+mail".to_string()], cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
+    write_mbox(&path, mb)?;
+    let cfg = rga::config::RgaConfig { accurate: true, cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),
@@ -40,15 +55,13 @@ async fn main() -> anyhow::Result<()> {
     let mut w = sink();
     let copied = copy(&mut rd, &mut w).await?;
     let dur = rga::print_dur(start);
-    println!("mbox: {} bytes={} messages={}", dur, copied, n);
-    for arg in std::env::args().skip(1) {
-        if let Some(csv) = arg.strip_prefix("--csv=") {
-            let exists = std::path::Path::new(csv).exists();
-            let mut f = std::fs::OpenOptions::new().create(true).append(true).open(csv)?;
-            if !exists { writeln!(f, "bench,bytes,duration_ms,extra")?; }
-            let ms = (std::time::Instant::now() - start).as_millis();
-            writeln!(f, "mbox,{},{},messages:{}", copied, ms, n)?;
-        }
+    println!("mbox: {} bytes={} mb={}", dur, copied, mb);
+    if let Some(csvp) = csv {
+        let exists = std::path::Path::new(&csvp).exists();
+        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(csvp)?;
+        if !exists { writeln!(f, "bench,bytes,duration_ms,extra")?; }
+        let ms = (std::time::Instant::now() - start).as_millis();
+        writeln!(f, "mbox,{},{},mb:{}", copied, ms, mb)?;
     }
     Ok(())
 }

@@ -31,7 +31,11 @@ async fn main() -> anyhow::Result<()> {
         if let Some(v) = arg.strip_prefix("--mb=") { mb = v.parse().unwrap_or(mb); }
     }
     write_utf16_le(&path, mb)?;
-    let cfg = rga::config::RgaConfig { accurate: true, cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
+    let mut cfg = rga::config::RgaConfig { accurate: true, cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
+    for arg in std::env::args().skip(1) {
+        if let Some(v) = arg.strip_prefix("--rga-writing-pipe-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.writing_pipe_bytes = rga::config::WritingPipeBytes(u); }
+        if let Some(v) = arg.strip_prefix("--rga-postproc-pipe-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.postproc_pipe_bytes = rga::config::PostprocPipeBytes(u); }
+    }
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),

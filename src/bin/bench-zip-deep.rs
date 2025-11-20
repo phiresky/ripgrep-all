@@ -49,7 +49,14 @@ async fn main() -> anyhow::Result<()> {
     }
     let data = create_zip(dir.path(), entries, nested).await?;
     std::fs::write(&path, data)?;
-    let cfg = rga::config::RgaConfig { cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
+    let mut cfg = rga::config::RgaConfig { cache: rga::config::CacheConfig { disabled: true, ..Default::default() }, ..Default::default() };
+    for arg in std::env::args().skip(1) {
+        if let Some(v) = arg.strip_prefix("--rga-zip-max-concurrency=") && let Ok(u) = v.parse::<usize>() { cfg.zip_max_concurrency = rga::config::ZipMaxConcurrency(u); }
+        if let Some(v) = arg.strip_prefix("--rga-zip-pipe-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.zip_pipe_bytes = rga::config::ZipPipeBytes(u); }
+        if let Some(v) = arg.strip_prefix("--rga-writing-pipe-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.writing_pipe_bytes = rga::config::WritingPipeBytes(u); }
+        if let Some(v) = arg.strip_prefix("--rga-postproc-pipe-bytes=") && let Ok(u) = v.parse::<usize>() { cfg.postproc_pipe_bytes = rga::config::PostprocPipeBytes(u); }
+        if let Some(v) = arg.strip_prefix("--rga-zip-owned-iter=") && let Ok(u) = v.parse::<bool>() { cfg.zip_owned_iter = u; }
+    }
     let i = File::open(&path).await?;
     let ai = rga::adapters::AdaptInfo {
         inp: Box::pin(i),

@@ -54,7 +54,7 @@ impl FileAdapter for PostprocPrefix {
     ) -> Result<AdaptedFilesIterBox> {
         let read = add_newline(postproc_prefix(
             &a.line_prefix,
-            postproc_encoding(&a.line_prefix, a.inp).await?,
+            postproc_encoding(&a.line_prefix, a.inp, &a.config).await?,
         ));
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
@@ -82,6 +82,7 @@ impl Read for ReadErr {
 async fn postproc_encoding(
     _line_prefix: &str,
     inp: Pin<Box<dyn AsyncRead + Send>>,
+    config: &crate::config::RgaConfig,
 ) -> Result<Pin<Box<dyn AsyncRead + Send>>> {
     // check for binary content in first 8kB
     // read the first 8kB into a buffer, check for null bytes, then return the buffer concatenated with the rest of the file
@@ -105,18 +106,18 @@ async fn postproc_encoding(
                 .bom_override(true)
                 .bom_sniffing(bom_sniffing)
                 .build(SyncIoBridge::new(combined));
-            let (w, r) = tokio::io::duplex(64 * 1024);
-            let mut writer = SyncIoBridge::new(w);
+            let (w, r) = tokio::io::duplex(config.postproc_pipe_bytes.0);
             tokio::task::spawn_blocking(move || -> Result<()> {
-                let mut buf = [0u8; 1 << 15];
+                let mut buf = [0u8; 1 << 17];
                 let mut rdr = reader;
+                let mut writer = SyncIoBridge::new(w);
                 loop {
                     let n = std::io::Read::read(&mut rdr, &mut buf)?;
                     if n == 0 { break; }
                     std::io::Write::write_all(&mut writer, &buf[..n])?;
                 }
                 Ok(())
-            }).await??;
+            });
             Ok(Box::pin(r))
         }
         _ => {
@@ -191,9 +192,9 @@ impl FileAdapter for PostprocPageBreaks {
         _detection_reason: &crate::matching::FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
         let read: Pin<Box<dyn AsyncRead + Send>> = if a.config.disable_pagebreaks {
-            Box::pin(postproc_prefix(&a.line_prefix, postproc_encoding(&a.line_prefix, a.inp).await?))
+            Box::pin(postproc_prefix(&a.line_prefix, postproc_encoding(&a.line_prefix, a.inp, &a.config).await?))
         } else {
-            Box::pin(postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp).await?))
+            Box::pin(postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp, &a.config).await?))
         };
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
@@ -360,7 +361,8 @@ PREFIX:Page 3:
     ) -> Result<()> {
         let mut oup = Vec::new();
         let inp = Box::pin(Cursor::new(a));
-        let inp = postproc_encoding("", inp).await?;
+        let cfg = crate::config::RgaConfig::default();
+        let inp = postproc_encoding("", inp, &cfg).await?;
         if pagebreaks {
             postproc_pagebreaks(inp).read_to_end(&mut oup).await?;
         } else {

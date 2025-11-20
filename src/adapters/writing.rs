@@ -52,7 +52,7 @@ where
         detection_reason: &crate::matching::FileMatcher,
     ) -> Result<crate::adapted_iter::AdaptedFilesIterBox> {
         let name = self.metadata().name.clone();
-        let (w, r) = tokio::io::duplex(512 * 1024);
+        let (w, r) = tokio::io::duplex(a.config.writing_pipe_bytes.0);
         let d2 = detection_reason.clone();
         let archive_recursion_depth = a.archive_recursion_depth + 1;
         let filepath_hint = format!("{}.txt", a.filepath_hint.to_string_lossy());

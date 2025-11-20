@@ -24,6 +24,9 @@ use std::sync::Arc;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::io::{AsyncBufRead, AsyncReadExt};
+use std::collections::HashMap;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
 
 pub type ActiveAdapters = Vec<Arc<dyn FileAdapter>>;
 
@@ -45,6 +48,33 @@ pub fn make_engine(config: &RgaConfig) -> Result<AdapterEngine> {
     Ok(AdapterEngine { active_adapters, matcher })
 }
 
+#[derive(Default, Clone)]
+struct AdapterStat { runs: u64, cache_hits: u64, cache_misses: u64, bytes_uncompressed: u64, bytes_compressed: u64 }
+lazy_static! { static ref PROF_STATS: Mutex<HashMap<String, AdapterStat>> = Mutex::new(HashMap::new()); }
+fn prof_hit(adapter: &str) {
+    let mut g = PROF_STATS.lock().unwrap();
+    let e = g.entry(adapter.to_string()).or_default();
+    e.runs += 1; e.cache_hits += 1;
+}
+fn prof_miss(adapter: &str, uncompressed: u64, compressed: Option<usize>) {
+    let mut g = PROF_STATS.lock().unwrap();
+    let e = g.entry(adapter.to_string()).or_default();
+    e.runs += 1; e.cache_misses += 1; e.bytes_uncompressed += uncompressed; if let Some(c) = compressed { e.bytes_compressed += c as u64; }
+}
+pub fn prof_summary() -> String {
+    let g = PROF_STATS.lock().unwrap();
+    let mut v: Vec<(String, AdapterStat)> = g.iter().map(|(k, s)| (k.clone(), s.clone())).collect();
+    v.sort_by_key(|e| e.0.clone());
+    let mut out = String::new();
+    for (name, s) in v.into_iter() {
+        out.push_str(&format!("{}: runs={}, hits={}, misses={}, bytes={}, compressed={}\n", name, s.runs, s.cache_hits, s.cache_misses, s.bytes_uncompressed, s.bytes_compressed));
+    }
+    if let Some((gz,bz,xz,z)) = crate::adapters::decompress::tuned_caps() {
+        out.push_str(&format!("decompressor caps: gzip={}, bzip2={}, xz={}, zstd={}\n", gz, bz, xz, z));
+    }
+    out
+}
+
 async fn choose_adapter(
     engine: &AdapterEngine,
     config: &RgaConfig,
@@ -57,8 +87,15 @@ async fn choose_adapter(
         .ok_or_else(|| format_err!("Empty filename"))?;
     debug!("Archive recursion depth: {}", archive_recursion_depth);
 
+    let first = (engine.matcher)(FileMeta {
+        mimetype: None,
+        lossy_filename: filename.to_string_lossy().to_string(),
+    });
+    if first.is_some() {
+        return Ok(first.map(|e| (e.0, e.1, engine.active_adapters.clone())));
+    }
     let mimetype = if config.accurate {
-        let buf = inp.fill_buf().await?; // fill but do not consume!
+        let buf = inp.fill_buf().await?;
         let probe = &buf[..buf.len().min(8192)];
         if probe.starts_with(b"From \x0d") || probe.starts_with(b"From -") {
             Some("application/mbox")
@@ -70,11 +107,11 @@ async fn choose_adapter(
     } else {
         None
     };
-    let adapter = (engine.matcher)(FileMeta {
+    let second = (engine.matcher)(FileMeta {
         mimetype,
         lossy_filename: filename.to_string_lossy().to_string(),
     });
-    Ok(adapter.map(|e| (e.0, e.1, engine.active_adapters.clone())))
+    Ok(second.map(|e| (e.0, e.1, engine.active_adapters.clone())))
 }
 
 enum Ret {
@@ -133,6 +170,19 @@ async fn buf_choose_adapter(engine: &AdapterEngine, ai: AdaptInfo) -> Result<Ret
 pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     debug!("path (hint) to preprocess: {:?}", ai.filepath_hint);
     let engine = make_engine(&ai.config)?;
+    if let Some(maxb) = ai.config.max_file_bytes
+        && ai.is_real_file
+        && let std::result::Result::Ok(md) = std::fs::metadata(&ai.filepath_hint)
+        && md.len() as usize > maxb {
+        let allow_cat = !ai.config.no_prefix_filenames && ai.postprocess && !ai.config.no_prefix_for_adapters.iter().any(|s| s == "default" || s == "*");
+        if allow_cat {
+            let ai2 = AdaptInfo { inp: ai.inp, filepath_hint: ai.filepath_hint, is_real_file: ai.is_real_file, archive_recursion_depth: ai.archive_recursion_depth, line_prefix: ai.line_prefix, config: ai.config.clone(), postprocess: false };
+            let path_hint_copy = ai2.filepath_hint.clone();
+            return adapt_caching(&engine, ai2, Arc::new(PostprocPrefix {}), FileMatcher::Fast(FastFileMatcher::FileExtension("default".to_string())), vec![]).await.with_context(|| format!("run_adapter({})", &path_hint_copy.to_string_lossy()));
+        } else {
+            return Ok(ai.inp);
+        }
+    }
 
     // todo: figure out when using a bufreader is a good idea and when it is not
     // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
@@ -160,7 +210,7 @@ async fn adapt_caching(
         "Chose adapter '{}' because of matcher {:?}",
         &meta.name, &detection_reason
     );
-    eprintln!(
+    debug!(
         "{} adapter: {}",
         ai.filepath_hint.to_string_lossy(),
         &meta.name
@@ -173,8 +223,12 @@ async fn adapt_caching(
     } else {
         None
     };
-
-    let mut cache = cache.context("No cache?")?;
+    if cache.is_none() {
+        let inp = loop_adapt(engine.clone(), adapter.as_ref(), detection_reason, ai).await?;
+        let inp = concat_read_streams(inp);
+        return Ok(Box::pin(inp));
+    }
+    let mut cache = cache.unwrap();
     let cache_key = CacheKey::new(
         ai.postprocess,
         &ai.filepath_hint,
@@ -184,28 +238,36 @@ async fn adapt_caching(
     // let dbg_ctx = format!("adapter {}", &adapter.metadata().name);
     let cached = cache.get(&cache_key).await.context("cache.get")?;
     match cached {
-        Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
+        Some(cached) => {
+            if ai.config.profile { prof_hit(&adapter.metadata().name); }
+            Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached))))
+        },
         None => {
             debug!("cache MISS, running adapter with caching...");
+            let profile_enabled = ai.config.profile;
+            let adapter_name = adapter.metadata().name.clone();
+            let small_uncompressed = if ai.config.cache.disable_small_uncompressed { 0 } else { ai.config.cache.small_uncompressed_bytes.0 };
             let inp = loop_adapt(engine.clone(), adapter.as_ref(), detection_reason, ai).await?;
             let inp = concat_read_streams(inp);
             let inp = async_read_and_write_to_cache(
                 inp,
                 cache_max_blob_len.0,
                 cache_compression_level.0,
+                small_uncompressed,
                 Box::new(move |(uncompressed_size, compressed)| {
                     Box::pin(async move {
                         debug!(
                             "uncompressed output: {}",
                             print_bytes(uncompressed_size as f64)
                         );
-                        if let Some(cached) = compressed {
+                        if let Some(ref cached) = compressed {
                             debug!("compressed output: {}", print_bytes(cached.len() as f64));
                             cache
-                                .set(&cache_key, cached)
+                                .set(&cache_key, cached.to_vec())
                                 .await
                                 .context("writing to cache")?
                         }
+                        if profile_enabled { prof_miss(&adapter_name, uncompressed_size, compressed.as_ref().map(|c| c.len())); }
                         Ok(())
                     })
                 }),
@@ -274,7 +336,7 @@ pub async fn loop_adapt_inner(
                         "Chose adapter '{}' because of matcher {:?}",
                         &adapter.metadata().name, &detection_reason
                     );
-                    eprintln!(
+                    debug!(
                         "{} adapter: {}",
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
