@@ -1,6 +1,7 @@
 pub mod custom;
 pub mod decompress;
 pub mod ffmpeg;
+pub mod ipynb;
 pub mod mbox;
 pub mod postproc;
 use std::sync::Arc;
@@ -120,6 +121,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
 
     let internal_adapters: Vec<Arc<dyn FileAdapter>> = vec![
         Arc::new(PostprocPageBreaks::default()),
+        Arc::new(ipynb::IpynbAdapter::new()),
         Arc::new(ffmpeg::FFmpegAdapter::new()),
         Arc::new(zip::ZipAdapter::new()),
         Arc::new(decompress::DecompressAdapter::new()),

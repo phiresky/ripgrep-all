@@ -13,7 +13,11 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let mut arg_arr: Vec<std::ffi::OsString> = std::env::args_os().collect();
     let last = arg_arr.pop().expect("No filename specified");
-    let config = rga::config::parse_args(arg_arr, true)?;
+    let mut config = rga::config::parse_args(arg_arr, true)?;
+    if config.decompress_autotune_import.is_none()
+        && let Ok(p) = std::env::var("RGA_DECOMPRESS_AUTOTUNE_IMPORT")
+        && !p.is_empty() { config.decompress_autotune_import = Some(p); }
+    if let Some(p) = config.decompress_autotune_import.as_ref() { let _ = rga::adapters::decompress::import_caps_from_file(p); }
     //clap::App::new("rga-preproc").arg(Arg::from_usage())
     let path = {
         let filepath = last;
@@ -31,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
         line_prefix: "".to_string(),
         archive_recursion_depth: 0,
         postprocess: !config.no_prefix_filenames,
-        config,
+        config: config.clone(),
     };
 
     let start = Instant::now();
@@ -47,5 +51,10 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     debug!("running adapter took {} total", print_dur(start));
+    if config.decompress_autotune_export.is_none()
+        && let Ok(p) = std::env::var("RGA_DECOMPRESS_AUTOTUNE_EXPORT")
+        && !p.is_empty() { config.decompress_autotune_export = Some(p); }
+    if let Some(p) = config.decompress_autotune_export.as_ref() { let _ = rga::adapters::decompress::export_caps_to_file(p); }
+    if config.profile { println!("{}", rga::preproc::prof_summary()); }
     Ok(())
 }
