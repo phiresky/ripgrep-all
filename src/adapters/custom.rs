@@ -160,6 +160,58 @@ lazy_static! {
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt".into()),
         }
+        ,
+        CustomAdapterConfig {
+            name: "hdf5".to_string(),
+            description: "Uses h5dump to print HDF5 headers and attributes".to_string(),
+            version: 1,
+            extensions: strs(&["h5", "hdf5", "hdf"]),
+            mimetypes: Some(strs(&["application/x-hdf5", "application/x-hdf"])),
+            binary: "h5dump".to_string(),
+            args: strs(&["-H", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "netcdf".to_string(),
+            description: "Uses ncdump to print NetCDF dataset metadata".to_string(),
+            version: 1,
+            extensions: strs(&["nc", "cdf", "netcdf"]),
+            mimetypes: Some(strs(&["application/x-netcdf"])),
+            binary: "ncdump".to_string(),
+            args: strs(&["-h", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "fitsdump".to_string(),
+            description: "Uses fitsdump to print FITS headers".to_string(),
+            version: 1,
+            extensions: strs(&["fits", "fit", "fts"]),
+            mimetypes: Some(strs(&["application/fits"])),
+            binary: "fitsdump".to_string(),
+            args: strs(&["-h", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
+        ,
+        CustomAdapterConfig {
+            name: "dcmdump".to_string(),
+            description: "Uses dcmdump to print DICOM metadata and tags".to_string(),
+            version: 1,
+            extensions: strs(&["dcm"]),
+            mimetypes: Some(strs(&["application/dicom", "application/dicom+binary"])),
+            binary: "dcmdump".to_string(),
+            args: strs(&["+L", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
     ];
 }
 
