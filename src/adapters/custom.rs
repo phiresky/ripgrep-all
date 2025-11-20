@@ -212,6 +212,19 @@ lazy_static! {
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt".into()),
         }
+        ,
+        CustomAdapterConfig {
+            name: "7zlist".to_string(),
+            description: "Uses 7z to list archive contents for 7z/RAR".to_string(),
+            version: 1,
+            extensions: strs(&["7z", "rar"]),
+            mimetypes: Some(strs(&["application/x-7z-compressed", "application/x-rar-compressed", "application/vnd.rar"])),
+            binary: "7z".to_string(),
+            args: strs(&["l", "-slt", "$input_virtual_path"]),
+            disabled_by_default: None,
+            match_only_by_mime: None,
+            output_path_hint: Some("${input_virtual_path}.txt".into()),
+        }
     ];
 }
 
