@@ -6,6 +6,11 @@ use lazy_static::lazy_static;
 use mime2ext::mime2ext;
 use regex::bytes::Regex;
 use tokio::io::AsyncReadExt;
+<<<<<<< HEAD
+=======
+use tokio_util::io::ReaderStream;
+use tokio_stream::StreamExt;
+>>>>>>> 57d238f (perf(mbox): implement streaming mbox processing)
 
 use std::{collections::VecDeque, io::Cursor};
 
@@ -67,6 +72,7 @@ impl FileAdapter for MboxAdapter {
 
         let mut content = Vec::new();
         let s = stream! {
+<<<<<<< HEAD
             inp.read_to_end(&mut content).await?;
 
             let mut ais = vec![];
@@ -75,6 +81,23 @@ impl FileAdapter for MboxAdapter {
                 let mail = mailparse::parse_mail(mail_content);
                 if mail.is_err() {
                     continue;
+=======
+            let mut buffer: Vec<u8> = Vec::new();
+            let mut stream = ReaderStream::new(inp);
+            let mut scan_from: usize = 0;
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk?;
+                let old_len = buffer.len();
+                buffer.extend_from_slice(&chunk);
+                let data = &buffer[..];
+                let mut indices: Vec<usize> = Vec::new();
+                let mut pos = scan_from.saturating_sub(6);
+                while let Some(nl_off) = memchr::memchr(b'\n', &data[pos..]) {
+                    let i = pos + nl_off;
+                    let end = i + 6;
+                    if end <= data.len() && &data[i+1..end] == b"From " { indices.push(i+1); }
+                    pos = i + 1;
+>>>>>>> 57d238f (perf(mbox): implement streaming mbox processing)
                 }
                 let mail = mail.unwrap();
 
