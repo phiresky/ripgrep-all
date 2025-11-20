@@ -1,0 +1,35 @@
+[zip]
+avg_secs = 0.5103692
+peak_bytes = 12679380992
+best_concurrency = 2
+best_pipe_bytes = 524288
+
+[zip_mode]
+avg_secs = 0.48353643333333335
+peak_bytes = 12616466432
+owned_iter = false
+
+[postproc]
+avg_secs = 2.8400917999999997
+peak_bytes = 12968787968
+best_pipe_bytes = 524288
+
+[zstd]
+avg_secs = 0.1625208
+peak_bytes = 12670992384
+best_buf_bytes = 262144
+
+[gzip]
+avg_secs = 0.16259953333333332
+peak_bytes = 12650020864
+best_buf_bytes = 131072
+
+[xz]
+avg_secs = 0.16257216666666668
+peak_bytes = 12608077824
+best_buf_bytes = 262144
+
+[bzip2]
+avg_secs = 0.16256479999999998
+peak_bytes = 12633243648
+best_buf_bytes = 65536
