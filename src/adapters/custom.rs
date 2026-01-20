@@ -7,7 +7,7 @@ use crate::{
     expand::expand_str_ez,
     matching::{FastFileMatcher, FileMatcher},
 };
-use crate::{join_handle_to_stream, to_io_err};
+use crate::to_io_err;
 use anyhow::Result;
 use async_stream::stream;
 use bytes::Bytes;
@@ -188,13 +188,18 @@ pub fn pipe_output(
     let mut stdi = cmd.stdin.take().expect("is piped");
     let stdo = cmd.stdout.take().expect("is piped");
 
-    let join = tokio::spawn(async move {
+    // Spawn a task to copy input to stdin and close it when done
+    // This runs concurrently with reading stdout to avoid deadlock
+    tokio::spawn(async move {
         let mut z = inp;
-        tokio::io::copy(&mut z, &mut stdi).await?;
-        std::io::Result::Ok(())
+        let _ = tokio::io::copy(&mut z, &mut stdi).await;
+        // stdin is automatically dropped and closed here
     });
+    
+    // Return stdout chained with process wait
+    // The stdin copy task runs independently in the background
     Ok(Box::pin(stdo.chain(
-        proc_wait(cmd, move || format!("subprocess: {cmd_log}")).chain(join_handle_to_stream(join)),
+        proc_wait(cmd, move || format!("subprocess: {cmd_log}")),
     )))
 }
 
