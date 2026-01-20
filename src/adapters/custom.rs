@@ -194,13 +194,14 @@ pub fn pipe_output(
     // Task panics and errors are intentionally not propagated - if the subprocess
     // exits early or closes stdin, that's expected behavior. Subprocess exit
     // status is checked separately via proc_wait.
+    let cmd_log_copy = cmd_log.clone();
     tokio::spawn(async move {
         let mut z = inp;
         if let Err(e) = tokio::io::copy(&mut z, &mut stdi).await {
             // Log copy errors for debugging, but don't fail the operation.
             // Common errors here include broken pipe when subprocess exits early,
             // which is not an error condition.
-            debug!("stdin copy task ended with error (often expected): {}", e);
+            debug!("stdin copy task for subprocess {:?} ended with error (often expected): {}", cmd_log_copy, e);
         }
         // stdin is automatically dropped and closed here
     });
