@@ -189,10 +189,19 @@ pub fn pipe_output(
     let stdo = cmd.stdout.take().expect("is piped");
 
     // Spawn a task to copy input to stdin and close it when done
-    // This runs concurrently with reading stdout to avoid deadlock
+    // This runs concurrently with reading stdout to avoid deadlock when
+    // the subprocess produces large amounts of output before consuming all input.
+    // Task panics and errors are intentionally not propagated - if the subprocess
+    // exits early or closes stdin, that's expected behavior. Subprocess exit
+    // status is checked separately via proc_wait.
     tokio::spawn(async move {
         let mut z = inp;
-        let _ = tokio::io::copy(&mut z, &mut stdi).await;
+        if let Err(e) = tokio::io::copy(&mut z, &mut stdi).await {
+            // Log copy errors for debugging, but don't fail the operation.
+            // Common errors here include broken pipe when subprocess exits early,
+            // which is not an error condition.
+            debug!("stdin copy task ended with error (often expected): {}", e);
+        }
         // stdin is automatically dropped and closed here
     });
     
