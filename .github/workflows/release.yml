@@ -102,7 +102,7 @@ jobs:
             rust: nightly
             target: aarch64-apple-darwin
           - build: win
-            os: windows-2019
+            os: windows-2025
             rust: nightly
             target: x86_64-pc-windows-msvc
           #- build: win
