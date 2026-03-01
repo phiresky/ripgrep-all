@@ -15,4 +15,19 @@
     // See https://github.com/phiresky/ripgrep-all/wiki for more information
     // to verify if your custom adapters are picked up correctly, run `rga --rga-list-adapters`
   ]
+  ,
+  // Override built-in adapter extensions
+  // Example: limit ZIP adapter to only .zip entries
+  "zip_extensions": ["zip"],
+  // Example: extend FFmpeg adapter to include additional video/audio formats
+  "ffmpeg_extensions": ["mkv", "mp4", "avi", "mp3", "ogg", "flac", "webm"]
+  // These overrides fully replace built-in lists; omit to use defaults.
+
+  // rga-fzf CLI flags (documented here for convenience; not part of JSON config):
+  // --rg-params=<...>            Extra parameters passed to rga list command
+  // --rg-preview-params=<...>    Extra parameters passed to rga preview command
+  // --fzf-params=<...>           Extra parameters appended to the fzf invocation
+  // Examples:
+  //   rga-fzf --rg-params="--hidden --glob !node_modules" --fzf-params="--reverse"
+  //   rga-fzf --rg-preview-params="--rga-accurate" "initial query"
 }

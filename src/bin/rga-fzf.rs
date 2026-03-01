@@ -1,20 +1,31 @@
 use anyhow::Context;
+use clap::Parser;
 use rga::adapters::custom::map_exe_error;
 use ripgrep_all as rga;
 
 use std::process::{Command, Stdio};
 
-// TODO: add --rg-params=..., --rg-preview-params=... and --fzf-params=... params
-// TODO: remove passthrough_args
+#[derive(Parser, Debug, Clone)]
+#[clap(name = "rga-fzf", about = "FZF frontend for rga", disable_help_flag = false)]
+struct Args {
+    /// Initial query for fzf
+    #[clap(value_parser)]
+    initial_query: Option<String>,
+    /// Extra parameters to pass to ripgrep (list view)
+    #[clap(long = "--rg-params", require_equals = true)]
+    rg_params: Option<String>,
+    /// Extra parameters to pass to ripgrep preview (content view)
+    #[clap(long = "--rg-preview-params", require_equals = true)]
+    rg_preview_params: Option<String>,
+    /// Extra parameters to pass to fzf
+    #[clap(long = "--fzf-params", require_equals = true)]
+    fzf_params: Option<String>,
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let mut passthrough_args: Vec<String> = std::env::args().skip(1).collect();
-    let inx = passthrough_args.iter().position(|e| !e.starts_with('-'));
-    let initial_query = if let Some(inx) = inx {
-        passthrough_args.remove(inx)
-    } else {
-        "".to_string()
-    };
+    let args = Args::parse();
+    let initial_query = args.initial_query.clone().unwrap_or_default();
 
     let exe = std::env::current_exe().context("Could not get executable location")?;
     let preproc_exe = exe.with_file_name("rga");
@@ -26,12 +37,19 @@ fn main() -> anyhow::Result<()> {
         .to_str()
         .context("rga-fzf-open executable is in non-unicode path")?;
 
-    let rg_prefix = format!("{preproc_exe} --files-with-matches --rga-cache-max-blob-len=10M");
+    let rg_prefix = if let Some(p) = &args.rg_params {
+        format!("{preproc_exe} --files-with-matches --rga-cache-max-blob-len=10M {p}")
+    } else {
+        format!("{preproc_exe} --files-with-matches --rga-cache-max-blob-len=10M")
+    };
+    let rg_preview = if let Some(p) = &args.rg_preview_params {
+        format!("{preproc_exe} --pretty --context 5 {p} {{q}} --rga-fzf-path=_{{}}")
+    } else {
+        format!("{preproc_exe} --pretty --context 5 {{q}} --rga-fzf-path=_{{}}")
+    };
 
-    let child = Command::new("fzf")
-        .arg(format!(
-            "--preview={preproc_exe} --pretty --context 5 {{q}} --rga-fzf-path=_{{}}"
-        ))
+    let mut cmd = Command::new("fzf");
+    cmd.arg(format!("--preview={rg_preview}"))
         .arg("--preview-window=70%:wrap")
         .arg("--phony")
         .arg("--query")
@@ -43,12 +61,18 @@ fn main() -> anyhow::Result<()> {
             "FZF_DEFAULT_COMMAND",
             format!("{} '{}'", rg_prefix, &initial_query),
         )
-        .env("RGA_FZF_INSTANCE", format!("{}", std::process::id())) // may be useful to open stuff in the same tab
-        .stdout(Stdio::piped())
+        .env("RGA_FZF_INSTANCE", format!("{}", std::process::id()))
+        .stdout(Stdio::piped());
+    if let Some(p) = &args.fzf_params {
+        for token in p.split_whitespace() {
+            cmd.arg(token);
+        }
+    }
+    let child = cmd
         .spawn()
         .map_err(|e| map_exe_error(e, "fzf", "Please make sure you have fzf installed."))?;
 
-    let output = child.wait_with_output()?;
+    let output = child.wait_with_output().with_context(|| "waiting for fzf output")?;
     let mut x = output.stdout.split(|e| e == &b'\n');
     let final_query =
         std::str::from_utf8(x.next().context("fzf output empty")?).context("fzf query not utf8")?;

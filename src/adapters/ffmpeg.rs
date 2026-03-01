@@ -128,7 +128,7 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .arg(&inp_fname)
                 .stdout(Stdio::piped())
                 .spawn()?;
-            let mut lines = BufReader::new(probe.stdout.as_mut().unwrap()).lines();
+            let mut lines = BufReader::new(probe.stdout.as_mut().context("ffprobe stdout not piped")?).lines();
             while let Some(line) = lines.next_line().await? {
                 let line = line.replace("\\r\\n", "\n").replace("\\n", "\n"); // just unescape newlines
                 async_writeln!(oup, "metadata: {line}")?;
@@ -139,7 +139,7 @@ impl WritingFileAdapter for FFmpegAdapter {
             }
         }
         if !subtitle_streams.is_empty() {
-            let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
+            let time_re = Regex::new(r".*\d.*-->.*\d.*").context("invalid subtitle time regex")?;
             for probe_stream in subtitle_streams.iter() {
                 // extract subtitles
                 let mut cmd = Command::new("ffmpeg");
@@ -153,8 +153,8 @@ impl WritingFileAdapter for FFmpegAdapter {
                     .arg("-f")
                     .arg("webvtt")
                     .arg("-");
-                let mut cmd = cmd.stdout(Stdio::piped()).spawn().map_err(spawn_fail)?;
-                let stdo = cmd.stdout.as_mut().expect("is piped");
+                let mut cmd = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(spawn_fail)?;
+                let stdo = cmd.stdout.as_mut().context("ffmpeg stdout not piped")?;
                 let mut time: String = "".to_owned();
                 // rewrite subtitle times so they are shown as a prefix in every line
                 let mut lines = BufReader::new(stdo).lines();
@@ -167,6 +167,15 @@ impl WritingFileAdapter for FFmpegAdapter {
                     } else {
                         async_writeln!(oup, "{time}: {line}")?;
                     }
+                }
+                let exit = cmd.wait().await?;
+                if !exit.success() {
+                    let mut stderr_str = String::new();
+                    if let Some(mut stderr) = cmd.stderr.take() {
+                        use tokio::io::AsyncReadExt as _;
+                        let _ = stderr.read_to_string(&mut stderr_str).await;
+                    }
+                    return Err(format_err!("ffmpeg failed: {:?}\n{}", exit, stderr_str));
                 }
             }
         }

@@ -35,6 +35,15 @@ demo/
 
 See [the wiki](https://github.com/phiresky/ripgrep-all/wiki/fzf-Integration) for instructions of integrating rga with fzf.
 
+### rga-fzf flags
+- `--rg-params=<...>`: extra parameters passed to the list command (`rga --files-with-matches`).
+- `--rg-preview-params=<...>`: extra parameters passed to the preview command (`rga --pretty --context 5`).
+- `--fzf-params=<...>`: extra parameters appended to the `fzf` invocation (space-separated tokens).
+
+Examples:
+- `rga-fzf --rg-params="--hidden --glob !node_modules" --fzf-params="--reverse --prompt='rga> '"`
+- `rga-fzf --rg-preview-params="--rga-accurate" "initial query"`
+
 ## INSTALLATION
 
 Linux x64, macOS and Windows binaries are available [in GitHub Releases][latestrelease].
@@ -274,6 +283,19 @@ The config file location leverage the mechanisms defined by
 - the [Known Folder](https://msdn.microsoft.com/en-us/library/windows/desktop/dd378457.aspx) API on Windows (ex:  `C:\Users\Alice\AppData\Roaming\ripgrep-all/config.jsonc`)
 - the [Standard Directories](https://developer.apple.com/library/content/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW6)
   guidelines on macOS (ex: `~/Library/Application Support/ripgrep-all/config.jsonc`)
+
+### Adapter Extension Overrides
+- Configure built-in adapters to match different file extensions without changing code.
+- CLI flags:
+  - `--rga-zip-extensions=ext1,ext2,...` replaces the default ZIP set (e.g., `zip,jar`).
+  - `--rga-ffmpeg-extensions=ext1,ext2,...` replaces the default FFmpeg set (e.g., `mkv,mp4,avi,mp3,ogg,flac,webm`).
+- Config file keys (JSONC):
+  - `zip_extensions`: array of strings, e.g., `["zip"]`.
+  - `ffmpeg_extensions`: array of strings, e.g., `["mkv","mp4"]`.
+- Notes:
+  - Overrides fully replace the built-in lists when provided.
+  - Overrides affect pre-glob filtering when `--rga-accurate` is off.
+  - Leave unset to use defaults.
 
 
 ## Development

@@ -1,11 +1,11 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 use rga::adapters::custom::map_exe_error;
 use rga::adapters::*;
 use rga::config::{RgaConfig, split_args};
 use rga::matching::*;
 use rga::print_dur;
 use ripgrep_all as rga;
-use structopt::StructOpt;
+use clap::CommandFactory;
 
 use schemars::schema_for;
 use std::process::Command;
@@ -59,11 +59,12 @@ fn list_adapters(args: RgaConfig) -> Result<()> {
 fn main() -> anyhow::Result<()> {
     // set debugging as early as possible
     if std::env::args().any(|e| e == "--debug") {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("RUST_LOG", "debug") };
+        env_logger::Builder::from_default_env()
+            .filter_level(log::LevelFilter::Debug)
+            .init();
+    } else {
+        env_logger::init();
     }
-
-    env_logger::init();
 
     let (config, mut passthrough_args) = split_args(false)?;
 
@@ -74,7 +75,7 @@ fn main() -> anyhow::Result<()> {
     if config.list_adapters {
         return list_adapters(config);
     }
-    if let Some(path) = config.fzf_path {
+    if let Some(ref path) = config.fzf_path {
         if path == "_" {
             // fzf found no result, ignore everything and return
             println!("[no file found]");
@@ -85,12 +86,13 @@ fn main() -> anyhow::Result<()> {
 
     if passthrough_args.is_empty() {
         // rg would show help. Show own help instead.
-        RgaConfig::clap().print_help()?;
+        RgaConfig::command().print_help()?;
         println!();
         return Ok(());
     }
 
-    let adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
+    let adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters, &config)?;
+    log::info!("enabled adapters: {}", adapters.iter().map(|a| a.metadata().name.clone()).collect::<Vec<_>>().join(", "));
 
     let pre_glob = if !config.accurate {
         let extensions = adapters
@@ -105,8 +107,9 @@ fn main() -> anyhow::Result<()> {
     } else {
         "*".to_owned()
     };
+    log::info!("pre-glob: {}", pre_glob);
 
-    add_exe_to_path()?;
+    let new_path = compute_exe_path()?;
 
     let rg_args = vec![
         "--no-line-number",
@@ -115,7 +118,7 @@ fn main() -> anyhow::Result<()> {
         "--smart-case",
     ];
 
-    let exe = std::env::current_exe().expect("Could not get executable location");
+    let exe = std::env::current_exe().context("Could not get executable location")?;
     let preproc_exe = exe.with_file_name("rga-preproc");
 
     let before = Instant::now();
@@ -125,7 +128,10 @@ fn main() -> anyhow::Result<()> {
         .arg(preproc_exe)
         .arg("--pre-glob")
         .arg(pre_glob)
-        .args(passthrough_args);
+        .args(passthrough_args)
+        .env("RGA_CONFIG", serde_json::to_string(&config).unwrap_or_else(|_| String::new()))
+        .env("PATH", new_path)
+        .stderr(std::process::Stdio::piped());
     log::debug!("rg command to run: {:?}", cmd);
     let mut child = cmd
         .spawn()
@@ -135,15 +141,23 @@ fn main() -> anyhow::Result<()> {
 
     log::debug!("running rg took {}", print_dur(before));
     if !result.success() {
+        if let Some(mut stderr) = child.stderr.take() {
+            use std::io::Read as _;
+            let mut buf = String::new();
+            let _ = stderr.read_to_string(&mut buf);
+            if !buf.trim().is_empty() {
+                eprintln!("ripgrep error:\n{}", buf.trim());
+            }
+        }
         std::process::exit(result.code().unwrap_or(1));
     }
     Ok(())
 }
 
 /// add the directory that contains `rga` to PATH, so rga-preproc can find pandoc etc (if we are on Windows where we include dependent binaries)
-fn add_exe_to_path() -> Result<()> {
+fn compute_exe_path() -> Result<std::ffi::OsString> {
     use std::env;
-    let mut exe = env::current_exe().expect("Could not get executable location");
+    let mut exe = env::current_exe().context("Could not get executable location")?;
     // let preproc_exe = exe.with_file_name("rga-preproc");
     exe.pop(); // dirname
 
@@ -154,7 +168,5 @@ fn add_exe_to_path() -> Result<()> {
     // may be somewhat of a security issue if rga binary is in installed in unprivileged locations
     let paths = [&[exe.to_owned(), exe.join("lib")], &paths[..]].concat();
     let new_path = env::join_paths(paths)?;
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { env::set_var("PATH", new_path) };
-    Ok(())
+    Ok(new_path)
 }

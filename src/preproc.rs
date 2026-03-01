@@ -32,7 +32,7 @@ async fn choose_adapter(
     archive_recursion_depth: i32,
     inp: &mut (impl AsyncBufRead + Unpin),
 ) -> Result<Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>> {
-    let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
+    let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters, config)?;
     let adapters = adapter_matcher(&active_adapters, config.accurate)?;
     let filename = filepath_hint
         .file_name()

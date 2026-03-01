@@ -26,7 +26,7 @@ pub fn async_read_and_write_to_cache<'a>(
     let inp = Box::pin(inp);
     let mut zstd_writer = Some(ZstdEncoder::with_quality(
         Vec::new(),
-        async_compression::Level::Precise(compression_level),
+        async_compression::Level::Precise(compression_level.try_into().unwrap()),
     ));
     let mut bytes_written = 0;
 

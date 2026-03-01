@@ -7,6 +7,7 @@ use anyhow::Context;
 use log::debug;
 use std::time::Instant;
 use tokio::fs::File;
+use tokio::io::BufReader;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -23,6 +24,7 @@ async fn main() -> anyhow::Result<()> {
     let i = File::open(&path)
         .await
         .context("Specified input file not found")?;
+    let i = BufReader::new(i);
     let mut o = tokio::io::stdout();
     let ai = AdaptInfo {
         inp: Box::pin(i),

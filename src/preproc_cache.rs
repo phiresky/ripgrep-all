@@ -25,7 +25,7 @@ impl CacheKey {
     ) -> Result<Self> {
         let meta = std::fs::metadata(filepath_hint)
             .with_context(|| format!("reading metadata for {}", filepath_hint.to_string_lossy()))?;
-        let modified = meta.modified().expect("weird OS that can't into mtime");
+        let modified = meta.modified().context("could not get file modification time")?;
         let file_mtime_unix_ms = modified.duration_since(UNIX_EPOCH)?.as_millis() as i64;
         let active_adapters = if adapter.metadata().recurses {
             serde_json::to_string(

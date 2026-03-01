@@ -109,6 +109,24 @@ pub struct AdaptInfo {
 /// (enabledAdapters, disabledAdapters)
 type AdaptersTuple = (Vec<Arc<dyn FileAdapter>>, Vec<Arc<dyn FileAdapter>>);
 
+struct AdapterOverride {
+    inner: Arc<dyn FileAdapter>,
+    meta: AdapterMeta,
+}
+impl GetMetadata for AdapterOverride {
+    fn metadata(&self) -> &AdapterMeta { &self.meta }
+}
+#[async_trait]
+impl FileAdapter for AdapterOverride {
+    async fn adapt(
+        &self,
+        a: AdaptInfo,
+        detection_reason: &FileMatcher,
+    ) -> Result<AdaptedFilesIterBox> {
+        self.inner.adapt(a, detection_reason).await
+    }
+}
+
 pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> AdaptersTuple {
     // order in descending priority
     let mut adapters: Vec<Arc<dyn FileAdapter>> = vec![];
@@ -150,6 +168,7 @@ pub fn get_all_adapters(custom_adapters: Option<Vec<CustomAdapterConfig>>) -> Ad
 pub fn get_adapters_filtered<T: AsRef<str>>(
     custom_adapters: Option<Vec<CustomAdapterConfig>>,
     adapter_names: &[T],
+    config: &RgaConfig,
 ) -> Result<Vec<Arc<dyn FileAdapter>>> {
     let (def_enabled_adapters, def_disabled_adapters) = get_all_adapters(custom_adapters);
     let adapters = if !adapter_names.is_empty() {
@@ -204,6 +223,38 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
     } else {
         def_enabled_adapters
     };
+    // apply extension overrides
+    let adapters = adapters
+        .into_iter()
+        .map(|a| {
+            let name = a.metadata().name.clone();
+            let override_exts = match name.as_str() {
+                "zip" => config.zip_extensions.as_ref(),
+                "ffmpeg" => config.ffmpeg_extensions.as_ref(),
+                _ => None,
+            };
+            if let Some(exts) = override_exts {
+                let fast_matchers = exts
+                    .iter()
+                    .map(|s| FastFileMatcher::FileExtension(s.to_string()))
+                    .collect::<Vec<_>>();
+                let m = a.metadata();
+                let meta = AdapterMeta {
+                    name: m.name.clone(),
+                    version: m.version,
+                    description: m.description.clone(),
+                    recurses: m.recurses,
+                    fast_matchers,
+                    slow_matchers: m.slow_matchers.clone(),
+                    keep_fast_matchers_if_accurate: m.keep_fast_matchers_if_accurate,
+                    disabled_by_default: m.disabled_by_default,
+                };
+                Arc::new(AdapterOverride { inner: a, meta }) as Arc<dyn FileAdapter>
+            } else {
+                a
+            }
+        })
+        .collect::<Vec<_>>();
     debug!(
         "Chosen available adapters: {}",
         adapters
@@ -213,4 +264,31 @@ pub fn get_adapters_filtered<T: AsRef<str>>(
             .join(",")
     );
     Ok(adapters)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::RgaConfig;
+    #[test]
+    fn zip_extensions_override_applied() {
+        let mut cfg = RgaConfig::default();
+        cfg.zip_extensions = Some(vec!["zzz".to_string()]);
+        let adapters = get_adapters_filtered(None, &Vec::<String>::new(), &cfg).unwrap();
+        let zip = adapters.into_iter().find(|a| a.metadata().name == "zip").unwrap();
+        let fm = &zip.metadata().fast_matchers;
+        assert!(fm.len() == 1);
+        match &fm[0] { FastFileMatcher::FileExtension(s) => assert_eq!(s, "zzz") };
+    }
+    #[test]
+    fn ffmpeg_extensions_override_applied() {
+        let mut cfg = RgaConfig::default();
+        cfg.ffmpeg_extensions = Some(vec!["abc".to_string(), "DEF".to_string()]);
+        let adapters = get_adapters_filtered(None, &Vec::<String>::new(), &cfg).unwrap();
+        let ff = adapters.into_iter().find(|a| a.metadata().name == "ffmpeg").unwrap();
+        let fm = &ff.metadata().fast_matchers;
+        assert!(fm.len() == 2);
+        match &fm[0] { FastFileMatcher::FileExtension(s) => assert_eq!(s, "abc") };
+        match &fm[1] { FastFileMatcher::FileExtension(s) => assert_eq!(s, "DEF") };
+    }
 }

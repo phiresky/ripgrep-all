@@ -1,15 +1,21 @@
 use anyhow::Context;
-
+use clap::Parser;
 use std::process::Command;
 
-// TODO: add --rg-params=..., --rg-preview-params=... and --fzf-params=... params
-// TODO: remove passthrough_args
+#[derive(Parser, Debug, Clone)]
+#[clap(name = "rga-fzf-open", about = "Open selected file from rga-fzf")]
+struct Args {
+    #[clap(value_parser)]
+    query: String,
+    #[clap(value_parser)]
+    fname: String,
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let mut args = std::env::args().skip(1);
-    let query = args.next().context("no query")?;
-    let fname = args.next().context("no filename")?;
-    // let instance_id = std::env::var("RGA_FZF_INSTANCE").unwrap_or("unk".to_string());
+    let args = Args::parse();
+    let query = args.query;
+    let fname = args.fname;
 
     if fname.ends_with(".pdf") {
         use std::io::ErrorKind::*;
@@ -22,7 +28,7 @@ fn main() -> anyhow::Result<()> {
             .map_or_else(
                 |err| match err.kind() {
                     NotFound => Ok(false),
-                    _ => Err(err),
+                    _ => Err(err).with_context(|| format!("evince launch failed for '{fname}'")),
                 },
                 |_| Ok(true),
             )?;
@@ -30,5 +36,5 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         }
     }
-    Ok(open::that_detached(&fname)?)
+    Ok(open::that_detached(&fname).with_context(|| format!("opening '{fname}'"))?)
 }

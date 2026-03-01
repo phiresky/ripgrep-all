@@ -166,7 +166,13 @@ fn proc_wait(mut child: Child, context: impl FnOnce() -> String) -> impl AsyncRe
         if res.success() {
             yield std::io::Result::Ok(Bytes::new());
         } else {
-            Err(format_err!("{:?}", res)).with_context(context).map_err(to_io_err)?;
+            let mut stderr_text = String::new();
+            if let Some(mut stderr) = child.stderr.take() {
+                use tokio::io::AsyncReadExt as _;
+                let _ = stderr.read_to_string(&mut stderr_text).await;
+            }
+            let err = if stderr_text.is_empty() { format!("{:?}", res) } else { format!("{:?}\n{}", res, stderr_text) };
+            Err(format_err!("{}", err)).with_context(context).map_err(to_io_err)?;
         }
     };
     StreamReader::new(s)
@@ -183,17 +189,32 @@ pub fn pipe_output(
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| map_exe_error(e, exe_name, help))?;
-    let mut stdi = cmd.stdin.take().expect("is piped");
-    let stdo = cmd.stdout.take().expect("is piped");
+    let mut stdi = cmd.stdin.take().context("stdin not piped")?;
+    let stdo = cmd.stdout.take().context("stdout not piped")?;
+    let crlf = regex::bytes::Regex::new("\r\n").unwrap();
+    let stdo_stream = tokio_util::io::ReaderStream::new(stdo);
+    let normalized_stream = async_stream::stream! {
+        for await chunk in stdo_stream {
+            match chunk {
+                Err(e) => yield Err(e),
+                Ok(chunk) => {
+                    let replaced = crlf.replace_all(&chunk, &b"\n"[..]);
+                    yield Ok(bytes::Bytes::copy_from_slice(&replaced));
+                }
+            }
+        }
+    };
+    let stdo_norm = StreamReader::new(normalized_stream);
 
     let join = tokio::spawn(async move {
         let mut z = inp;
         tokio::io::copy(&mut z, &mut stdi).await?;
         std::io::Result::Ok(())
     });
-    Ok(Box::pin(stdo.chain(
+    Ok(Box::pin(stdo_norm.chain(
         proc_wait(cmd, move || format!("subprocess: {cmd_log}")).chain(join_handle_to_stream(join)),
     )))
 }

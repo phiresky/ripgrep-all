@@ -52,9 +52,10 @@ impl FileAdapter for PostprocPrefix {
         a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
+        let marker = a.config.postproc_binary_marker.clone().unwrap_or("[rga: binary data]".to_string());
         let read = add_newline(postproc_prefix(
             &a.line_prefix,
-            postproc_encoding(&a.line_prefix, a.inp).await?,
+            postproc_encoding(&a.line_prefix, a.inp, &marker).await?,
         ));
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
@@ -82,6 +83,7 @@ impl Read for ReadErr {
 async fn postproc_encoding(
     _line_prefix: &str,
     inp: Pin<Box<dyn AsyncRead + Send>>,
+    binary_marker: &str,
 ) -> Result<Pin<Box<dyn AsyncRead + Send>>> {
     // check for binary content in first 8kB
     // read the first 8kB into a buffer, check for null bytes, then return the buffer concatenated with the rest of the file
@@ -121,7 +123,7 @@ async fn postproc_encoding(
         _ => {
             if has_binary {
                 log::debug!("detected binary");
-                return Ok(Box::pin(Cursor::new("[rga: binary data]")));
+                return Ok(Box::pin(Cursor::new(binary_marker.to_string())));
             }
             Ok(Box::pin(inp))
         }
@@ -136,6 +138,7 @@ pub fn postproc_prefix<T: AsyncRead + Send>(
     let line_prefix_n = format!("\n{line_prefix}"); // clone since we need it later
     let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
     let regex = regex::bytes::Regex::new("\n").unwrap();
+    let crlf = regex::bytes::Regex::new("\r\n").unwrap();
     let inp_stream = ReaderStream::new(inp);
     let oup_stream = stream! {
         yield Ok(line_prefix_o);
@@ -143,10 +146,11 @@ pub fn postproc_prefix<T: AsyncRead + Send>(
             match chunk {
                 Err(e) => yield Err(e),
                 Ok(chunk) => {
+                    let chunk = crlf.replace_all(&chunk, &b"\n"[..]);
                     if chunk.contains(&b'\n') {
                         yield Ok(Bytes::copy_from_slice(&regex.replace_all(&chunk, line_prefix_n.as_bytes())));
                     } else {
-                        yield Ok(chunk);
+                        yield Ok(Bytes::copy_from_slice(&chunk));
                     }
                 }
             }
@@ -182,7 +186,10 @@ impl FileAdapter for PostprocPageBreaks {
         a: super::AdaptInfo,
         _detection_reason: &crate::matching::FileMatcher,
     ) -> Result<AdaptedFilesIterBox> {
-        let read = postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp).await?);
+        let marker = a.config.postproc_binary_marker.clone().unwrap_or("[rga: binary data]".to_string());
+        let prefix = a.config.postproc_page_prefix.clone().unwrap_or("Page ".to_string());
+        let include_empty = a.config.postproc_page_include_empty.unwrap_or(true);
+        let read = postproc_pagebreaks(postproc_encoding(&a.line_prefix, a.inp, &marker).await?, prefix, include_empty);
         // keep adapt info (filename etc) except replace inp
         let ai = AdaptInfo {
             inp: Box::pin(read),
@@ -201,32 +208,34 @@ impl FileAdapter for PostprocPageBreaks {
 /// Adds the prefix "Page N: " to each line,
 /// where N starts at one and is incremented for each ASCII Form Feed character in the input stream.
 /// ASCII form feeds are the page delimiters output by `pdftotext`.
-pub fn postproc_pagebreaks(input: impl AsyncRead + Send) -> impl AsyncRead + Send {
+pub fn postproc_pagebreaks<T: AsyncRead + Send + 'static>(input: T, prefix: String, include_empty: bool) -> std::pin::Pin<Box<dyn AsyncRead + Send>> {
     let regex_linefeed = regex::bytes::Regex::new(r"\x0c").unwrap();
     let regex_newline = regex::bytes::Regex::new("\n").unwrap();
+    let regex_crlf = regex::bytes::Regex::new("\r\n").unwrap();
     let mut page_count: i32 = 1;
-    let mut page_prefix: String = format!("\nPage {page_count}: ");
+    let mut page_prefix: String = format!("\n{prefix}{page_count}: ");
 
     let input_stream = ReaderStream::new(input);
     let output_stream = stream! {
-        yield std::io::Result::Ok(Bytes::copy_from_slice(format!("Page {page_count}: ").as_bytes()));
+        yield std::io::Result::Ok(Bytes::copy_from_slice(format!("{prefix}{page_count}: ").as_bytes()));
         // store Page X: line prefixes in pending and only write it to the output when there is more text to be written
         // this is needed since pdftotext outputs a \x0c at the end of the last page
         let mut pending: Option<Bytes> = None;
 
         for await read_chunk in input_stream {
             let read_chunk = read_chunk?;
+            let read_chunk = regex_crlf.replace_all(&read_chunk, &b"\n"[..]);
             let page_chunks = regex_linefeed.split(&read_chunk);
             for (chunk_idx, page_chunk) in page_chunks.enumerate() {
                 if chunk_idx != 0 {
                     page_count += 1;
-                    page_prefix = format!("\nPage {page_count}: ");
+                    page_prefix = format!("\n{prefix}{page_count}: ");
                     if let Some(p) = pending.take() {
                         yield Ok(p);
                     }
                     pending = Some(Bytes::copy_from_slice(page_prefix.as_bytes()));
                 }
-                if !page_chunk.is_empty() {
+                if !page_chunk.is_empty() || include_empty {
                     if let Some(p) = pending.take() {
                         yield Ok(p);
                     }
@@ -260,7 +269,7 @@ mod tests {
         let mock: Mock = Builder::new()
             .read(b"Hello\nWorld\x0cFoo Bar\n\x0cTest\x0c")
             .build();
-        let res = postproc_pagebreaks(mock).read_to_end(&mut output).await;
+        let res = postproc_pagebreaks(mock, "Page ".to_string(), true).read_to_end(&mut output).await;
         println!("{}", String::from_utf8_lossy(&output));
         assert!(res.is_ok());
         assert_eq!(
@@ -278,7 +287,7 @@ mod tests {
             .read(b"Foo Bar\n")
             .read(b"\x0cTest\x0c")
             .build();
-        let res = postproc_pagebreaks(mock).read_to_end(&mut output).await;
+        let res = postproc_pagebreaks(mock, "Page ".to_string(), true).read_to_end(&mut output).await;
         println!("{}", String::from_utf8_lossy(&output));
         assert!(res.is_ok());
         assert_eq!(
@@ -339,9 +348,9 @@ PREFIX:Page 3:
     ) -> Result<()> {
         let mut oup = Vec::new();
         let inp = Box::pin(Cursor::new(a));
-        let inp = postproc_encoding("", inp).await?;
+        let inp = postproc_encoding("", inp, "[rga: binary data]").await?;
         if pagebreaks {
-            postproc_pagebreaks(inp).read_to_end(&mut oup).await?;
+            postproc_pagebreaks(inp, "Page ".to_string(), true).read_to_end(&mut oup).await?;
         } else {
             let x = postproc_prefix(line_prefix, inp);
             pin!(x);
