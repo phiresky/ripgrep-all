@@ -5,7 +5,7 @@ use crate::adapters::*;
 
 use anyhow::*;
 
-use regex::{Regex, RegexSet};
+use regex::Regex;
 
 use std::iter::Iterator;
 
@@ -57,79 +57,69 @@ pub fn extension_to_regex(extension: &str) -> Regex {
 pub fn adapter_matcher(
     adapters: &[Arc<dyn FileAdapter>],
     slow: bool,
-) -> Result<impl Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)> + use<>> {
-    // need order later
+) -> Result<Box<dyn Fn(FileMeta) -> Option<(Arc<dyn FileAdapter>, FileMatcher)> + Send + Sync>> {
     let adapter_names: Vec<String> = adapters.iter().map(|e| e.metadata().name.clone()).collect();
-    let mut fname_regexes = vec![];
-    let mut mime_regexes = vec![];
+    let mut ext_map: std::collections::HashMap<String, Vec<(Arc<dyn FileAdapter>, FileMatcher)>> =
+        std::collections::HashMap::new();
+    let mut mime_map: std::collections::HashMap<String, Vec<(Arc<dyn FileAdapter>, FileMatcher)>> =
+        std::collections::HashMap::new();
     for adapter in adapters.iter() {
         let metadata = adapter.metadata();
-        use FileMatcher::*;
         for matcher in metadata.get_matchers(slow) {
             match matcher.as_ref() {
-                MimeType(re) => {
-                    mime_regexes.push((re.clone(), adapter.clone(), MimeType(re.clone())))
+                FileMatcher::MimeType(m) => {
+                    let k = m.to_string();
+                    mime_map
+                        .entry(k)
+                        .or_default()
+                        .push((adapter.clone(), FileMatcher::MimeType(m.clone())));
                 }
-                Fast(FastFileMatcher::FileExtension(re)) => fname_regexes.push((
-                    extension_to_regex(re),
-                    adapter.clone(),
-                    Fast(FastFileMatcher::FileExtension(re.clone())),
-                )),
-            };
+                FileMatcher::Fast(FastFileMatcher::FileExtension(ext)) => {
+                    let k = ext.to_ascii_lowercase();
+                    ext_map.entry(k).or_default().push((
+                        adapter.clone(),
+                        FileMatcher::Fast(FastFileMatcher::FileExtension(ext.clone())),
+                    ));
+                }
+            }
         }
     }
-    let fname_regex_set = RegexSet::new(fname_regexes.iter().map(|p| p.0.as_str()))?;
-    let mime_regex_set = RegexSet::new(mime_regexes.iter().map(|p| p.0.as_str()))?;
-    Ok(move |meta: FileMeta| {
-        let fname_matches: Vec<_> = fname_regex_set
-            .matches(&meta.lossy_filename)
-            .into_iter()
-            .collect();
-        let mime_matches: Vec<_> = if slow {
-            mime_regex_set
-                .matches(meta.mimetype.expect("No mimetype?"))
-                .into_iter()
-                .collect()
-        } else {
-            vec![]
-        };
-        if fname_matches.len() + mime_matches.len() > 1 {
-            // get first according to original priority list...
-            // todo: kinda ugly
-            let fa = fname_matches
-                .iter()
-                .map(|e| (fname_regexes[*e].1.clone(), fname_regexes[*e].2.clone()));
-            let fb = mime_matches
-                .iter()
-                .map(|e| (mime_regexes[*e].1.clone(), mime_regexes[*e].2.clone()));
-            let mut v = vec![];
-            v.extend(fa);
-            v.extend(fb);
-            v.sort_by_key(|e| {
+    let func = move |meta: FileMeta| {
+        let ext = std::path::Path::new(&meta.lossy_filename)
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_ascii_lowercase());
+        let mut candidates: Vec<(Arc<dyn FileAdapter>, FileMatcher)> = vec![];
+        if let Some(ext) = ext
+            && let Some(v) = ext_map.get(&ext)
+        {
+            candidates.extend(v.iter().cloned());
+        }
+        if slow
+            && let Some(mt) = meta.mimetype
+            && let Some(v) = mime_map.get(mt)
+        {
+            candidates.extend(v.iter().cloned());
+        }
+        if candidates.is_empty() {
+            return None;
+        }
+        if candidates.len() > 1 {
+            candidates.sort_by_key(|e| {
                 adapter_names
                     .iter()
                     .position(|r| r == &e.0.metadata().name)
-                    .expect("impossib7")
+                    .unwrap_or(usize::MAX)
             });
             eprintln!(
                 "Warning: found multiple adapters for {}:",
                 meta.lossy_filename
             );
-            for mmatch in v.iter() {
+            for mmatch in candidates.iter() {
                 eprintln!(" - {}", mmatch.0.metadata().name);
             }
-            return Some(v[0].clone());
         }
-        if mime_matches.is_empty() {
-            if fname_matches.is_empty() {
-                None
-            } else {
-                let (_, adapter, matcher) = &fname_regexes[fname_matches[0]];
-                Some((adapter.clone(), matcher.clone()))
-            }
-        } else {
-            let (_, adapter, matcher) = &mime_regexes[mime_matches[0]];
-            Some((adapter.clone(), matcher.clone()))
-        }
-    })
+        Some(candidates.remove(0))
+    };
+    Ok(Box::new(func))
 }

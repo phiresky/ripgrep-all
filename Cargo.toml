@@ -20,12 +20,12 @@ perf-literal = ["regex/perf-literal"]
 
 [dependencies]
 anyhow = {version = "1.0.71", features = ["backtrace"]}
-async-compression = { version = "0.4.0", features = ["all", "all-algorithms", "tokio"] }
+async-compression = { version = "0.4.11", features = ["all", "all-algorithms", "tokio"] }
 async-stream = "0.3.5"
 async-trait = "0.1.68"
-async_zip = {version = "0.0.12", features = ["full"]}
+async_zip = {version = "0.0.17", features = ["full"]}
 bincode = "1.3.3"
-bytes = "1.4.0"
+bytes = "1.6.0"
 clap = {version = "4.3.0", features = ["wrap_help"]}
 crossbeam = "0.8.2"
 crossbeam-channel = "0.5.8"
@@ -40,27 +40,31 @@ glob = "0.3.1"
 json_comments = "0.2.1"
 lazy_static = "1.4.0"
 log = "0.4.17"
-mailparse = "0.14.0"
-memchr = "2.5.0"
+mailparse = "0.15.0"
+memchr = "2.7.4"
 mime2ext = "0.1.52"
 open = "5"
 paste = "1.0.12"
 path-clean = "1.0.1"
 pretty-bytes = "0.2.2"
-regex = "1.8.2"
-rusqlite = {version = "0.30.0", features = ["vtab", "bundled"]}
+regex = "1.10.4"
+zstd = "0.13"
+rusqlite = {version = "0.32.0", features = ["vtab", "bundled"]}
 schemars = {version = "0.8.12", features = ["preserve_order"]}
 serde = {version = "1.0.163", features = ["derive"]}
 serde_json = "1.0.96"
 size_format = "1.0.2"
 structopt = "0.3.26"
 tempfile = "3.5.0"
-tokio = {version = "1.28.1", features = ["full"]}
-tokio-rusqlite = "0.5.0"
-tokio-stream = {version = "0.1.14", features = ["io-util", "tokio-util"]}
+tokio = {version = "1.39.2", features = ["full"]}
+tokio-rusqlite = "0.6.0"
+tokio-stream = {version = "0.1.15", features = ["io-util", "tokio-util"]}
 astral-tokio-tar =  "0.5.6" 
-tokio-util = {version = "0.7.8", features = ["io", "full"]}
-tree_magic = {package = "tree_magic_mini", version = "3.0.3"}
+tar = "0.4.40"
+tokio-util = {version = "0.7.11", features = ["io", "full"]}
+tree_magic = {package = "tree_magic_mini", version = "3.1.0"}
+futures-lite = "2.6.1"
+futures = "0.3.31"
 
 [dev-dependencies]
 async-recursion = "1.0.4"
@@ -68,8 +72,11 @@ ctor = "0.2.0"
 pretty_assertions = "1.3.0"
 tempfile = "3.5.0"
 tokio-test = "0.4.2"
+tar = "0.4.40"
 
 [profile.release]
 debug = true
 lto = "thin"
 split-debuginfo = "packed"
+codegen-units = 1
+opt-level = "z"
