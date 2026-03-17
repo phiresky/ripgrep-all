@@ -142,10 +142,22 @@ lazy_static! {
             mimetypes: Some(strs(&["application/pdf"])),
 
             binary: "pdftotext".to_string(),
-            args: strs(&["-", "-"]),
+            args: strs(&["-opw", "$password", "-", "-"]),
             disabled_by_default: None,
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt.asciipagebreaks".into())
+        },
+        CustomAdapterConfig {
+            name: "tesseract".to_owned(),
+            version: 1,
+            description: "Uses tesseract to extract text from images".to_owned(),
+            extensions: strs(&["jpg", "jpeg", "png", "webp", "tiff", "bmp", "gif"]),
+            mimetypes: Some(strs(&["image/jpeg", "image/png", "image/webp", "image/tiff", "image/bmp", "image/gif"])),
+            binary: "tesseract".to_string(),
+            args: strs(&["stdin", "stdout"]),
+            disabled_by_default: Some(true),
+            match_only_by_mime: None,
+            output_path_hint: None
         }
     ];
 }
@@ -166,7 +178,13 @@ fn proc_wait(mut child: Child, context: impl FnOnce() -> String) -> impl AsyncRe
         if res.success() {
             yield std::io::Result::Ok(Bytes::new());
         } else {
-            Err(format_err!("{:?}", res)).with_context(context).map_err(to_io_err)?;
+            let mut stderr_text = String::new();
+            if let Some(mut stderr) = child.stderr.take() {
+                use tokio::io::AsyncReadExt as _;
+                let _ = stderr.read_to_string(&mut stderr_text).await;
+            }
+            let err = if stderr_text.is_empty() { format!("{:?}", res) } else { format!("{:?}\n{}", res, stderr_text) };
+            Err(format_err!("{}", err)).with_context(context).map_err(to_io_err)?;
         }
     };
     StreamReader::new(s)
@@ -183,17 +201,32 @@ pub fn pipe_output(
     let mut cmd = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| map_exe_error(e, exe_name, help))?;
-    let mut stdi = cmd.stdin.take().expect("is piped");
-    let stdo = cmd.stdout.take().expect("is piped");
+    let mut stdi = cmd.stdin.take().context("stdin not piped")?;
+    let stdo = cmd.stdout.take().context("stdout not piped")?;
+    let crlf = regex::bytes::Regex::new("\r\n").unwrap();
+    let stdo_stream = tokio_util::io::ReaderStream::new(stdo);
+    let normalized_stream = async_stream::stream! {
+        for await chunk in stdo_stream {
+            match chunk {
+                Err(e) => yield Err(e),
+                Ok(chunk) => {
+                    let replaced = crlf.replace_all(&chunk, &b"\n"[..]);
+                    yield Ok(bytes::Bytes::copy_from_slice(&replaced));
+                }
+            }
+        }
+    };
+    let stdo_norm = StreamReader::new(normalized_stream);
 
     let join = tokio::spawn(async move {
         let mut z = inp;
         tokio::io::copy(&mut z, &mut stdi).await?;
         std::io::Result::Ok(())
     });
-    Ok(Box::pin(stdo.chain(
+    Ok(Box::pin(stdo_norm.chain(
         proc_wait(cmd, move || format!("subprocess: {cmd_log}")).chain(join_handle_to_stream(join)),
     )))
 }
@@ -209,7 +242,7 @@ impl GetMetadata for CustomSpawningFileAdapter {
         &self.meta
     }
 }
-fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
+fn arg_replacer(arg: &str, filepath_hint: &Path, config: &RgaConfig) -> Result<String> {
     expand_str_ez(arg, |s| match s {
         "input_virtual_path" => Ok(filepath_hint.to_string_lossy()),
         "input_file_stem" => Ok(filepath_hint
@@ -220,6 +253,7 @@ fn arg_replacer(arg: &str, filepath_hint: &Path) -> Result<String> {
             .extension()
             .unwrap_or_default()
             .to_string_lossy()),
+        "password" => Ok(config.password.clone().unwrap_or_default().into()),
         e => Err(anyhow::format_err!("unknown replacer ${{{e}}}")),
     })
 }
@@ -227,12 +261,13 @@ impl CustomSpawningFileAdapter {
     fn command(
         &self,
         filepath_hint: &std::path::Path,
+        config: &RgaConfig,
         mut command: tokio::process::Command,
     ) -> Result<tokio::process::Command> {
         command.args(
             self.args
                 .iter()
-                .map(|arg| arg_replacer(arg, filepath_hint))
+                .map(|arg| arg_replacer(arg, filepath_hint, config))
                 .collect::<Result<Vec<_>>>()?,
         );
         log::debug!("running command {:?}", command);
@@ -258,7 +293,7 @@ impl FileAdapter for CustomSpawningFileAdapter {
 
         let cmd = Command::new(&self.binary);
         let cmd = self
-            .command(&filepath_hint, cmd)
+            .command(&filepath_hint, &config, cmd)
             .with_context(|| format!("Could not set cmd arguments for {}", self.binary))?;
         debug!("executing {:?}", cmd);
         let output = pipe_output(&line_prefix, cmd, inp, &self.binary, "")?;
@@ -268,10 +303,12 @@ impl FileAdapter for CustomSpawningFileAdapter {
                     .as_deref()
                     .unwrap_or("${input_virtual_path}.txt"),
                 &filepath_hint,
+                &config,
             )?),
             inp: output,
             line_prefix,
             is_real_file: false,
+            file_mtime_unix_ms: None,
             archive_recursion_depth: archive_recursion_depth + 1,
             postprocess,
             config,
@@ -330,7 +367,7 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         // let r = adapter.adapt(a, &d)?;
-        let r = loop_adapt(&adapter, d, a).await?;
+        let r = loop_adapt(&adapter, d, a, crate::adapters::get_all_adapters(None).0).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,

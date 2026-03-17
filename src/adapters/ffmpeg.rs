@@ -68,17 +68,25 @@ impl WritingFileAdapter for FFmpegAdapter {
             is_real_file,
             filepath_hint,
             line_prefix,
+            mut inp,
             ..
         } = ai;
-        if !is_real_file {
-            // we *could* probably adapt this to also work based on streams,
-            // it would require using a BufReader to read at least part of the file to memory
-            // but really when would you want to search for videos within archives?
-            // So instead, we only run this adapter if the file is a actual file on disk for now
-            async_writeln!(oup, "{line_prefix}[rga: skipping video in archive]\n")?;
-            return Ok(());
-        }
-        let inp_fname = filepath_hint;
+
+        // If it's a stream (e.g., inside an archive), we need to buffer it to a temporary file
+        // because we run multiple passes of ffprobe and ffmpeg over the data.
+        let temp_dir;
+        let temp_file_path;
+        let inp_fname = if is_real_file {
+            filepath_hint.clone()
+        } else {
+            temp_dir = tempfile::tempdir()?;
+            let t_path = temp_dir.path().join(filepath_hint.file_name().unwrap_or_else(|| std::ffi::OsStr::new("vid.tmp")));
+            let mut f = tokio::fs::File::create(&t_path).await?;
+            tokio::io::copy(&mut inp, &mut f).await?;
+            temp_file_path = t_path;
+            temp_file_path.clone()
+        };
+
         let spawn_fail = |e| map_exe_error(e, "ffprobe", "Make sure you have ffmpeg installed.");
         let subtitle_streams = {
             let probe = Command::new("ffprobe")
@@ -128,10 +136,10 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .arg(&inp_fname)
                 .stdout(Stdio::piped())
                 .spawn()?;
-            let mut lines = BufReader::new(probe.stdout.as_mut().unwrap()).lines();
+            let mut lines = BufReader::new(probe.stdout.as_mut().context("ffprobe stdout not piped")?).lines();
             while let Some(line) = lines.next_line().await? {
                 let line = line.replace("\\r\\n", "\n").replace("\\n", "\n"); // just unescape newlines
-                async_writeln!(oup, "metadata: {line}")?;
+                async_writeln!(oup, "{line_prefix}metadata: {line}")?;
             }
             let exit = probe.wait().await?;
             if !exit.success() {
@@ -139,7 +147,7 @@ impl WritingFileAdapter for FFmpegAdapter {
             }
         }
         if !subtitle_streams.is_empty() {
-            let time_re = Regex::new(r".*\d.*-->.*\d.*").unwrap();
+            let time_re = Regex::new(r".*\d.*-->.*\d.*").context("invalid subtitle time regex")?;
             for probe_stream in subtitle_streams.iter() {
                 // extract subtitles
                 let mut cmd = Command::new("ffmpeg");
@@ -153,8 +161,8 @@ impl WritingFileAdapter for FFmpegAdapter {
                     .arg("-f")
                     .arg("webvtt")
                     .arg("-");
-                let mut cmd = cmd.stdout(Stdio::piped()).spawn().map_err(spawn_fail)?;
-                let stdo = cmd.stdout.as_mut().expect("is piped");
+                let mut cmd = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(spawn_fail)?;
+                let stdo = cmd.stdout.as_mut().context("ffmpeg stdout not piped")?;
                 let mut time: String = "".to_owned();
                 // rewrite subtitle times so they are shown as a prefix in every line
                 let mut lines = BufReader::new(stdo).lines();
@@ -165,8 +173,17 @@ impl WritingFileAdapter for FFmpegAdapter {
                     } else if line.is_empty() {
                         async_writeln!(oup)?;
                     } else {
-                        async_writeln!(oup, "{time}: {line}")?;
+                        async_writeln!(oup, "{line_prefix}{time}: {line}")?;
                     }
+                }
+                let exit = cmd.wait().await?;
+                if !exit.success() {
+                    let mut stderr_str = String::new();
+                    if let Some(mut stderr) = cmd.stderr.take() {
+                        use tokio::io::AsyncReadExt as _;
+                        let _ = stderr.read_to_string(&mut stderr_str).await;
+                    }
+                    return Err(format_err!("ffmpeg failed: {:?}\n{}", exit, stderr_str));
                 }
             }
         }

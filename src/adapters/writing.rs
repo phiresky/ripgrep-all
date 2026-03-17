@@ -69,6 +69,7 @@ where
 
         Ok(one_file(AdaptInfo {
             is_real_file: false,
+            file_mtime_unix_ms: None,
             filepath_hint: filepath_hint.into(),
             archive_recursion_depth,
             config,

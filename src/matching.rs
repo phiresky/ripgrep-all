@@ -86,10 +86,10 @@ pub fn adapter_matcher(
             .into_iter()
             .collect();
         let mime_matches: Vec<_> = if slow {
-            mime_regex_set
-                .matches(meta.mimetype.expect("No mimetype?"))
-                .into_iter()
-                .collect()
+            match meta.mimetype {
+                Some(mt) => mime_regex_set.matches(mt).into_iter().collect(),
+                None => vec![],
+            }
         } else {
             vec![]
         };

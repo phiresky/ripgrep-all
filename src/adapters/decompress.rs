@@ -103,6 +103,7 @@ impl FileAdapter for DecompressAdapter {
         Ok(one_file(AdaptInfo {
             filepath_hint: get_inner_filename(&ai.filepath_hint),
             is_real_file: false,
+            file_mtime_unix_ms: None,
             archive_recursion_depth: ai.archive_recursion_depth + 1,
             inp: decompress_any(detection_reason, ai.inp)?,
             line_prefix: ai.line_prefix,
@@ -155,7 +156,7 @@ mod tests {
         let filepath = test_data_dir().join("short.pdf.gz");
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
-        let r = loop_adapt(&adapter, d, a).await?;
+        let r = loop_adapt(&adapter, d, a, crate::adapters::get_all_adapters(None).0).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,

@@ -4,6 +4,7 @@ pub mod adapted_iter;
 pub mod adapters;
 mod caching_writer;
 pub mod config;
+pub mod daemon;
 pub mod expand;
 pub mod matching;
 pub mod preproc;

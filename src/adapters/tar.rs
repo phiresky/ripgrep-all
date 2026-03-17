@@ -80,6 +80,7 @@ impl FileAdapter for TarAdapter {
                     let ai2: AdaptInfo = AdaptInfo {
                         filepath_hint: path,
                         is_real_file: false,
+                        file_mtime_unix_ms: None,
                         archive_recursion_depth: archive_recursion_depth + 1,
                         inp: Box::pin(file),
                         line_prefix: line_prefix.to_string(),
@@ -109,7 +110,7 @@ mod tests {
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
 
         let adapter = TarAdapter::new();
-        let r = loop_adapt(&adapter, d, a).await.context("adapt")?;
+        let r = loop_adapt(&adapter, d, a, crate::adapters::get_all_adapters(None).0).await.context("adapt")?;
         let o = adapted_to_vec(r).await.context("adapted_to_vec")?;
         assert_eq!(
             String::from_utf8(o).context("parsing utf8")?,

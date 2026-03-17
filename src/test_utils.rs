@@ -39,6 +39,7 @@ pub fn simple_adapt_info_full(
         AdaptInfo {
             filepath_hint: filepath.to_owned(),
             is_real_file,
+            file_mtime_unix_ms: None,
             archive_recursion_depth: 0,
             inp,
             line_prefix: "PREFIX:".to_string(),

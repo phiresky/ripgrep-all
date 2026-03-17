@@ -31,9 +31,17 @@ async fn choose_adapter(
     filepath_hint: &Path,
     archive_recursion_depth: i32,
     inp: &mut (impl AsyncBufRead + Unpin),
+    active_adapters: Option<&ActiveAdapters>,
 ) -> Result<Option<(Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters)>> {
-    let active_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters)?;
-    let adapters = adapter_matcher(&active_adapters, config.accurate)?;
+    let computed_adapters;
+    let active_adapters = match active_adapters {
+        Some(a) => a,
+        None => {
+            computed_adapters = get_adapters_filtered(config.custom_adapters.clone(), &config.adapters, config)?;
+            &computed_adapters
+        }
+    };
+    let adapters = adapter_matcher(active_adapters, config.accurate)?;
     let filename = filepath_hint
         .file_name()
         .ok_or_else(|| format_err!("Empty filename"))?;
@@ -44,9 +52,9 @@ async fn choose_adapter(
         if buf.starts_with(b"From \x0d") || buf.starts_with(b"From -") {
             Some("application/mbox")
         } else {
-            let mimetype = tree_magic::from_u8(buf);
+            let mimetype = infer::get(buf).map(|t| t.mime_type());
             debug!("mimetype: {:?}", mimetype);
-            Some(mimetype)
+            mimetype
         }
     } else {
         None
@@ -55,20 +63,25 @@ async fn choose_adapter(
         mimetype,
         lossy_filename: filename.to_string_lossy().to_string(),
     });
-    Ok(adapter.map(|e| (e.0, e.1, active_adapters)))
+    Ok(adapter.map(|e| (e.0, e.1, active_adapters.clone())))
 }
 
 enum Ret {
     Recurse(AdaptInfo, Arc<dyn FileAdapter>, FileMatcher, ActiveAdapters),
     Passthrough(AdaptInfo),
 }
-async fn buf_choose_adapter(ai: AdaptInfo) -> Result<Ret> {
-    let mut inp = BufReader::with_capacity(1 << 16, ai.inp);
+async fn buf_choose_adapter(ai: AdaptInfo, active_adapters: Option<&ActiveAdapters>) -> Result<Ret> {
+    // Only use a buffer if we need to detect mime types (accurate mode)
+    // or if it's a real file (where buffering helps performance).
+    // For files already in memory or from other streams, a large buffer might be redundant.
+    let capacity = if ai.config.accurate { 8192 } else { 1024 };
+    let mut inp = BufReader::with_capacity(capacity, ai.inp);
     let adapter = choose_adapter(
         &ai.config,
         &ai.filepath_hint,
         ai.archive_recursion_depth,
         &mut inp,
+        active_adapters,
     )
     .await?;
     let ai = AdaptInfo {
@@ -115,7 +128,7 @@ pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
 
     // todo: figure out when using a bufreader is a good idea and when it is not
     // seems to be good for File::open() reads, but not sure about within archives (tar, zip)
-    let (ai, adapter, detection_reason, active_adapters) = match buf_choose_adapter(ai).await? {
+    let (ai, adapter, detection_reason, active_adapters) = match buf_choose_adapter(ai, None).await? {
         Ret::Recurse(ai, a, b, c) => (ai, a, b, c),
         Ret::Passthrough(ai) => {
             return Ok(ai.inp);
@@ -146,51 +159,77 @@ async fn adapt_caching(
     let cache_compression_level = ai.config.cache.compression_level;
     let cache_max_blob_len = ai.config.cache.max_blob_len;
 
-    let cache = if ai.is_real_file && !ai.config.cache.disabled {
-        Some(open_cache_db(Path::new(&ai.config.cache.path.0)).await?)
+    let cache: Option<Box<dyn PreprocCache + Send>> = if ai.is_real_file && !ai.config.cache.disabled {
+        let daemon_port = ai.config.cache.daemon_port;
+        // Check if daemon is alive with a quick timeout
+        let daemon_available = tokio::time::timeout(
+            std::time::Duration::from_millis(10),
+            tokio::net::TcpStream::connect(format!("127.0.0.1:{}", daemon_port))
+        ).await.is_ok_and(|res| res.is_ok());
+
+        if daemon_available {
+            debug!("Using daemon for caching on port {}", daemon_port);
+            Some(Box::new(crate::daemon::DaemonCacheClient::new(daemon_port)))
+        } else {
+            debug!("Daemon not found on port {}, using local sqlite cache", daemon_port);
+            Some(open_cache_db(&ai.config).await?)
+        }
     } else {
         None
     };
 
-    let mut cache = cache.context("No cache?")?;
-    let cache_key = CacheKey::new(
-        ai.postprocess,
-        &ai.filepath_hint,
-        adapter.as_ref(),
-        &active_adapters,
-    )?;
-    // let dbg_ctx = format!("adapter {}", &adapter.metadata().name);
-    let cached = cache.get(&cache_key).await.context("cache.get")?;
-    match cached {
-        Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
-        None => {
-            debug!("cache MISS, running adapter with caching...");
-            let inp = loop_adapt(adapter.as_ref(), detection_reason, ai).await?;
-            let inp = concat_read_streams(inp);
-            let inp = async_read_and_write_to_cache(
-                inp,
-                cache_max_blob_len.0,
-                cache_compression_level.0,
-                Box::new(move |(uncompressed_size, compressed)| {
-                    Box::pin(async move {
-                        debug!(
-                            "uncompressed output: {}",
-                            print_bytes(uncompressed_size as f64)
-                        );
-                        if let Some(cached) = compressed {
-                            debug!("compressed output: {}", print_bytes(cached.len() as f64));
-                            cache
-                                .set(&cache_key, cached)
-                                .await
-                                .context("writing to cache")?
-                        }
-                        Ok(())
-                    })
-                }),
-            )?;
+    if let Some(mut cache) = cache {
+        let file_mtime_unix_ms = ai.file_mtime_unix_ms.unwrap_or_else(|| {
+            std::fs::metadata(&ai.filepath_hint)
+                .and_then(|m| m.modified())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0)
+        });
+        let cache_key = CacheKey::new(
+            &ai.filepath_hint,
+            file_mtime_unix_ms,
+            adapter.as_ref(),
+            &active_adapters,
+            &ai.config,
+        )?;
+        
+        let cached = cache.get(&cache_key).await.context("cache.get")?;
+        match cached {
+            Some(cached) => Ok(Box::pin(ZstdDecoder::new(Cursor::new(cached)))),
+            None => {
+                debug!("cache MISS, running adapter with caching...");
+                let inp = loop_adapt(adapter.as_ref(), detection_reason, ai, active_adapters).await?;
+                let inp = concat_read_streams(inp);
+                let inp = async_read_and_write_to_cache(
+                    inp,
+                    cache_max_blob_len.0,
+                    cache_compression_level.0,
+                    Box::new(move |(uncompressed_size, compressed)| {
+                        Box::pin(async move {
+                            debug!(
+                                "uncompressed output: {}",
+                                print_bytes(uncompressed_size as f64)
+                            );
+                            if let Some(cached) = compressed {
+                                debug!("compressed output: {}", print_bytes(cached.len() as f64));
+                                cache
+                                    .set(&cache_key, cached)
+                                    .await
+                                    .context("writing to cache")?
+                            }
+                            Ok(())
+                        })
+                    }),
+                )?;
 
-            Ok(Box::pin(inp))
+                Ok(Box::pin(inp))
+            }
         }
+    } else {
+        debug!("cache DISABLED, running adapter directly...");
+        let inp = loop_adapt(adapter.as_ref(), detection_reason, ai, active_adapters).await?;
+        Ok(concat_read_streams(inp))
     }
 }
 
@@ -209,13 +248,15 @@ pub fn loop_adapt(
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
+    active_adapters: ActiveAdapters,
 ) -> Pin<Box<dyn Future<Output = anyhow::Result<AdaptedFilesIterBox>> + Send + '_>> {
-    Box::pin(async move { loop_adapt_inner(adapter, detection_reason, ai).await })
+    Box::pin(async move { loop_adapt_inner(adapter, detection_reason, ai, active_adapters).await })
 }
 pub async fn loop_adapt_inner(
     adapter: &dyn FileAdapter,
     detection_reason: FileMatcher,
     ai: AdaptInfo,
+    active_adapters: ActiveAdapters,
 ) -> anyhow::Result<AdaptedFilesIterBox> {
     let fph = ai.filepath_hint.clone();
     let inp = adapter.adapt(ai, &detection_reason).await;
@@ -234,7 +275,7 @@ pub async fn loop_adapt_inner(
     let s = stream! {
         for await file in inp {
             trace!("next file");
-            match buf_choose_adapter(file?).await? {
+            match buf_choose_adapter(file?, Some(&active_adapters)).await? {
                 Ret::Recurse(ai, adapter, detection_reason, _active_adapters) => {
                     if ai.archive_recursion_depth >= ai.config.max_archive_recursion.0 {
                         // some adapters (esp. zip) assume that the entry is read fully and might hang otherwise
@@ -255,7 +296,7 @@ pub async fn loop_adapt_inner(
                         ai.filepath_hint.to_string_lossy(),
                         &adapter.metadata().name
                     );
-                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).await? {
+                    for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai, active_adapters.clone()).await? {
                         yield ifile;
                     }
                 }

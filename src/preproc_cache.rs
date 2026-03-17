@@ -1,32 +1,31 @@
-use crate::{adapters::FileAdapter, preproc::ActiveAdapters};
+use crate::{adapters::FileAdapter, preproc::ActiveAdapters, config::RgaConfig};
 use anyhow::{Context, Result};
 use log::warn;
 use path_clean::PathClean;
 use rusqlite::{OptionalExtension, named_params};
-use std::{path::Path, time::UNIX_EPOCH};
+use std::path::Path;
 use tokio_rusqlite::Connection;
 
+use serde::{Deserialize, Serialize};
+
 static SCHEMA_VERSION: i32 = 3;
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct CacheKey {
-    config_hash: String,
-    adapter: String,
-    adapter_version: i32,
-    active_adapters: String,
-    file_path: String,
-    file_mtime_unix_ms: i64,
+    pub config_hash: String,
+    pub adapter: String,
+    pub adapter_version: i32,
+    pub active_adapters: String,
+    pub file_path: String,
+    pub file_mtime_unix_ms: i64,
 }
 impl CacheKey {
     pub fn new(
-        postprocess: bool,
         filepath_hint: &Path,
+        file_mtime_unix_ms: i64,
         adapter: &dyn FileAdapter,
         active_adapters: &ActiveAdapters,
+        config: &RgaConfig,
     ) -> Result<Self> {
-        let meta = std::fs::metadata(filepath_hint)
-            .with_context(|| format!("reading metadata for {}", filepath_hint.to_string_lossy()))?;
-        let modified = meta.modified().expect("weird OS that can't into mtime");
-        let file_mtime_unix_ms = modified.duration_since(UNIX_EPOCH)?.as_millis() as i64;
         let active_adapters = if adapter.metadata().recurses {
             serde_json::to_string(
                 &active_adapters
@@ -38,11 +37,7 @@ impl CacheKey {
             "null".to_string()
         };
         Ok(Self {
-            config_hash: if postprocess {
-                "a41e2e9".to_string()
-            } else {
-                "f1502a3".to_string()
-            }, // todo: when we add more config options that affect caching, create a struct and actually hash it
+            config_hash: config.config_hash(),
             adapter: adapter.metadata().name.clone(),
             adapter_version: adapter.metadata().version,
             file_path: filepath_hint.clean().to_string_lossy().to_string(),
@@ -85,15 +80,15 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
 
         db.execute("create unique index if not exists preproc_cache_idx on preproc_cache (config_hash, adapter, adapter_version, file_path, active_adapters)", [])?;
 
-        Ok(())
+        Ok::<(), rusqlite::Error>(())
     })
     .await.context("connect_pragmas")?;
     let jm: i64 = db
-        .call(|db| Ok(db.pragma_query_value(None, "application_id", |r| r.get(0))?))
+        .call(|db| db.pragma_query_value(None, "application_id", |r| r.get(0)))
         .await?;
     if jm != 924716026 {
         // (probably) newly created db
-        db.call(|db| Ok(db.pragma_update(None, "application_id", "924716026")?))
+        db.call(|db| db.pragma_update(None, "application_id", "924716026"))
             .await?;
     }
     Ok(())
@@ -112,7 +107,7 @@ impl SqliteCache {
                 db.execute("drop table if exists preproc_cache", [])?;
                 db.pragma_update(None, "user_version", format!("{SCHEMA_VERSION}"))?;
             }
-            Ok(())
+            Ok::<(), rusqlite::Error>(())
         })
         .await?;
 
@@ -129,7 +124,7 @@ impl PreprocCache for SqliteCache {
         Ok(self
             .db
             .call(move |db| {
-                Ok(db
+                db
                     .query_row(
                         "select text_content_zstd from preproc_cache where
                             adapter = :adapter
@@ -149,7 +144,7 @@ impl PreprocCache for SqliteCache {
                         },
                         |r| r.get::<_, Vec<u8>>(0),
                     )
-                    .optional()?)
+                    .optional()
             })
             .await
             .context("reading from cache")?)
@@ -182,15 +177,45 @@ impl PreprocCache for SqliteCache {
                         ":file_mtime_unix_ms": &key.file_mtime_unix_ms,
                         ":text_content_zstd": value
                     })?;
-                Ok(())
+                Ok::<(), rusqlite::Error>(())
             })
             .await?)
     }
 }
+pub struct RedisCache;
+#[async_trait::async_trait]
+impl PreprocCache for RedisCache {
+    async fn get(&self, _key: &CacheKey) -> Result<Option<Vec<u8>>> {
+        Err(anyhow::anyhow!("Redis cache not implemented yet"))
+    }
+    async fn set(&mut self, _key: &CacheKey, _value: Vec<u8>) -> Result<()> {
+        Err(anyhow::anyhow!("Redis cache not implemented yet"))
+    }
+}
+
+pub struct S3Cache;
+#[async_trait::async_trait]
+impl PreprocCache for S3Cache {
+    async fn get(&self, _key: &CacheKey) -> Result<Option<Vec<u8>>> {
+        Err(anyhow::anyhow!("S3 cache not implemented yet"))
+    }
+    async fn set(&mut self, _key: &CacheKey, _value: Vec<u8>) -> Result<()> {
+        Err(anyhow::anyhow!("S3 cache not implemented yet"))
+    }
+}
+
 /// opens a default cache
-pub async fn open_cache_db(path: &Path) -> Result<impl PreprocCache + use<>> {
-    std::fs::create_dir_all(path)?;
-    SqliteCache::new(path).await
+pub async fn open_cache_db(config: &RgaConfig) -> Result<Box<dyn PreprocCache + Send>> {
+    match config.cache.cache_type.as_str() {
+        "sqlite" => {
+            let path = Path::new(&config.cache.path.0);
+            std::fs::create_dir_all(path)?;
+            Ok(Box::new(SqliteCache::new(path).await?))
+        }
+        "redis" => Ok(Box::new(RedisCache)),
+        "s3" => Ok(Box::new(S3Cache)),
+        other => Err(anyhow::anyhow!("Unknown cache type: {}", other)),
+    }
 }
 
 #[cfg(test)]
@@ -201,7 +226,9 @@ mod test {
     #[tokio::test]
     async fn test_read_write() -> anyhow::Result<()> {
         let path = tempfile::tempdir()?;
-        let _db = open_cache_db(&path.path().join("foo.sqlite3")).await?;
+        let mut config = RgaConfig::default();
+        config.cache.path = crate::config::CachePath(path.path().to_string_lossy().to_string());
+        let _db = open_cache_db(&config).await?;
         // db.set();
         Ok(())
     }
