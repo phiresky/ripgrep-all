@@ -4,6 +4,10 @@ use ripgrep_all as rga;
 
 use std::process::{Command, Stdio};
 
+fn escape_for_shell(s: &str) -> String {
+    format!("'{}'", s.replace('\'', ""'\\''""))
+}
+
 // TODO: add --rg-params=..., --rg-preview-params=... and --fzf-params=... params
 // TODO: remove passthrough_args
 fn main() -> anyhow::Result<()> {
@@ -27,21 +31,23 @@ fn main() -> anyhow::Result<()> {
         .context("rga-fzf-open executable is in non-unicode path")?;
 
     let rg_prefix = format!("{preproc_exe} --files-with-matches --rga-cache-max-blob-len=10M");
+    let escaped_query = escape_for_shell(&initial_query);
 
     let child = Command::new("fzf")
         .arg(format!(
-            "--preview={preproc_exe} --pretty --context 5 {{q}} --rga-fzf-path=_{{}}"
+            "--preview={preproc_exe} --pretty --context 5 {} --rga-fzf-path='{{}}'",
+            escaped_query
         ))
         .arg("--preview-window=70%:wrap")
         .arg("--phony")
         .arg("--query")
         .arg(&initial_query)
         .arg("--print-query")
-        .arg(format!("--bind=change:reload: {rg_prefix} {{q}}"))
-        .arg(format!("--bind=ctrl-m:execute:{open_exe} {{q}} {{}}"))
+        .arg(format!("--bind=change:reload: {rg_prefix} {}", escaped_query))
+        .arg(format!("--bind=ctrl-m:execute:{open_exe} {} '{{}}", escaped_query))
         .env(
             "FZF_DEFAULT_COMMAND",
-            format!("{} '{}'", rg_prefix, &initial_query),
+            format!("{} {}", rg_prefix, escaped_query),
         )
         .env("RGA_FZF_INSTANCE", format!("{}", std::process::id())) // may be useful to open stuff in the same tab
         .stdout(Stdio::piped())
