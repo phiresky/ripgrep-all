@@ -109,7 +109,8 @@ mod tests {
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
 
         let adapter = TarAdapter::new();
-        let r = loop_adapt(&adapter, d, a).await.context("adapt")?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let r = loop_adapt(engine, &adapter, d, a).await.context("adapt")?;
         let o = adapted_to_vec(r).await.context("adapted_to_vec")?;
         assert_eq!(
             String::from_utf8(o).context("parsing utf8")?,
