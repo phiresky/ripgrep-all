@@ -330,7 +330,8 @@ mod test {
 
         let (a, d) = simple_adapt_info(&filepath, Box::pin(File::open(&filepath).await?));
         // let r = adapter.adapt(a, &d)?;
-        let r = loop_adapt(&adapter, d, a).await?;
+        let engine = crate::preproc::make_engine(&a.config)?;
+        let r = loop_adapt(engine, &adapter, d, a).await?;
         let o = adapted_to_vec(r).await?;
         assert_eq!(
             String::from_utf8(o)?,
