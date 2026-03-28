@@ -99,6 +99,7 @@
             };
             devShells.default = config.rust-project.crane-lib.devShell {
               inputsFrom = [
+                config.packages.default
                 config.pre-commit.devShell
                 config.treefmt.build.devShell
               ];
