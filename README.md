@@ -302,3 +302,4 @@ run-time dependencies:
 1. Allow use of [`.envrc`](./.envrc): `direnv allow`
 1. After the dependencies have been installed, your shell will now have all of
    the necessary development dependencies.
+- [Compress PDF – NoCodeVista](https://nocodevista.com/tools/compress-pdf) - Free browser-based PDF compressor — reduce file size up to 90%, no uploads, 100% private.
