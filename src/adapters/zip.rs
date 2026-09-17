@@ -4,7 +4,62 @@ use anyhow::*;
 use async_stream::stream;
 use lazy_static::lazy_static;
 use log::*;
+use std::task::{Context as TaskContext, Poll};
+use tokio::io::{BufReader, ReadBuf};
+use tokio::sync::oneshot;
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+
+type StreamingZipEntry = async_zip::base::read::stream::ZipFileReader<
+    async_zip::tokio::read::stream::Reading<
+        'static,
+        BufReader<ReadBox>,
+        async_zip::base::read::WithEntry<'static>,
+    >,
+>;
+
+/// Own the archive input until this entry reaches EOF or its reader is dropped.
+/// The iterator waits for ownership to return before opening another entry.
+struct StreamingEntryReader {
+    entry: Option<StreamingZipEntry>,
+    return_entry: Option<oneshot::Sender<StreamingZipEntry>>,
+}
+
+impl StreamingEntryReader {
+    fn return_entry(&mut self) {
+        if let (Some(entry), Some(sender)) = (self.entry.take(), self.return_entry.take()) {
+            // If the iterator was dropped, the entry and its input can be dropped too.
+            let _ = sender.send(entry);
+        }
+    }
+}
+
+impl AsyncRead for StreamingEntryReader {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut TaskContext<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        // A zero-length read does not establish EOF.
+        if buf.remaining() == 0 {
+            return Poll::Ready(std::io::Result::Ok(()));
+        }
+        let Some(entry) = self.entry.as_mut() else {
+            return Poll::Ready(std::io::Result::Ok(()));
+        };
+        let before = buf.filled().len();
+        std::task::ready!(Pin::new(&mut entry.reader_mut().compat()).poll_read(cx, buf))?;
+        if buf.filled().len() == before {
+            self.return_entry();
+        }
+        Poll::Ready(std::io::Result::Ok(()))
+    }
+}
+
+impl Drop for StreamingEntryReader {
+    fn drop(&mut self) {
+        self.return_entry();
+    }
+}
 
 // TODO: allow users to configure file extensions instead of hard coding the list
 // https://github.com/phiresky/ripgrep-all/pull/208#issuecomment-2173241243
@@ -107,7 +162,7 @@ impl FileAdapter for ZipAdapter {
 
             let s = stream! {
                     trace!("begin zip");
-                    while let Some(mut entry) = zip.next_with_entry().await? {
+                    while let Some(entry) = zip.next_with_entry().await? {
                         trace!("zip next entry");
                         let file = entry.reader().entry();
                         let filename = file.filename().as_str()?;
@@ -126,26 +181,21 @@ impl FileAdapter for ZipAdapter {
                         );
                         let new_line_prefix = format!("{}{}: ", line_prefix, filename);
                         let fname = PathBuf::from(filename);
-                        let reader = entry.reader_mut().compat();
-                        tokio::pin!(reader);
-                        // SAFETY: this should be solvable without unsafe but idk how :(
-                        // the issue is that ZipEntryReader borrows from ZipFileReader, but we need to yield it here into the stream
-                        // but then it can't borrow from the ZipFile
-                        let reader2 = unsafe {
-                            std::mem::transmute::<
-                                Pin<&mut (dyn AsyncRead + Send)>,
-                                Pin<&'static mut (dyn AsyncRead + Send)>,
-                            >(reader)
+                        let (sender, returned) = oneshot::channel();
+                        let reader = StreamingEntryReader {
+                            entry: Some(entry),
+                            return_entry: Some(sender),
                         };
                         yield Ok(AdaptInfo {
                             filepath_hint: fname,
                             is_real_file: false,
-                            inp: Box::pin(reader2),
+                            inp: Box::pin(reader),
                             line_prefix: new_line_prefix,
                             archive_recursion_depth: archive_recursion_depth + 1,
                             postprocess,
                             config: config.clone(),
                         });
+                        let entry = returned.await.context("ZIP entry reader did not return the archive input")?;
                         zip = entry.done().await.context("going to next file in zip but entry was not read fully")?;
 
                 }
@@ -330,6 +380,70 @@ mod test {
         }
         zip.close().await?;
         Ok(cursor.into_inner())
+    }
+
+    #[tokio::test]
+    async fn streaming_entry_ownership() -> Result<()> {
+        use tokio::io::AsyncReadExt;
+        use tokio_stream::StreamExt;
+
+        let bytes = create_zip("first.txt", "first", true).await?;
+        let (ai, reason) = simple_adapt_info(
+            &PathBuf::from("stream.zip"),
+            Box::pin(std::io::Cursor::new(bytes)),
+        );
+        let mut entries = ZipAdapter::new().adapt(ai, &reason).await?;
+        let mut first = entries.next().await.unwrap()?;
+
+        // Poll the actual reader with no capacity: this must not return archive ownership.
+        let mut empty = [];
+        let mut buf = ReadBuf::new(&mut empty);
+        std::future::poll_fn(|cx| first.inp.as_mut().poll_read(cx, &mut buf)).await?;
+        let mut next = tokio_test::task::spawn(entries.next());
+        assert!(next.poll().is_pending());
+        let mut text = String::new();
+        first.inp.read_to_string(&mut text).await?;
+        assert_eq!(text, "first");
+        assert!(
+            next.is_woken(),
+            "EOF must wake the waiting archive iterator"
+        );
+        let mut second = tokio_test::assert_ready!(next.poll()).unwrap()?;
+        drop(next);
+        assert_eq!(second.filepath_hint, PathBuf::from("inner.zip"));
+
+        // The exhausted reader can stay alive while the next entry is in use.
+        assert_eq!(first.inp.read(&mut [0; 1]).await?, 0);
+        // The live entry owns its input even after the archive iterator is gone.
+        drop(entries);
+        let mut inner = Vec::new();
+        second.inp.read_to_end(&mut inner).await?;
+        assert_eq!(
+            inner,
+            create_zip("inner.txt", "inner text file", false).await?
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn dropping_unread_streaming_entry_reports_error() -> Result<()> {
+        use tokio::io::AsyncReadExt;
+        use tokio_stream::StreamExt;
+
+        let bytes = create_zip("first.txt", "first", true).await?;
+        let (ai, reason) = simple_adapt_info(
+            &PathBuf::from("stream.zip"),
+            Box::pin(std::io::Cursor::new(bytes)),
+        );
+        let mut entries = ZipAdapter::new().adapt(ai, &reason).await?;
+        let mut first = entries.next().await.unwrap()?;
+        first.inp.read_exact(&mut [0; 1]).await?;
+        drop(first);
+        let result =
+            tokio::time::timeout(std::time::Duration::from_secs(1), entries.next()).await?;
+        let error = result.unwrap().err().context("unread entry must fail")?;
+        assert!(error.to_string().contains("entry was not read fully"));
+        Ok(())
     }
 
     #[tokio::test]
