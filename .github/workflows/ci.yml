@@ -3,9 +3,16 @@
 # While our "example" application has platform-specific code,
 # for simplicity we are compiling and testing everything in a nix-on-Linux environment only.
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
 
 name: ci
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   nix-flake-check:
