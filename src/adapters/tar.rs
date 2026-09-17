@@ -74,7 +74,7 @@ impl FileAdapter for TarAdapter {
                         "{}|{}: {}",
                         filepath_hint.display(),
                         path.display(),
-                        print_bytes(file.header().size().unwrap_or(0) as f64),
+                        print_bytes(file.effective_size() as f64),
                     );
                     let line_prefix = &format!("{}{}: ", line_prefix, path.display());
                     let ai2: AdaptInfo = AdaptInfo {

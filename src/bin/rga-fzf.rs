@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
         .arg(format!("--bind=ctrl-m:execute:{open_exe} {{q}} {{}}"))
         .env(
             "FZF_DEFAULT_COMMAND",
-            format!("{} '{}'", rg_prefix, &initial_query),
+            format!("{} '{}'", rg_prefix, initial_query),
         )
         .env("RGA_FZF_INSTANCE", format!("{}", std::process::id())) // may be useful to open stuff in the same tab
         .stdout(Stdio::piped())
