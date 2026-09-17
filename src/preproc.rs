@@ -124,7 +124,7 @@ pub async fn rga_preproc(ai: AdaptInfo) -> Result<ReadBox> {
     let path_hint_copy = ai.filepath_hint.clone();
     adapt_caching(ai, adapter, detection_reason, active_adapters)
         .await
-        .with_context(|| format!("run_adapter({})", &path_hint_copy.to_string_lossy()))
+        .with_context(|| format!("run_adapter({})", path_hint_copy.to_string_lossy()))
 }
 
 async fn adapt_caching(
@@ -136,12 +136,12 @@ async fn adapt_caching(
     let meta = adapter.metadata();
     debug!(
         "Chose adapter '{}' because of matcher {:?}",
-        &meta.name, &detection_reason
+        meta.name, detection_reason
     );
     eprintln!(
         "{} adapter: {}",
         ai.filepath_hint.to_string_lossy(),
-        &meta.name
+        meta.name
     );
     // Note: adapt_caching is only called from rga_preproc for the top-level file.
     // Recursive files inside archives go through loop_adapt directly and never hit this function,
@@ -250,12 +250,12 @@ pub async fn loop_adapt_inner(
                     }
                     debug!(
                         "Chose adapter '{}' because of matcher {:?}",
-                        &adapter.metadata().name, &detection_reason
+                        adapter.metadata().name, detection_reason
                     );
                     eprintln!(
                         "{} adapter: {}",
                         ai.filepath_hint.to_string_lossy(),
-                        &adapter.metadata().name
+                        adapter.metadata().name
                     );
                     for await ifile in loop_adapt(adapter.as_ref(), detection_reason, ai).await? {
                         yield ifile;

@@ -19,55 +19,54 @@ perf-literal = ["regex/perf-literal"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = {version = "1.0.71", features = ["backtrace"]}
-async-compression = { version = "0.4.0", features = ["all", "all-algorithms", "tokio"] }
-async-stream = "0.3.5"
-async-trait = "0.1.68"
-async_zip = {version = "0.0.12", features = ["full"]}
-bincode = "1.3.3"
-bytes = "1.4.0"
-clap = {version = "4.3.0", features = ["wrap_help"]}
-crossbeam = "0.8.2"
-crossbeam-channel = "0.5.8"
-derive_more = "0.99.17"
+anyhow = {version = "1.0.104", features = ["backtrace"]}
+async-compression = { version = "0.4.48", features = ["all", "all-algorithms", "tokio"] }
+async-stream = "0.3.6"
+async-trait = "0.1.92"
+async_zip = {version = "0.0.19", features = ["full"]}
+bytes = "1.12.1"
+clap = {version = "4.6.7", features = ["wrap_help"]}
+crossbeam = "0.8.5"
+crossbeam-channel = "0.5.17"
+derive_more = {version = "2.1.1", features = ["from_str"]}
 directories-next = "2.0.0"
-dyn-clonable = "0.9.0"
-dyn-clone = "1.0.11"
-encoding_rs = "0.8.32"
-encoding_rs_io = "0.1.7"
-env_logger = "0.10.0"
-glob = "0.3.1"
-json_comments = "0.2.1"
-lazy_static = "1.4.0"
-log = "0.4.17"
-mailparse = "0.14.0"
-memchr = "2.5.0"
-mime2ext = "0.1.52"
+dyn-clonable = "0.9.2"
+dyn-clone = "1.0.20"
+encoding_rs = "0.8.41"
+encoding_rs_io = "0.1.8"
+env_logger = "0.11.11"
+glob = "0.3.4"
+json_comments = "0.2.2"
+lazy_static = "1.5.0"
+log = "0.4.34"
+mailparse = "0.17.0"
+memchr = "2.8.3"
+mime2ext = "0.1.54"
 open = "5"
-paste = "1.0.12"
+paste = "1.0.15"
 path-clean = "1.0.1"
 pretty-bytes = "0.2.2"
-regex = "1.8.2"
-rusqlite = {version = "0.30.0", features = ["vtab", "bundled"]}
+regex = "1.13.1"
+rusqlite = {version = "0.40.2", features = ["vtab", "bundled"]}
 schemars = {version = "1.2.2", features = ["preserve_order"]}
-serde = {version = "1.0.163", features = ["derive"]}
-serde_json = "1.0.96"
+serde = {version = "1.0.229", features = ["derive"]}
+serde_json = "1.0.151"
 size_format = "1.0.2"
 structopt = "0.3.26"
-tempfile = "3.5.0"
-tokio = {version = "1.28.1", features = ["full"]}
-tokio-rusqlite = "0.5.0"
-tokio-stream = {version = "0.1.14", features = ["io-util", "tokio-util"]}
-astral-tokio-tar =  "0.5.6" 
-tokio-util = {version = "0.7.8", features = ["io", "full"]}
-tree_magic = {package = "tree_magic_mini", version = "3.0.3"}
+tempfile = "3.27.0"
+tokio = {version = "1.53.1", features = ["full"]}
+tokio-rusqlite = "0.8.0"
+tokio-stream = {version = "0.1.19", features = ["io-util", "tokio-util"]}
+astral-tokio-tar = "0.7.0"
+tokio-util = {version = "0.7.19", features = ["io", "full"]}
+tree_magic = {package = "tree_magic_mini", version = "3.2.2"}
 
 [dev-dependencies]
-async-recursion = "1.0.4"
-ctor = "0.2.0"
-pretty_assertions = "1.3.0"
-tempfile = "3.5.0"
-tokio-test = "0.4.2"
+async-recursion = "1.1.1"
+ctor = "1.0.13"
+pretty_assertions = "1.4.1"
+tempfile = "3.27.0"
+tokio-test = "0.4.5"
 
 [profile.release]
 debug = true

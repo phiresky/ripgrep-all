@@ -63,7 +63,7 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
     //let want_page_size = 32768;
     //db.execute(&format!("pragma page_size = {};", want_page_size))
     //    .context("setup pragma 1")?;
-    db.call(|db| {
+    db.call(|db| -> rusqlite::Result<_> {
         // db.busy_timeout(Duration::from_secs(10))?;
         db.pragma_update(None, "journal_mode", "wal")?;
         db.pragma_update(None, "foreign_keys", "on")?;
@@ -89,11 +89,11 @@ async fn connect_pragmas(db: &Connection) -> Result<()> {
     })
     .await.context("connect_pragmas")?;
     let jm: i64 = db
-        .call(|db| Ok(db.pragma_query_value(None, "application_id", |r| r.get(0))?))
+        .call(|db| db.pragma_query_value(None, "application_id", |r| r.get(0)))
         .await?;
     if jm != 924716026 {
         // (probably) newly created db
-        db.call(|db| Ok(db.pragma_update(None, "application_id", "924716026")?))
+        db.call(|db| db.pragma_update(None, "application_id", "924716026"))
             .await?;
     }
     Ok(())
@@ -105,7 +105,7 @@ struct SqliteCache {
 impl SqliteCache {
     async fn new(path: &Path) -> Result<Self> {
         let db = Connection::open(path.join("cache.sqlite3")).await?;
-        db.call(|db| {
+        db.call(|db| -> rusqlite::Result<_> {
             let schema_version: i32 = db.pragma_query_value(None, "user_version", |r| r.get(0))?;
             if schema_version != SCHEMA_VERSION {
                 warn!("Cache schema version mismatch, clearing cache");
@@ -128,10 +128,9 @@ impl PreprocCache for SqliteCache {
         let key = (*key).clone(); // todo: without cloning
         Ok(self
             .db
-            .call(move |db| {
-                Ok(db
-                    .query_row(
-                        "select text_content_zstd from preproc_cache where
+            .call(move |db| -> rusqlite::Result<_> {
+                db.query_row(
+                    "select text_content_zstd from preproc_cache where
                             adapter = :adapter
                         and config_hash = :config_hash
                         and adapter_version = :adapter_version
@@ -139,17 +138,17 @@ impl PreprocCache for SqliteCache {
                         and file_path = :file_path
                         and file_mtime_unix_ms = :file_mtime_unix_ms
                 ",
-                        named_params! {
-                            ":config_hash": &key.config_hash,
-                            ":adapter": &key.adapter,
-                            ":adapter_version": &key.adapter_version,
-                            ":active_adapters": &key.active_adapters,
-                            ":file_path": &key.file_path,
-                            ":file_mtime_unix_ms": &key.file_mtime_unix_ms
-                        },
-                        |r| r.get::<_, Vec<u8>>(0),
-                    )
-                    .optional()?)
+                    named_params! {
+                        ":config_hash": &key.config_hash,
+                        ":adapter": &key.adapter,
+                        ":adapter_version": &key.adapter_version,
+                        ":active_adapters": &key.active_adapters,
+                        ":file_path": &key.file_path,
+                        ":file_mtime_unix_ms": &key.file_mtime_unix_ms
+                    },
+                    |r| r.get::<_, Vec<u8>>(0),
+                )
+                .optional()
             })
             .await
             .context("reading from cache")?)
@@ -165,7 +164,7 @@ impl PreprocCache for SqliteCache {
         );
         Ok(self
             .db
-            .call(move |db| {
+            .call(move |db| -> rusqlite::Result<_> {
                 db.execute(
                     "insert into preproc_cache (config_hash, adapter, adapter_version, active_adapters, file_path, file_mtime_unix_ms, text_content_zstd) values
                         (:config_hash, :adapter, :adapter_version, :active_adapters, :file_path, :file_mtime_unix_ms, :text_content_zstd)
@@ -201,8 +200,24 @@ mod test {
     #[tokio::test]
     async fn test_read_write() -> anyhow::Result<()> {
         let path = tempfile::tempdir()?;
-        let _db = open_cache_db(&path.path().join("foo.sqlite3")).await?;
-        // db.set();
+        let mut db = open_cache_db(path.path()).await?;
+        let mut key = CacheKey {
+            config_hash: "config".into(),
+            adapter: "test".into(),
+            adapter_version: 1,
+            active_adapters: "null".into(),
+            file_path: "example.txt".into(),
+            file_mtime_unix_ms: 123,
+        };
+        assert_eq!(db.get(&key).await?, None);
+        db.set(&key, vec![0, 1, 255]).await?;
+        assert_eq!(db.get(&key).await?, Some(vec![0, 1, 255]));
+        key.file_mtime_unix_ms += 1;
+        assert_eq!(db.get(&key).await?, None);
+        db.set(&key, vec![2, 3, 254]).await?;
+        drop(db);
+        let db = open_cache_db(path.path()).await?;
+        assert_eq!(db.get(&key).await?, Some(vec![2, 3, 254]));
         Ok(())
     }
 }
