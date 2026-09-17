@@ -32,7 +32,8 @@ fn main() -> anyhow::Result<()> {
         .arg(format!(
             "--preview={preproc_exe} --pretty --context 5 {{q}} --rga-fzf-path=_{{}}"
         ))
-        .arg("--preview-window=70%:wrap")
+        .arg("--layout=reverse-list")
+        .arg("--preview-window=up,60%:wrap,border-bottom")
         .arg("--phony")
         .arg("--query")
         .arg(&initial_query)
