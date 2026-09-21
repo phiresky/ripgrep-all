@@ -5,7 +5,8 @@ use rga::config::{RgaConfig, split_args};
 use rga::matching::*;
 use rga::print_dur;
 use ripgrep_all as rga;
-use structopt::StructOpt;
+use clap::CommandFactory;
+
 
 use schemars::schema_for;
 use std::process::Command;
@@ -85,7 +86,7 @@ fn main() -> anyhow::Result<()> {
 
     if passthrough_args.is_empty() {
         // rg would show help. Show own help instead.
-        RgaConfig::clap().print_help()?;
+        RgaConfig::command().print_help()?;
         println!();
         return Ok(());
     }

@@ -25,7 +25,7 @@ async-stream = "0.3.6"
 async-trait = "0.1.92"
 async_zip = {version = "0.0.19", features = ["full"]}
 bytes = "1.12.1"
-clap = {version = "4.6.7", features = ["wrap_help"]}
+clap = {version = "4.6.7", features = ["wrap_help", "derive"]}
 crossbeam = "0.8.5"
 crossbeam-channel = "0.5.17"
 derive_more = {version = "2.1.1", features = ["from_str"]}
@@ -52,7 +52,6 @@ schemars = {version = "1.2.2", features = ["preserve_order"]}
 serde = {version = "1.0.229", features = ["derive"]}
 serde_json = "1.0.151"
 size_format = "1.0.2"
-structopt = "0.3.26"
 tempfile = "3.27.0"
 tokio = {version = "1.53.1", features = ["full"]}
 tokio-rusqlite = "0.8.0"
