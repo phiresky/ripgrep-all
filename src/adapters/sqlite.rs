@@ -77,8 +77,23 @@ fn synchronous_dump_sqlite(ai: AdaptInfo, mut s: impl Write) -> Result<()> {
         return Ok(());
     }
     let inp_fname = filepath_hint;
-    let conn = Connection::open_with_flags(&inp_fname, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .with_context(|| format!("opening sqlite connection to {}", inp_fname.display()))?;
+    // Open the database in immutable mode: even with SQLITE_OPEN_READ_ONLY, a WAL-mode
+    // database makes sqlite create empty -wal and -shm files next to it as a side effect.
+    // immutable=1 prevents that (https://sqlite.org/wal.html#read_only_databases).
+    // The path needs URI escaping (and forward slashes, even on Windows).
+    let uri = format!(
+        "file:{}?immutable=1",
+        inp_fname
+            .to_string_lossy()
+            .replace('\\', "/")
+            .replace('?', "%3F")
+            .replace('#', "%23")
+    );
+    let conn = Connection::open_with_flags(
+        &uri,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+    .with_context(|| format!("opening sqlite connection to {}", inp_fname.display()))?;
     let tables: Vec<String> = conn
         .prepare("select name from sqlite_master where type='table'")
         .context("while preparing query")?
