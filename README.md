@@ -101,13 +101,15 @@ To install the dependencies that are each not strictly necessary but very useful
 
 ### Compile from source
 
-rga should compile with stable Rust (v1.75.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
+rga should compile with stable Rust (v1.85.0+, check with `rustc --version`). To build it, run the following (or the equivalent in your OS):
 
 ```
 ~$ apt install build-essential pandoc poppler-utils ffmpeg ripgrep cargo
 ~$ cargo install --locked ripgrep_all
 ~$ rga --version    # this should work now
 ```
+
+Note: the `cargo` package shipped by some distributions (e.g. Ubuntu 24.04 ships Rust 1.75) may be too old, since rga uses Rust edition 2024. In that case, install a current toolchain via [rustup](https://rustup.rs/) instead.
 
 ## Available Adapters
 
