@@ -116,7 +116,7 @@ lazy_static! {
         CustomAdapterConfig {
             name: "pandoc".to_string(),
             description: "Uses pandoc to convert binary/unreadable text documents to plain markdown-like text".to_string(),
-            version: 3,
+            version: 4,
             extensions: strs(&["epub", "odt", "docx", "fb2", "ipynb", "html", "htm"]),
             binary: "pandoc".to_string(),
             mimetypes: None,
@@ -126,7 +126,10 @@ lazy_static! {
                 "--from=$input_file_extension",
                 "--to=plain",
                 "--wrap=none",
-                "--markdown-headings=atx"
+                "--markdown-headings=atx",
+                // pandoc 3.x uses the platform's native line ending (CRLF on Windows);
+                // force LF so adapter output is consistent across platforms
+                "--eol=lf"
             ]),
             disabled_by_default: None,
             match_only_by_mime: None,
@@ -134,7 +137,7 @@ lazy_static! {
         },
         CustomAdapterConfig {
             name: "poppler".to_owned(),
-            version: 1,
+            version: 2,
             description: "Uses pdftotext (from poppler-utils) to extract plain text from PDF files"
                 .to_owned(),
 
@@ -142,7 +145,9 @@ lazy_static! {
             mimetypes: Some(strs(&["application/pdf"])),
 
             binary: "pdftotext".to_string(),
-            args: strs(&["-", "-"]),
+            // -eol unix: poppler builds on Windows default to \r\n line endings,
+            // which would leak \r into the pagebreak postprocessing and its tests
+            args: strs(&["-eol", "unix", "-", "-"]),
             disabled_by_default: None,
             match_only_by_mime: None,
             output_path_hint: Some("${input_virtual_path}.txt.asciipagebreaks".into())
