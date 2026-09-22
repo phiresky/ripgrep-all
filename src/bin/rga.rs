@@ -80,7 +80,14 @@ fn main() -> anyhow::Result<()> {
             println!("[no file found]");
             return Ok(());
         }
-        passthrough_args.push(std::ffi::OsString::from(&path[1..]));
+        let path = &path[1..];
+        if path.starts_with('-') {
+            // rg would parse a path starting with '-' as one of its flags
+            // ("unrecognized flag"); the '--' separator makes rg treat it as a path.
+            // https://github.com/phiresky/ripgrep-all/issues/261
+            passthrough_args.push("--".into());
+        }
+        passthrough_args.push(std::ffi::OsString::from(path));
     }
 
     if passthrough_args.is_empty() {
