@@ -49,11 +49,21 @@ fn main() -> anyhow::Result<()> {
         .map_err(|e| map_exe_error(e, "fzf", "Please make sure you have fzf installed."))?;
 
     let output = child.wait_with_output()?;
-    let mut x = output.stdout.split(|e| e == &b'\n');
-    let final_query =
-        std::str::from_utf8(x.next().context("fzf output empty")?).context("fzf query not utf8")?;
-    let selected_file = std::str::from_utf8(x.next().context("fzf output not two line")?)
-        .context("fzf ofilename not utf8")?;
+    // fzf --print-query always prints the final query on the first line, and the selected
+    // file on the second line. Distinguish the failure modes instead of always failing
+    // with the misleading "fzf output not two line"
+    // (https://github.com/phiresky/ripgrep-all/issues/264).
+    let stdout = String::from_utf8(output.stdout).context("fzf output not valid utf8")?;
+    if stdout.is_empty() {
+        return Err(anyhow::anyhow!(
+            "fzf printed no output (fzf was closed without a selection, e.g. via ctrl-c)"
+        ));
+    }
+    let mut lines = stdout.lines();
+    let final_query = lines.next().context("fzf output empty")?;
+    let selected_file = lines
+        .next()
+        .context("fzf printed only the query but no selected file")?;
     println!("query='{final_query}', file='{selected_file}'");
 
     Ok(())
