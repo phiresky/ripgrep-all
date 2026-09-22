@@ -45,6 +45,19 @@ async fn choose_adapter(
             Some("application/mbox")
         } else {
             let mimetype = tree_magic::from_u8(buf);
+            // tree_magic is platform dependent and sometimes fails to detect archives
+            // (reporting application/octet-stream), which breaks --rga-accurate matching.
+            // Fall back to checking the ZIP magic bytes directly.
+            // https://github.com/phiresky/ripgrep-all/issues/214
+            let mimetype = if mimetype == "application/octet-stream"
+                && (buf.starts_with(b"PK\x03\x04")
+                    || buf.starts_with(b"PK\x05\x06")
+                    || buf.starts_with(b"PK\x07\x08"))
+            {
+                "application/zip"
+            } else {
+                mimetype
+            };
             debug!("mimetype: {:?}", mimetype);
             Some(mimetype)
         }
