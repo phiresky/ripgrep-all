@@ -129,13 +129,18 @@ async fn postproc_encoding(
 }
 
 /// Adds the given prefix to each line in an `AsyncRead`.
+///
+/// Single-pass scan: the prefix is inserted after every `\n` and every other
+/// byte (including `\r`) passes through untouched, so the output is
+/// independent of how the input is chunked. Chunks without any line break
+/// are forwarded without copying; chunks with newlines get an exactly-sized
+/// output buffer filled from memchr match positions.
 pub fn postproc_prefix<T: AsyncRead + Send>(
     line_prefix: &str,
     inp: T,
 ) -> impl AsyncRead + Send + use<T> {
-    let line_prefix_n = format!("\n{line_prefix}"); // clone since we need it later
     let line_prefix_o = Bytes::copy_from_slice(line_prefix.as_bytes());
-    let regex = regex::bytes::Regex::new("\n").unwrap();
+    let line_prefix_rep = line_prefix_o.clone();
     let inp_stream = ReaderStream::new(inp);
     let oup_stream = stream! {
         yield Ok(line_prefix_o);
@@ -143,11 +148,23 @@ pub fn postproc_prefix<T: AsyncRead + Send>(
             match chunk {
                 Err(e) => yield Err(e),
                 Ok(chunk) => {
-                    if chunk.contains(&b'\n') {
-                        yield Ok(Bytes::copy_from_slice(&regex.replace_all(&chunk, line_prefix_n.as_bytes())));
-                    } else {
+                    // fast path: no line breaks in this chunk at all
+                    if memchr::memchr(b'\n', &chunk).is_none() {
                         yield Ok(chunk);
+                        continue;
                     }
+                    // count first so the output buffer is allocated exactly once
+                    let bytes = chunk.as_ref();
+                    let n_lines = memchr::memchr_iter(b'\n', bytes).count();
+                    let mut out = Vec::with_capacity(bytes.len() + line_prefix_rep.len() * n_lines);
+                    let mut i = 0;
+                    for pos in memchr::memchr_iter(b'\n', bytes) {
+                        out.extend_from_slice(&bytes[i..=pos]);
+                        out.extend_from_slice(&line_prefix_rep);
+                        i = pos + 1;
+                    }
+                    out.extend_from_slice(&bytes[i..]);
+                    yield Ok(Bytes::from(out));
                 }
             }
         }
@@ -320,6 +337,61 @@ PREFIX:Page 3:
         println!("{}", String::from_utf8_lossy(&output));
         assert!(res.is_ok());
         assert_eq!(output, b"prefix: Hello\nprefix: World");
+    }
+
+    #[tokio::test]
+    async fn test_postproc_prefix_crlf() {
+        let mut output: Vec<u8> = Vec::new();
+        // \r bytes pass through untouched and the prefix is only inserted
+        // after \n, even when the "\r\n" pair is split across a chunk
+        // boundary (the trailing lone \r of the first chunk is kept, and the
+        // \n of the second chunk gets the prefix)
+        let mock: Mock = Builder::new()
+            .read(b"Hello\r\nWorld\r")
+            .read(b"\nSplit\r\nEnd")
+            .build();
+        let res = postproc_prefix("p: ", mock).read_to_end(&mut output).await;
+        println!("{}", String::from_utf8_lossy(&output));
+        assert!(res.is_ok());
+        assert_eq!(output, b"p: Hello\r\np: World\r\np: Split\r\np: End");
+    }
+
+    #[tokio::test]
+    async fn test_postproc_prefix_chunking_independent() {
+        // the same input must produce the same output no matter where the
+        // chunk boundaries fall
+        let expected = b"p: a\r\np: b\np: c\r";
+        let mock: Mock = Builder::new().read(b"a").read(b"\r\nb\nc\r").build();
+        let mut output: Vec<u8> = Vec::new();
+        postproc_prefix("p: ", mock)
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        assert_eq!(output, expected);
+
+        let mock: Mock = Builder::new()
+            .read(b"a\r")
+            .read(b"\n")
+            .read(b"b\nc")
+            .read(b"\r")
+            .build();
+        let mut output: Vec<u8> = Vec::new();
+        postproc_prefix("p: ", mock)
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        assert_eq!(output, expected);
+    }
+
+    #[tokio::test]
+    async fn test_postproc_prefix_bare_cr_and_binary_safe() {
+        let mut output: Vec<u8> = Vec::new();
+        // lone \r kept as-is, \0 bytes pass through untouched
+        let mock: Mock = Builder::new().read(b"a\rb\0c\n").build();
+        let res = postproc_prefix("p: ", mock).read_to_end(&mut output).await;
+        println!("{}", String::from_utf8_lossy(&output));
+        assert!(res.is_ok());
+        assert_eq!(output, b"p: a\rb\0c\np: ");
     }
 
     async fn test_from_strs(
