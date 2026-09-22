@@ -19,7 +19,7 @@ static EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "mp3", "ogg", "flac", "webm"
 lazy_static! {
     static ref METADATA: AdapterMeta = AdapterMeta {
         name: "ffmpeg".to_owned(),
-        version: 1,
+        version: 2,
         description:
             "Uses ffmpeg to extract video metadata/chapters, subtitles, lyrics, and other metadata"
                 .to_owned(),
@@ -129,8 +129,19 @@ impl WritingFileAdapter for FFmpegAdapter {
                 .stdout(Stdio::piped())
                 .spawn()?;
             let mut lines = BufReader::new(probe.stdout.as_mut().unwrap()).lines();
+            // strip LRC-style timestamps ([mm:ss.xx] and enhanced <mm:ss.xx>) from lyrics
+            // tags, so that word-synced lyrics become searchable as plain phrases.
+            // https://en.wikipedia.org/wiki/LRC_(file_format)
+            let lyrics_key = Regex::new(r"(?i)^[^=]*lyrics[^=]*=").unwrap();
+            let lrc_timestamp =
+                Regex::new(r"(\[\d{1,2}:\d{2}[.:]\d{1,3}\]|<\d{1,2}:\d{2}[.:]\d{1,3}>)").unwrap();
             while let Some(line) = lines.next_line().await? {
                 let line = line.replace("\\r\\n", "\n").replace("\\n", "\n"); // just unescape newlines
+                let line = if lyrics_key.is_match(&line) {
+                    lrc_timestamp.replace_all(&line, "").into_owned()
+                } else {
+                    line
+                };
                 async_writeln!(oup, "metadata: {line}")?;
             }
             let exit = probe.wait().await?;
