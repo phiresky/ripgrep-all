@@ -1,0 +1,59 @@
+# Builds the Arch/CachyOS pacman packages for a release and attaches them
+# to the GitHub release. Runs makepkg in a native archlinux container via
+# packaging/arch/build-packages.sh (the same way they are built by hand).
+name: packaging
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  pacman:
+    name: pacman packages (generic + znver4)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install build environment
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel sudo git pacman-contrib github-cli \
+            bzip2 gcc-libs glibc ripgrep sqlite xz zstd \
+            cargo pandoc poppler
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+
+      - uses: actions/checkout@v4
+
+      - name: Build packages
+        run: |
+          chown -R builder:builder .
+          sudo -u builder bash packaging/arch/build-packages.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Wait for the GitHub release
+        run: |
+          # release.yml creates the release in parallel; the cargo build
+          # above usually outlasts it, but poll instead of racing.
+          # --repo is required: after chown, git refuses to resolve the
+          # remote (dubious ownership) and gh cannot detect the repo.
+          for i in $(seq 1 60); do
+            if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "release $GITHUB_REF_NAME exists"
+              exit 0
+            fi
+            if [ "$i" = 1 ]; then
+              echo "waiting for release $GITHUB_REF_NAME to appear..."
+            fi
+            sleep 30
+          done
+          echo "release $GITHUB_REF_NAME did not appear in time" >&2
+          exit 1
+
+      - name: Upload pacman packages
+        run: gh release upload "$GITHUB_REF_NAME" packaging/arch/dist/*.pkg.tar.zst --repo "$GITHUB_REPOSITORY" --clobber

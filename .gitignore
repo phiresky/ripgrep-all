@@ -5,3 +5,4 @@
 /.pre-commit-config.yaml
 /.vscode/settings.json
 **/*.rs.bk
+packaging/arch/dist/

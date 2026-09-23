@@ -1,0 +1,69 @@
+pkgname=ripgrep-all-znver4
+pkgver=0.10.10
+pkgrel=1
+pkgdesc="rga: ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc. (Zen 4 optimized build)"
+arch=('x86_64')
+url='https://github.com/phiresky/ripgrep-all'
+license=('AGPL-3.0-or-later')
+depends=('bzip2' 'glibc' 'libgcc' 'ripgrep' 'sqlite' 'xz' 'zstd')
+makedepends=('cargo')
+checkdepends=('pandoc' 'poppler')
+optdepends=(
+  'antiword: for the legacy .doc adapter'
+  'ffmpeg: for the ffmpeg adapter'
+  'pandoc: for the pandoc adapter'
+  'poppler: for the poppler adapter'
+  'tesseract: for the OCR image adapter (opt-in)')
+conflicts=('ripgrep-all' 'ripgrep-all-bin')
+options=('!debug')
+source=(
+  "ripgrep-all-${pkgver}.tar.gz::https://github.com/phiresky/ripgrep-all/archive/refs/tags/v${pkgver}.tar.gz"
+)
+sha256sums=('17fadc7b73a51608d57f82b4a11f3edc0da87716cc4b302103eed9d4b9010fe5')
+
+prepare() {
+  cd ripgrep-all-${pkgver}
+  cargo fetch --locked --target x86_64-unknown-linux-gnu
+}
+
+build() {
+  cd ripgrep-all-${pkgver}
+  export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
+  export ZSTD_SYS_USE_PKG_CONFIG=1
+  # Zen 4+ (znver4) tuned build: AVX-512 capable codegen, fat LTO, single CGU.
+  # Per-target rustflags + explicit --target so host build scripts (proc-macro
+  # probes etc.) stay generic: with a global RUSTFLAGS they also get znver4
+  # and die with SIGILL on build machines without an AVX-512 CPU.
+  # makepkg exports RUSTFLAGS (via /etc/makepkg.conf.d/rust.conf) and cargo
+  # honors RUSTFLAGS over per-target rustflags, so clear it here; the
+  # frame-pointer default it carries is irrelevant for a stripped release pkg.
+  unset RUSTFLAGS
+  export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=znver4"
+  export CARGO_PROFILE_RELEASE_DEBUG=false
+  export CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off
+  export CARGO_PROFILE_RELEASE_LTO=fat
+  export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+  cargo build --frozen --release --all-features --target x86_64-unknown-linux-gnu
+}
+
+check() {
+  cd ripgrep-all-${pkgver}
+  export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
+  export ZSTD_SYS_USE_PKG_CONFIG=1
+  # generic codegen: the check only validates the code and must run on any
+  # build machine, AVX-512 or not. makepkg runs the functions in one shell,
+  # so the znver4 rustflags exported in build() would leak into the test
+  # binaries (and their build scripts) here and SIGILL without an AVX-512 CPU.
+  unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS
+  cargo test --frozen --all-features
+}
+
+package() {
+  cd ripgrep-all-${pkgver}
+  local t="target/x86_64-unknown-linux-gnu/release"
+  install -Dm 755 "$t/rga" "${pkgdir}"/usr/bin/rga
+  install -Dm 755 "$t/rga-preproc" "${pkgdir}"/usr/bin/rga-preproc
+  install -Dm 755 "$t/rga-fzf" "${pkgdir}"/usr/bin/rga-fzf
+  install -Dm 755 "$t/rga-fzf-open" "${pkgdir}"/usr/bin/rga-fzf-open
+  install -Dm 644 LICENSE.md "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE.md
+}

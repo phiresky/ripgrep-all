@@ -1,0 +1,55 @@
+pkgname=ripgrep-all
+pkgver=0.10.10
+pkgrel=1
+pkgdesc="rga: ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc."
+arch=('x86_64')
+url='https://github.com/phiresky/ripgrep-all'
+license=('AGPL-3.0-or-later')
+depends=('bzip2' 'glibc' 'libgcc' 'ripgrep' 'sqlite' 'xz' 'zstd')
+makedepends=('cargo')
+checkdepends=('pandoc' 'poppler')
+optdepends=(
+  'antiword: for the legacy .doc adapter'
+  'ffmpeg: for the ffmpeg adapter'
+  'pandoc: for the pandoc adapter'
+  'poppler: for the poppler adapter'
+  'tesseract: for the OCR image adapter (opt-in)'
+)
+conflicts=('ripgrep-all-bin' 'ripgrep-all-znver4')
+options=('!debug')
+source=(
+  "${pkgname}-${pkgver}.tar.gz::https://github.com/phiresky/ripgrep-all/archive/refs/tags/v${pkgver}.tar.gz"
+)
+sha256sums=('17fadc7b73a51608d57f82b4a11f3edc0da87716cc4b302103eed9d4b9010fe5')
+
+prepare() {
+  cd ripgrep-all-${pkgver}
+  cargo fetch --locked --target x86_64-unknown-linux-gnu
+}
+
+build() {
+  cd ripgrep-all-${pkgver}
+  export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
+  export ZSTD_SYS_USE_PKG_CONFIG=1
+  export CARGO_PROFILE_RELEASE_DEBUG=false
+  export CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off
+  export CARGO_PROFILE_RELEASE_LTO=fat
+  export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+  cargo build --frozen --release --all-features
+}
+
+check() {
+  cd ripgrep-all-${pkgver}
+  export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
+  export ZSTD_SYS_USE_PKG_CONFIG=1
+  cargo test --frozen --all-features
+}
+
+package() {
+  cd ripgrep-all-${pkgver}
+  install -Dm 755 target/release/rga "${pkgdir}"/usr/bin/rga
+  install -Dm 755 target/release/rga-preproc "${pkgdir}"/usr/bin/rga-preproc
+  install -Dm 755 target/release/rga-fzf "${pkgdir}"/usr/bin/rga-fzf
+  install -Dm 755 target/release/rga-fzf-open "${pkgdir}"/usr/bin/rga-fzf-open
+  install -Dm 644 LICENSE.md "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE.md
+}
