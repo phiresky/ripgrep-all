@@ -71,6 +71,10 @@ fn main() -> anyhow::Result<()> {
         println!("{}", serde_json::to_string_pretty(&schema_for!(RgaConfig))?);
         return Ok(());
     }
+    if let Some(shell) = config.completions {
+        RgaConfig::clap().gen_completions_to("rga", shell, &mut std::io::stdout());
+        return Ok(());
+    }
     if config.list_adapters {
         return list_adapters(config);
     }

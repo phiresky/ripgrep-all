@@ -188,6 +188,16 @@ pub struct RgaConfig {
     pub print_config_schema: bool,
 
     #[serde(skip)] // CLI only
+    #[structopt(
+        long = "--rga-completions",
+        require_equals = true,
+        value_name = "SHELL",
+        possible_values = &structopt::clap::Shell::variants(),
+        help = "Print a shell completion script for rga's own options"
+    )]
+    pub completions: Option<structopt::clap::Shell>,
+
+    #[serde(skip)] // CLI only
     #[structopt(long, help = "Show help for ripgrep itself")]
     pub rg_help: bool,
 
@@ -331,6 +341,9 @@ where
     // TODO: don't read config file in rga-preproc for performance (called for every file)
 
     let arg_matches: RgaConfig = RgaConfig::from_iter(args);
+    if arg_matches.completions.is_some() {
+        return Ok(arg_matches);
+    }
     let args_config = serde_json::to_value(&arg_matches)?;
 
     let merged_config = {
@@ -380,6 +393,7 @@ where
         res.fzf_path = arg_matches.fzf_path;
         res.list_adapters = arg_matches.list_adapters;
         res.print_config_schema = arg_matches.print_config_schema;
+        res.completions = arg_matches.completions;
         res.rg_help = arg_matches.rg_help;
         res.rg_version = arg_matches.rg_version;
     }
